@@ -25,7 +25,7 @@ module Main = {
             typ: exposedVariable.upstreamType->GraphQLJs.parseType->Obj.magic,
           }
 
-          Inspector.formInput(schema, def, setFormVariables)
+          Inspector.formInput(schema, def, setFormVariables, Inspector.formInputOptions())
         })
 
         inputs->React.array

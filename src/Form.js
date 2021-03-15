@@ -41,7 +41,7 @@ function Form$Main(Props) {
                               variable: def_variable,
                               type: def_type
                             };
-                            return Inspector.formInput(schema, def, setFormVariables);
+                            return Inspector.formInput(schema, def, setFormVariables, {});
                           }));
             })), null);
   return React.createElement("div", {

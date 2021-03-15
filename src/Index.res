@@ -65,10 +65,10 @@ let default = () => {
   })
 
   React.useEffect0(() => {
-    loader->Js.Promise.then_((module(Studio: STUDIO)) => {
+    loader->Js.Promise.then_((module(Studio: STUDIO_COMPONENT)) => {
       setState(_ => {
         msg: "Loaded!",
-        mod: Some(module(Studio: STUDIO)),
+        mod: Some(module(Studio: STUDIO_COMPONENT)),
       })->Js.Promise.resolve
     }, _)->ignore
     None

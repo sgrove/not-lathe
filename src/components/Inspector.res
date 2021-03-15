@@ -394,7 +394,7 @@ module Block = {
       None
     }, [originalContent == block.body])
 
-    let editor =
+    let _editor =
       <BsReactMonaco.Editor
         height="99vh"
         theme="vs-dark"
