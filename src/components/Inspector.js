@@ -13,6 +13,7 @@ import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";
 import * as GraphQLJs from "../bindings/GraphQLJs.js";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as OneGraphRe from "../OneGraphRe.js";
+import * as Typescript from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as OneGraphAuth from "../bindings/OneGraphAuth.js";
@@ -22,6 +23,10 @@ import * as GraphQLFormJs from "../GraphQLForm.js";
 import CopyToClipboard from "copy-to-clipboard";
 import * as QuickjsEmscripten from "quickjs-emscripten";
 import * as GraphQLMockInputTypeJs from "../GraphQLMockInputType.js";
+
+var AdvancedMode = {
+  enabled: false
+};
 
 var Clipboard = {};
 
@@ -36,7 +41,7 @@ function formInput(prim, prim$1, prim$2, prim$3) {
 }
 
 function transpileFullChainScript(chain) {
-  var baseTranspiled = ts.transpile(chain.script, {
+  var baseTranspiled = Typescript.transpile(chain.script, {
         target: "ES2020"
       });
   var allCalls = Belt_Array.map(chain.requests, (function (request) {
@@ -310,23 +315,8 @@ function Inspector$Block(Props) {
           }
           
         }), [match[0] === block.body]);
-  React.createElement(BsReactMonaco.Editor.make, {
-        height: "99vh",
-        defaultValue: block.body,
-        language: "graphql",
-        theme: "vs-dark",
-        options: {
-          minimap: {
-            enabled: false
-          }
-        },
-        onMount: (function (editorHandle, _monaco) {
-            editor.current = Caml_option.some(editorHandle);
-            
-          })
-      });
   return React.createElement(React.Fragment, undefined, React.createElement("pre", {
-                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll"
+                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
                 }, block.body), React.createElement("button", {
                   className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
                   type: "button",
@@ -428,38 +418,7 @@ function Inspector$ArgumentDependency(Props) {
                                   value: Chain.stringOfIfMissing("ALLOW")
                                 }, "Allow"), React.createElement("option", {
                                   value: Chain.stringOfIfMissing("SKIP")
-                                }, "Skip")))), React.createElement("label", {
-                      className: "m-0"
-                    }, React.createElement("div", {
-                          className: "flex rounded-md shadow-sm"
-                        }, React.createElement("span", {
-                              className: "inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm"
-                            }, "ifList:"), React.createElement("select", {
-                              className: "block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8",
-                              value: argDep.ifList,
-                              onChange: (function ($$event) {
-                                  var ifList = Chain.ifListOfString($$event.target.value);
-                                  if (ifList.TAG === /* Ok */0) {
-                                    return Curry._1(onArgDepUpdated, {
-                                                functionFromScript: argDep.functionFromScript,
-                                                maxRecur: argDep.maxRecur,
-                                                ifMissing: argDep.ifMissing,
-                                                ifList: ifList._0,
-                                                fromRequestIds: argDep.fromRequestIds,
-                                                name: argDep.name
-                                              });
-                                  }
-                                  
-                                })
-                            }, React.createElement("option", {
-                                  value: Chain.stringOfIfList("FIRST")
-                                }, "First item"), React.createElement("option", {
-                                  value: Chain.stringOfIfList("LAST")
-                                }, "Last item"), React.createElement("option", {
-                                  value: Chain.stringOfIfList("ALL")
-                                }, "All items as an array"), React.createElement("option", {
-                                  value: Chain.stringOfIfList("EACH")
-                                }, "Run once for each item"))))));
+                                }, "Skip")))), null));
 }
 
 var ArgumentDependency = {
@@ -634,6 +593,7 @@ function Inspector$Request(Props) {
   var onExecuteRequest = Props.onExecuteRequest;
   var onLogin = Props.onLogin;
   var requestValueCache = Props.requestValueCache;
+  var onDeleteEdge = Props.onDeleteEdge;
   var match = React.useState(function () {
         
       });
@@ -741,7 +701,7 @@ function Inspector$Request(Props) {
                                             functionFromScript: "INITIAL_UNKNOWN",
                                             maxRecur: undefined,
                                             ifMissing: "SKIP",
-                                            ifList: "ALL",
+                                            ifList: "FIRST",
                                             fromRequestIds: [],
                                             name: varDep.name
                                           },
@@ -852,6 +812,28 @@ function Inspector$Request(Props) {
                               defaultRequestArgument: varDep
                             })));
         }));
+  var upstreamRequests = Belt_Array.keepMap(request.dependencyRequestIds, (function (upstreamRequestId) {
+          var upstreamRequest = Belt_Array.getBy(chain.requests, (function (existingRequest) {
+                  return existingRequest.id === upstreamRequestId;
+                }));
+          return Belt_Option.map(upstreamRequest, (function (upstreamRequest) {
+                        return React.createElement("article", {
+                                    key: request.id,
+                                    className: "m-2"
+                                  }, React.createElement("div", {
+                                        className: "flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl rounded-sm"
+                                      }, React.createElement("span", {
+                                            className: "text-green-500 font-semibold text-sm font-mono"
+                                          }, upstreamRequest.id), React.createElement("button", {
+                                            className: "border-2 border-green-800 p-2 hover:bg-red-900",
+                                            onClick: (function ($$event) {
+                                                $$event.stopPropagation();
+                                                $$event.preventDefault();
+                                                return Curry._2(onDeleteEdge, request.id, upstreamRequestId);
+                                              })
+                                          }, "Remove Dependency")));
+                      }));
+        }));
   var editor = React.useRef(undefined);
   var compiledDoc = Chain.compileOperationDoc(chain);
   var content = compiledDoc.operationDoc;
@@ -911,7 +893,9 @@ function Inspector$Request(Props) {
                                   var tmp;
                                   tmp = r._0;
                                   return JSON.stringify(tmp, null, 2);
-                                })), "Nothing"))) : null, React.createElement(Comps.Header.make, {
+                                })), "Nothing"))) : null, request.dependencyRequestIds.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+                        children: "Upstream Requests"
+                      }), upstreamRequests) : null, React.createElement(Comps.Header.make, {
                   children: "GraphQL Structure"
                 }), React.createElement("div", {
                   className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
@@ -929,8 +913,10 @@ function Inspector$Request(Props) {
                       onClick: (function (param) {
                           return Curry._2(onExecuteRequest, request, formVariables);
                         }),
-                      children: "Execute block"
-                    }), inputs, authButtons, React.createElement("pre", {
+                      children: null
+                    }, "Execute block", React.createElement(Icons.Play.make, {
+                          className: "inline-block ml-2"
+                        })), inputs, authButtons, React.createElement("pre", {
                       className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
                     }, Belt_Option.mapWithDefault(cachedResult, "Nothing", (function (json) {
                             return JSON.stringify(json, null, 2);
@@ -987,6 +973,7 @@ function Inspector$Nothing(Props) {
   var onLogin = Props.onLogin;
   var onPersistChain = Props.onPersistChain;
   var transformAndExecuteChain = Props.transformAndExecuteChain;
+  var onDeleteRequest = Props.onDeleteRequest;
   var savedChainId = Props.savedChainId;
   var compiledOperation = Chain.compileOperationDoc(chain);
   var missingAuthServices = Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, findMissingAuthServicesFromChainResult), []);
@@ -1023,24 +1010,46 @@ function Inspector$Nothing(Props) {
                                       });
                           }));
             })), null);
-  return React.createElement(React.Fragment, undefined, form, authButtons, React.createElement("button", {
-                  className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
-                  type: "button",
-                  onClick: (function (param) {
-                      return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
-                    })
-                }, "Run chain"), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
-                        return React.createElement(Inspector$ChainResultsViewer, {
-                                    chain: chain,
-                                    chainExecutionResults: Caml_option.some(chainExecutionResults)
-                                  });
-                      })), null), React.createElement("button", {
-                  className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
-                  type: "button",
-                  onClick: (function (param) {
-                      return Curry._1(onPersistChain, undefined);
-                    })
-                }, "Save Chain"), Belt_Option.getWithDefault(Belt_Option.map(savedChainId, (function (chainId) {
+  var isChainViable = chain.requests.length !== 0;
+  var requests = Belt_Array.map(chain.requests, (function (request) {
+          return React.createElement("article", {
+                      key: request.id,
+                      className: "m-2"
+                    }, React.createElement("div", {
+                          className: "flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl rounded-sm"
+                        }, React.createElement("span", {
+                              className: "text-green-500 font-semibold text-sm font-mono"
+                            }, request.id), React.createElement("button", {
+                              className: "border-2 border-green-800 p-2 hover:bg-red-900",
+                              onClick: (function ($$event) {
+                                  $$event.stopPropagation();
+                                  $$event.preventDefault();
+                                  var confirmation = confirm("Really delete \"" + request.operation.title + "\"?");
+                                  if (confirmation) {
+                                    return Curry._1(onDeleteRequest, request);
+                                  }
+                                  
+                                })
+                            }, "Delete")));
+        }));
+  return React.createElement(React.Fragment, undefined, form, authButtons, isChainViable ? React.createElement(React.Fragment, undefined, React.createElement("button", {
+                        className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
+                        type: "button",
+                        onClick: (function (param) {
+                            return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
+                          })
+                      }, "Run chain"), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
+                              return React.createElement(Inspector$ChainResultsViewer, {
+                                          chain: chain,
+                                          chainExecutionResults: Caml_option.some(chainExecutionResults)
+                                        });
+                            })), null), React.createElement("button", {
+                        className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
+                        type: "button",
+                        onClick: (function (param) {
+                            return Curry._1(onPersistChain, undefined);
+                          })
+                      }, "Save Chain")) : "Add some blocks to get started", Belt_Option.getWithDefault(Belt_Option.map(savedChainId, (function (chainId) {
                         return React.createElement("select", {
                                     className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
                                     value: "",
@@ -1081,7 +1090,13 @@ function Inspector$Nothing(Props) {
                                       }, "Copy cURL call"), React.createElement("option", {
                                         value: "scriptkit"
                                       }, "Copy ScriptKit usage"));
-                      })), null));
+                      })), null), requests.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+                        children: "Chain Requests"
+                      }), requests) : null, React.createElement(Comps.Header.make, {
+                  children: "Internal Debug info"
+                }), React.createElement("pre", {
+                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll"
+                }, JSON.stringify(chain, null, 2)));
 }
 
 var Nothing = {
@@ -1103,6 +1118,8 @@ function Inspector(Props) {
   var onRequestCodeInspected = Props.onRequestCodeInspected;
   var onExecuteRequest = Props.onExecuteRequest;
   var requestValueCache = Props.requestValueCache;
+  var onDeleteRequest = Props.onDeleteRequest;
+  var onDeleteEdge = Props.onDeleteEdge;
   var tmp;
   switch (inspected.TAG | 0) {
     case /* Nothing */0 :
@@ -1137,6 +1154,7 @@ function Inspector(Props) {
               onLogin: onLogin,
               onPersistChain: onPersistChain,
               transformAndExecuteChain: transformAndExecuteChain,
+              onDeleteRequest: onDeleteRequest,
               savedChainId: savedChainId
             });
         break;
@@ -1166,7 +1184,8 @@ function Inspector(Props) {
           cachedResult: cachedResult,
           onExecuteRequest: onExecuteRequest,
           onLogin: onLogin,
-          requestValueCache: requestValueCache
+          requestValueCache: requestValueCache,
+          onDeleteEdge: onDeleteEdge
         });
   }
   return React.createElement("div", {
@@ -1188,6 +1207,7 @@ var make$1 = Inspector;
 
 export {
   special_token ,
+  AdvancedMode ,
   Clipboard ,
   GraphQLPreview ,
   formInput ,

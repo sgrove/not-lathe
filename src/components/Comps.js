@@ -12,7 +12,7 @@ function Comps$Header(Props) {
   if (onClick !== undefined) {
     tmp.onClick = Caml_option.valFromOption(onClick);
   }
-  return React.createElement("button", tmp, children);
+  return React.createElement("div", tmp, children);
 }
 
 var Header = {

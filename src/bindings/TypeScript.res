@@ -1,18 +1,14 @@
-type ts
-
-@val external ts: ts = "ts"
-
 type ast
 
-@send
-external createSourceFile: (ts, ~name: string, ~source: string, ~target: int, bool) => ast =
+@module("typescript")
+external createSourceFile: (~name: string, ~source: string, ~target: int, bool) => ast =
   "createSourceFile"
 
 @send external getChildren: ast => array<ast> = "getChildren"
 
-@send external visitNode: (ts, ast, ast => unit) => unit = "visitNode"
+@module("typescript") external visitNode: (ast, ast => unit) => unit = "visitNode"
 
-@send external isFunctionDeclaration: (ts, ast) => bool = "isFunctionDeclaration"
+@module("typescript") external isFunctionDeclaration: ast => bool = "isFunctionDeclaration"
 
 let source = `import { AboutMeInput, AboutMeVariables } from 'oneGraphStudio';
 
@@ -69,7 +65,7 @@ let findFnPos = (ast: ast, targetName: string) => {
   let rec helper = node => {
     switch fnNode.contents {
     | None =>
-      switch ts->isFunctionDeclaration(node) {
+      switch isFunctionDeclaration(node) {
       | false => node->getChildren->Belt.Array.forEach(n => helper(n))
       | true =>
         let fnName = node->name->Belt.Option.map(name => name->getText(ast))
@@ -82,7 +78,7 @@ let findFnPos = (ast: ast, targetName: string) => {
     }
   }
 
-  ts->visitNode(ast, helper)
+  visitNode(ast, helper)
 
   fnNode.contents->Belt.Option.map(node => (node->getStart, node->getEnd))
 }

@@ -25,6 +25,8 @@ module Node = {
     connectable: bool,
     @optional
     style: ReactDOMStyle.t,
+    @optional
+    onClick: ReactEvent.Mouse.t => unit,
   }
 }
 

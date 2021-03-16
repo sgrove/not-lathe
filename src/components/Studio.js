@@ -8,6 +8,7 @@ import * as Chain from "../Chain.js";
 import * as Comps from "./Comps.js";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as Dagre from "../bindings/Dagre.js";
+import * as Icons from "../Icons.js";
 import * as Utils from "../bindings/Utils.js";
 import * as Acorn$1 from "acorn";
 import * as React from "react";
@@ -22,6 +23,7 @@ import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as Caml_array from "bs-platform/lib/es6/caml_array.mjs";
 import * as OneGraphRe from "../OneGraphRe.js";
 import * as TypeScript from "../bindings/TypeScript.js";
+import * as Typescript from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as BlockEditor from "./BlockEditor.js";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
@@ -29,6 +31,7 @@ import * as GraphQLUtils from "../bindings/GraphQLUtils.js";
 import * as BsReactMonaco from "../bindings/BsReactMonaco.js";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import FragmentNodeJs from "./FragmentNode.js";
+import CopyToClipboard from "copy-to-clipboard";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 import ReactFlowRenderer from "react-flow-renderer";
 import * as ReactFlowRenderer$1 from "react-flow-renderer";
@@ -211,7 +214,90 @@ var BlockSearch = {
   make: Studio$BlockSearch
 };
 
-function diagramFromChain(chain, onEditBlock, onInspectBlock, param) {
+function Studio$NodeLabel(Props) {
+  var onInspectBlock = Props.onInspectBlock;
+  var block = Props.block;
+  var onEditBlock = Props.onEditBlock;
+  var schema = Props.schema;
+  var match = React.useState(function () {
+        return {
+                isOpen: false
+              };
+      });
+  var setState = match[1];
+  var parsedOperation = Graphql.parse(block.body);
+  var definition = Belt_Array.getExn(parsedOperation.definitions, 0);
+  var services = Belt_Array.keepMap(block.services, (function (service) {
+          return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
+                        var friendlyServiceName = param[1];
+                        return React.createElement("img", {
+                                    className: "shadow-lg rounded-full",
+                                    style: {
+                                      pointerEvents: "none"
+                                    },
+                                    title: friendlyServiceName,
+                                    alt: friendlyServiceName,
+                                    src: param[0]
+                                  });
+                      }));
+        }));
+  return React.createElement("div", {
+              className: "flex align-middle items-center min-w-max flex-col",
+              onContextMenu: (function ($$event) {
+                  $$event.preventDefault();
+                  return Belt_Option.forEach(onInspectBlock, (function (fn) {
+                                return Curry._1(fn, block);
+                              }));
+                })
+            }, React.createElement("div", {
+                  className: "flex flex-row items-center justify-end"
+                }, React.createElement("div", {
+                      className: "p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-2",
+                      onClick: (function ($$event) {
+                          $$event.stopPropagation();
+                          $$event.preventDefault();
+                          return Curry._1(setState, (function (oldState) {
+                                        return {
+                                                isOpen: !oldState.isOpen
+                                              };
+                                      }));
+                        })
+                    }, React.createElement(Icons.Inspect.make, {
+                          color: "black"
+                        })), React.createElement("div", {
+                      className: "m-2"
+                    }, services), React.createElement("div", {
+                      className: "flex-1 inline-block"
+                    }, block.title), React.createElement("div", {
+                      className: "p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-0",
+                      onClick: (function ($$event) {
+                          $$event.preventDefault();
+                          return Curry._1(onEditBlock, block);
+                        })
+                    }, React.createElement(Icons.GraphQL.make, {
+                          color: "black"
+                        }))), React.createElement("div", undefined, React.createElement("div", {
+                      className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 " + (
+                        match[0].isOpen ? "" : "hidden"
+                      )
+                    }, React.createElement(Inspector.GraphQLPreview.make, {
+                          requestId: block.title,
+                          schema: schema,
+                          definition: definition,
+                          onCopy: (function (path) {
+                              var dataPath = path.join("?.");
+                              var fullPath = "payload." + dataPath;
+                              CopyToClipboard(fullPath);
+                              
+                            })
+                        }))));
+}
+
+var NodeLabel = {
+  make: Studio$NodeLabel
+};
+
+function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
   var nodes = Belt_Array.map(chain.blocks, (function (block) {
           var variables = Card.getFirstVariables(block);
           var hasVariables = variables.length !== 0;
@@ -223,45 +309,26 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, param) {
                   id: block.id.toString(),
                   type: typ,
                   data: {
-                    label: React.createElement("div", {
-                          className: "flex align-middle",
-                          onContextMenu: (function ($$event) {
-                              $$event.preventDefault();
-                              return Belt_Option.forEach(onInspectBlock, (function (fn) {
-                                            return Curry._1(fn, block);
-                                          }));
-                            }),
-                          onDoubleClick: (function (param) {
-                              return Curry._1(onEditBlock, block);
-                            })
-                        }, React.createElement("div", {
-                              className: "inline-block"
-                            }, block.title), React.createElement("div", {
-                              className: "inline-block ml-2"
-                            }, Belt_Array.keepMap(block.services, (function (service) {
-                                    return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
-                                                  var friendlyServiceName = param[1];
-                                                  return React.createElement("img", {
-                                                              className: "shadow-lg rounded-full",
-                                                              style: {
-                                                                pointerEvents: "none"
-                                                              },
-                                                              title: friendlyServiceName,
-                                                              alt: friendlyServiceName,
-                                                              src: param[0]
-                                                            });
-                                                }));
-                                  }))))
+                    label: React.createElement(Studio$NodeLabel, {
+                          onInspectBlock: onInspectBlock,
+                          block: block,
+                          onEditBlock: onEditBlock,
+                          schema: schema
+                        })
                   },
                   position: {
                     x: 0,
                     y: 0
                   },
                   draggable: true,
-                  connectable: true,
+                  connectable: typ !== "fragment",
                   style: {
                     width: "unset"
-                  }
+                  },
+                  onClick: (function (param) {
+                      alert("Clicked");
+                      
+                    })
                 };
         }));
   var argDepEdges = Belt_Array.concatMany(Belt_Array.map(chain.blocks, (function (block) {
@@ -572,6 +639,7 @@ var Modal = {
 function Studio$Main(Props) {
   var schema = Props.schema;
   var initialChain = Props.initialChain;
+  var config = Props.config;
   var match = React.useState(function () {
         return [];
       });
@@ -591,7 +659,7 @@ function Studio$Main(Props) {
                 
               }), (function (_block) {
                 
-              }), undefined);
+              }), schema, undefined);
         var inspected = {
           TAG: 0,
           _0: initialChain,
@@ -615,7 +683,8 @@ function Studio$Main(Props) {
                   monaco: undefined
                 },
                 savedChainId: undefined,
-                requestValueCache: {}
+                requestValueCache: {},
+                debugUIItems: []
               };
       });
   var setState = match$1[1];
@@ -624,7 +693,7 @@ function Studio$Main(Props) {
     var names = Chain.requestScriptNames(request);
     var functionName = names.functionName;
     var source = state.chain.script;
-    var sourceFile = ts.createSourceFile("main.ts", source, 99, true);
+    var sourceFile = Typescript.createSourceFile("main.ts", source, 99, true);
     var pos = TypeScript.findFnPos(sourceFile, functionName);
     return Belt_Option.forEach(pos, (function (param) {
                   var end = param[1];
@@ -665,10 +734,11 @@ function Studio$Main(Props) {
                                         },
                                         scriptEditor: oldState.scriptEditor,
                                         savedChainId: oldState.savedChainId,
-                                        requestValueCache: oldState.requestValueCache
+                                        requestValueCache: oldState.requestValueCache,
+                                        debugUIItems: oldState.debugUIItems
                                       };
                               }));
-                }), undefined, undefined);
+                }), undefined, schema, undefined);
   };
   var match$2 = ReactFlowRenderer$1.useZoomPanHelper();
   var fitView = match$2.fitView;
@@ -694,7 +764,8 @@ function Studio$Main(Props) {
                             blockEdit: oldState.blockEdit,
                             scriptEditor: oldState.scriptEditor,
                             savedChainId: oldState.savedChainId,
-                            requestValueCache: oldState.requestValueCache
+                            requestValueCache: oldState.requestValueCache,
+                            debugUIItems: oldState.debugUIItems
                           };
                   }));
           }
@@ -734,7 +805,8 @@ function Studio$Main(Props) {
                                     blockEdit: oldState.blockEdit,
                                     scriptEditor: oldState.scriptEditor,
                                     savedChainId: oldState.savedChainId,
-                                    requestValueCache: newOne
+                                    requestValueCache: newOne,
+                                    debugUIItems: oldState.debugUIItems
                                   };
                           })));
         });
@@ -753,22 +825,28 @@ function Studio$Main(Props) {
                     title: definition.name.value,
                     description: blank.description,
                     body: Graphql.print(definition),
-                    kind: match === "mutation" ? /* Mutation */1 : (
-                        match === "fragment" ? /* Fragment */3 : (
+                    kind: match !== undefined ? (
+                        match === "mutation" ? /* Mutation */1 : (
                             match === "subscription" ? /* Subscription */2 : /* Query */0
                           )
-                      ),
+                      ) : /* Fragment */3,
                     contributedBy: blank.contributedBy,
                     services: services
                   };
           }));
+    console.log("Adding Blocks: ", blocks, blocks.length);
     var inspectedReq = {
       contents: undefined
     };
     var newChain = Belt_Array.reduce(blocks, state.chain, (function (newChain, block) {
             var match = block.kind;
             if (match >= 3) {
-              return newChain;
+              return {
+                      name: newChain.name,
+                      script: newChain.script,
+                      requests: newChain.requests,
+                      blocks: Belt_Array.concat(newChain.blocks, [block])
+                    };
             }
             var operationDoc = Graphql.parse(block.body);
             var definition = Caml_array.get(operationDoc.definitions, 0);
@@ -801,17 +879,18 @@ function Studio$Main(Props) {
             };
             inspectedReq.contents = newReq;
             var names = Chain.requestScriptNames(newReq);
-            var nameExistsInScript = Belt_Option.isSome(Caml_option.null_to_opt(state.chain.script.match(new RegExp("export function " + names.functionName))));
-            var newScript = nameExistsInScript ? state.chain.script : state.chain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}");
-            var newChain_name = state.chain.name;
-            var newChain_requests = Belt_Array.concat(state.chain.requests, [newReq]);
-            var newChain_blocks = Belt_Array.concat(state.chain.blocks, [block]);
+            var nameExistsInScript = Belt_Option.isSome(Caml_option.null_to_opt(newChain.script.match(new RegExp("export function " + names.functionName))));
+            var newScript = nameExistsInScript ? newChain.script : newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}");
+            var newChain_name = newChain.name;
+            var newChain_requests = Belt_Array.concat(newChain.requests, [newReq]);
+            var newChain_blocks = Belt_Array.concat(newChain.blocks, [block]);
             var newChain$1 = {
               name: newChain_name,
               script: newScript,
               requests: newChain_requests,
               blocks: newChain_blocks
             };
+            console.log("\tNew req/block count: ", newChain_blocks.length, newChain_requests.length);
             var match$1 = monacoTypelibForChain(schema, newChain$1);
             var importLine = match$1.importLine;
             var hasImport = Belt_Option.isSome(Caml_option.null_to_opt(newScript.match(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"))));
@@ -847,9 +926,113 @@ function Studio$Main(Props) {
                           blockEdit: oldState.blockEdit,
                           scriptEditor: oldState.scriptEditor,
                           savedChainId: oldState.savedChainId,
-                          requestValueCache: oldState.requestValueCache
+                          requestValueCache: oldState.requestValueCache,
+                          debugUIItems: oldState.debugUIItems
                         };
                 }));
+  };
+  var removeRequest = function (oldChain, targetRequest) {
+    var newRequests = Belt_Array.keepMap(oldChain.requests, (function (request) {
+            if (request.id === targetRequest.id) {
+              return ;
+            }
+            var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
+                    var argDep = varDep.dependency;
+                    var dependency;
+                    if (argDep.TAG === /* ArgumentDependency */0) {
+                      var argDep$1 = argDep._0;
+                      dependency = {
+                        TAG: 0,
+                        _0: {
+                          functionFromScript: argDep$1.functionFromScript,
+                          maxRecur: argDep$1.maxRecur,
+                          ifMissing: argDep$1.ifMissing,
+                          ifList: argDep$1.ifList,
+                          fromRequestIds: Belt_Array.keep(argDep$1.fromRequestIds, (function (id) {
+                                  return id !== targetRequest.id;
+                                })),
+                          name: argDep$1.name
+                        },
+                        [Symbol.for("name")]: "ArgumentDependency"
+                      };
+                    } else {
+                      dependency = argDep;
+                    }
+                    return {
+                            name: varDep.name,
+                            dependency: dependency
+                          };
+                  }));
+            return {
+                    id: request.id,
+                    variableDependencies: varDeps,
+                    operation: request.operation,
+                    dependencyRequestIds: Belt_Array.keep(request.dependencyRequestIds, (function (id) {
+                            return id !== targetRequest.id;
+                          }))
+                  };
+          }));
+    return {
+            name: oldChain.name,
+            script: oldChain.script,
+            requests: newRequests,
+            blocks: Belt_Array.keep(oldChain.blocks, (function (oldBlock) {
+                    return Caml_obj.caml_notequal(oldBlock, targetRequest.operation);
+                  }))
+          };
+  };
+  var removeEdge = function (oldChain, dependencyId, targetRequestId) {
+    var newRequests = Belt_Array.map(oldChain.requests, (function (request) {
+            if (request.id !== targetRequestId) {
+              return request;
+            }
+            var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
+                    var argDep = varDep.dependency;
+                    var dependency;
+                    if (argDep.TAG === /* ArgumentDependency */0) {
+                      var argDep$1 = argDep._0;
+                      dependency = {
+                        TAG: 0,
+                        _0: {
+                          functionFromScript: argDep$1.functionFromScript,
+                          maxRecur: argDep$1.maxRecur,
+                          ifMissing: argDep$1.ifMissing,
+                          ifList: argDep$1.ifList,
+                          fromRequestIds: Belt_Array.keep(argDep$1.fromRequestIds, (function (id) {
+                                  return id !== dependencyId;
+                                })),
+                          name: argDep$1.name
+                        },
+                        [Symbol.for("name")]: "ArgumentDependency"
+                      };
+                    } else {
+                      dependency = argDep;
+                    }
+                    return {
+                            name: varDep.name,
+                            dependency: dependency
+                          };
+                  }));
+            var newRequest_id = request.id;
+            var newRequest_operation = request.operation;
+            var newRequest_dependencyRequestIds = Belt_Array.keep(request.dependencyRequestIds, (function (id) {
+                    return id !== dependencyId;
+                  }));
+            var newRequest = {
+              id: newRequest_id,
+              variableDependencies: varDeps,
+              operation: newRequest_operation,
+              dependencyRequestIds: newRequest_dependencyRequestIds
+            };
+            console.log("Removed edge for request: ", request, newRequest, dependencyId);
+            return newRequest;
+          }));
+    return {
+            name: oldChain.name,
+            script: oldChain.script,
+            requests: newRequests,
+            blocks: oldChain.blocks
+          };
   };
   var blockSearch = React.createElement(Studio$BlockSearch, {
         onAdd: addBlock,
@@ -873,7 +1056,8 @@ function Studio$Main(Props) {
                                   blockEdit: oldState.blockEdit,
                                   scriptEditor: oldState.scriptEditor,
                                   savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems
                                 };
                         }));
           }),
@@ -898,7 +1082,8 @@ function Studio$Main(Props) {
                                   },
                                   scriptEditor: oldState.scriptEditor,
                                   savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems
                                 };
                         }));
           })
@@ -966,7 +1151,8 @@ function Studio$Main(Props) {
                                   blockEdit: oldState.blockEdit,
                                   scriptEditor: oldState.scriptEditor,
                                   savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems
                                 };
                         }));
           }),
@@ -990,7 +1176,8 @@ function Studio$Main(Props) {
                                   blockEdit: oldState.blockEdit,
                                   scriptEditor: oldState.scriptEditor,
                                   savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems
                                 };
                         }));
           }),
@@ -1029,7 +1216,8 @@ function Studio$Main(Props) {
                                             blockEdit: oldState.blockEdit,
                                             scriptEditor: oldState.scriptEditor,
                                             savedChainId: oldState.savedChainId,
-                                            requestValueCache: oldState.requestValueCache
+                                            requestValueCache: oldState.requestValueCache,
+                                            debugUIItems: oldState.debugUIItems
                                           };
                                   })));
                 });
@@ -1041,7 +1229,7 @@ function Studio$Main(Props) {
             var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
                     return exposed.exposedName;
                   }));
-            return OneGraphRe.persistQuery("4b34d36f-83e5-4789-9cf7-fe1ebe1ce527", "6VF_G2nda5H4cQpMAP7AMeEcsbwWZAaNsu4QKB70rW4", compiled.operationDoc, freeVariables, "XlMpa0MEz1ZMIYtebUGttQpV9I8CCwL5VejNbfStd2c", undefined, (function (results) {
+            return OneGraphRe.persistQuery(config.oneGraphAppId, config.persistQueryToken, compiled.operationDoc, freeVariables, config.chainAccessToken, undefined, (function (results) {
                           try {
                             var docId = results.data.oneGraph.createPersistedQuery.persistedQuery.id;
                             Chain.saveToLocalStorage(state.chain, docId);
@@ -1060,7 +1248,8 @@ function Studio$Main(Props) {
                                                   blockEdit: oldState.blockEdit,
                                                   scriptEditor: oldState.scriptEditor,
                                                   savedChainId: docId,
-                                                  requestValueCache: oldState.requestValueCache
+                                                  requestValueCache: oldState.requestValueCache,
+                                                  debugUIItems: oldState.debugUIItems
                                                 };
                                         }));
                           }
@@ -1074,7 +1263,62 @@ function Studio$Main(Props) {
         savedChainId: state.savedChainId,
         onRequestCodeInspected: selectRequestFunctionScript,
         onExecuteRequest: onExecuteRequest,
-        requestValueCache: state.requestValueCache
+        requestValueCache: state.requestValueCache,
+        onDeleteRequest: (function (targetRequest) {
+            return Curry._1(setState, (function (oldState) {
+                          var newChain = removeRequest(oldState.chain, targetRequest);
+                          var diagram = diagramFromChain$1(newChain);
+                          return {
+                                  diagram: diagram,
+                                  card: oldState.card,
+                                  schema: oldState.schema,
+                                  chain: newChain,
+                                  compiledChain: oldState.compiledChain,
+                                  chainResult: oldState.chainResult,
+                                  scriptFunctions: oldState.scriptFunctions,
+                                  chainExecutionResults: oldState.chainExecutionResults,
+                                  blocks: oldState.blocks,
+                                  inspected: {
+                                    TAG: 0,
+                                    _0: newChain,
+                                    [Symbol.for("name")]: "Nothing"
+                                  },
+                                  blockEdit: oldState.blockEdit,
+                                  scriptEditor: oldState.scriptEditor,
+                                  savedChainId: oldState.savedChainId,
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems
+                                };
+                        }));
+          }),
+        onDeleteEdge: (function (targetRequestId, dependencyId) {
+            return Curry._1(setState, (function (oldState) {
+                          console.log("Remove id from", dependencyId, targetRequestId);
+                          var newChain = removeEdge(oldState.chain, dependencyId, targetRequestId);
+                          var diagram = diagramFromChain$1(newChain);
+                          return {
+                                  diagram: diagram,
+                                  card: oldState.card,
+                                  schema: oldState.schema,
+                                  chain: newChain,
+                                  compiledChain: oldState.compiledChain,
+                                  chainResult: oldState.chainResult,
+                                  scriptFunctions: oldState.scriptFunctions,
+                                  chainExecutionResults: oldState.chainExecutionResults,
+                                  blocks: oldState.blocks,
+                                  inspected: {
+                                    TAG: 0,
+                                    _0: newChain,
+                                    [Symbol.for("name")]: "Nothing"
+                                  },
+                                  blockEdit: oldState.blockEdit,
+                                  scriptEditor: oldState.scriptEditor,
+                                  savedChainId: oldState.savedChainId,
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems
+                                };
+                        }));
+          })
       });
   var tmp = {
     schema: state.schema,
@@ -1150,7 +1394,8 @@ function Studio$Main(Props) {
                                 blockEdit: oldState.blockEdit,
                                 scriptEditor: oldState.scriptEditor,
                                 savedChainId: oldState.savedChainId,
-                                requestValueCache: oldState.requestValueCache
+                                requestValueCache: oldState.requestValueCache,
+                                debugUIItems: oldState.debugUIItems
                               };
                       }));
         }
@@ -1181,7 +1426,8 @@ function Studio$Main(Props) {
                                 monaco: Caml_option.some(monaco)
                               },
                               savedChainId: oldState.savedChainId,
-                              requestValueCache: oldState.requestValueCache
+                              requestValueCache: oldState.requestValueCache,
+                              debugUIItems: oldState.debugUIItems
                             };
                     }));
       })
@@ -1214,7 +1460,8 @@ function Studio$Main(Props) {
                                     blockEdit: /* Nothing */0,
                                     scriptEditor: oldState.scriptEditor,
                                     savedChainId: oldState.savedChainId,
-                                    requestValueCache: oldState.requestValueCache
+                                    requestValueCache: oldState.requestValueCache,
+                                    debugUIItems: oldState.debugUIItems
                                   };
                           }));
             }),
@@ -1407,7 +1654,8 @@ function Studio$Main(Props) {
                                       blockEdit: /* Nothing */0,
                                       scriptEditor: oldState.scriptEditor,
                                       savedChainId: oldState.savedChainId,
-                                      requestValueCache: oldState.requestValueCache
+                                      requestValueCache: oldState.requestValueCache,
+                                      debugUIItems: oldState.debugUIItems
                                     };
                             }));
               }
@@ -1473,9 +1721,66 @@ function Studio$Main(Props) {
                                                                       blockEdit: oldState.blockEdit,
                                                                       scriptEditor: oldState.scriptEditor,
                                                                       savedChainId: oldState.savedChainId,
-                                                                      requestValueCache: oldState.requestValueCache
+                                                                      requestValueCache: oldState.requestValueCache,
+                                                                      debugUIItems: oldState.debugUIItems
                                                                     };
                                                             }));
+                                              }));
+                                }),
+                              onElementsRemove: (function (elements) {
+                                  return Curry._1(setState, (function (oldState) {
+                                                var newChain = Belt_Array.reduce(elements, oldState.chain, (function (accChain, element) {
+                                                        var match = element.source;
+                                                        var match$1 = element.target;
+                                                        var typ = match !== undefined && match$1 !== undefined ? ({
+                                                              NAME: "edge",
+                                                              VAL: [
+                                                                match,
+                                                                match$1
+                                                              ]
+                                                            }) : ({
+                                                              NAME: "node",
+                                                              VAL: element.id
+                                                            });
+                                                        var newChain;
+                                                        if (typ.NAME === "node") {
+                                                          var source = typ.VAL;
+                                                          var targetRequest = Belt_Array.getBy(accChain.requests, (function (request) {
+                                                                  console.log("Removing node:  ", source, request.id);
+                                                                  return Caml_obj.caml_equal(request.operation.id, source);
+                                                                }));
+                                                          newChain = Belt_Option.getWithDefault(Belt_Option.map(targetRequest, (function (targetRequest) {
+                                                                      return removeRequest(accChain, targetRequest);
+                                                                    })), accChain);
+                                                        } else {
+                                                          var match$2 = typ.VAL;
+                                                          var targetRequestId = match$2[1];
+                                                          var source$1 = match$2[0];
+                                                          console.log("Removing edge: ", source$1, targetRequestId);
+                                                          newChain = removeEdge(accChain, source$1, targetRequestId);
+                                                        }
+                                                        console.log("New chain req count: ", accChain.requests.length, newChain.requests.length);
+                                                        return newChain;
+                                                      }));
+                                                var diagram = diagramFromChain$1(newChain);
+                                                console.log("New chain: ", newChain);
+                                                return {
+                                                        diagram: diagram,
+                                                        card: oldState.card,
+                                                        schema: oldState.schema,
+                                                        chain: newChain,
+                                                        compiledChain: oldState.compiledChain,
+                                                        chainResult: oldState.chainResult,
+                                                        scriptFunctions: oldState.scriptFunctions,
+                                                        chainExecutionResults: oldState.chainExecutionResults,
+                                                        blocks: oldState.blocks,
+                                                        inspected: oldState.inspected,
+                                                        blockEdit: oldState.blockEdit,
+                                                        scriptEditor: oldState.scriptEditor,
+                                                        savedChainId: oldState.savedChainId,
+                                                        requestValueCache: oldState.requestValueCache,
+                                                        debugUIItems: oldState.debugUIItems
+                                                      };
                                               }));
                                 }),
                               connectionLineType: "smoothstep",
@@ -1499,7 +1804,8 @@ function Studio$Main(Props) {
                                                         blockEdit: oldState.blockEdit,
                                                         scriptEditor: oldState.scriptEditor,
                                                         savedChainId: oldState.savedChainId,
-                                                        requestValueCache: oldState.requestValueCache
+                                                        requestValueCache: oldState.requestValueCache,
+                                                        debugUIItems: oldState.debugUIItems
                                                       };
                                               }));
                                 }),
@@ -1582,7 +1888,8 @@ function Studio$Main(Props) {
                                                           blockEdit: oldState.blockEdit,
                                                           scriptEditor: oldState.scriptEditor,
                                                           savedChainId: oldState.savedChainId,
-                                                          requestValueCache: oldState.requestValueCache
+                                                          requestValueCache: oldState.requestValueCache,
+                                                          debugUIItems: oldState.debugUIItems
                                                         };
                                                 }));
                                   } else {
@@ -1627,10 +1934,7 @@ function Studio$Main(Props) {
                                 }))), React.createElement("div", {
                           className: "h-1/2"
                         }, React.createElement("div", {
-                              className: "border-t border-gray-500",
-                              style: {
-                                backgroundColor: "rgb(60, 60, 60)"
-                              },
+                              className: "border-t border-gray-500 bg-gray-900",
                               onClick: (function (param) {
                                   return Curry._1(setState, (function (oldState) {
                                                 var init = oldState.scriptEditor;
@@ -1652,49 +1956,52 @@ function Studio$Main(Props) {
                                                           monaco: init.monaco
                                                         },
                                                         savedChainId: oldState.savedChainId,
-                                                        requestValueCache: oldState.requestValueCache
+                                                        requestValueCache: oldState.requestValueCache,
+                                                        debugUIItems: oldState.debugUIItems
                                                       };
                                               }));
                                 })
-                            }, React.createElement("nav", {
-                                  className: "flex flex-col sm:flex-row"
-                                }, React.createElement("button", {
-                                      className: "text-gray-600 py-1 px-2 block hover:text-blue-500 focus:outline-none text-blue-500 border-b-2 border-blue-500",
-                                      onClick: (function (param) {
-                                          return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
-                                                        var script = editor.getValue();
-                                                        var newScript = Prettier.format(script, {
-                                                              parser: "babel",
-                                                              plugins: [ParserBabel],
-                                                              singleQuote: true
-                                                            });
-                                                        return Curry._1(setState, (function (oldState) {
-                                                                      var init = oldState.chain;
-                                                                      return {
-                                                                              diagram: oldState.diagram,
-                                                                              card: oldState.card,
-                                                                              schema: oldState.schema,
-                                                                              chain: {
-                                                                                name: init.name,
-                                                                                script: newScript,
-                                                                                requests: init.requests,
-                                                                                blocks: init.blocks
-                                                                              },
-                                                                              compiledChain: oldState.compiledChain,
-                                                                              chainResult: oldState.chainResult,
-                                                                              scriptFunctions: oldState.scriptFunctions,
-                                                                              chainExecutionResults: oldState.chainExecutionResults,
-                                                                              blocks: oldState.blocks,
-                                                                              inspected: oldState.inspected,
-                                                                              blockEdit: oldState.blockEdit,
-                                                                              scriptEditor: oldState.scriptEditor,
-                                                                              savedChainId: oldState.savedChainId,
-                                                                              requestValueCache: oldState.requestValueCache
-                                                                            };
-                                                                    }));
-                                                      }));
-                                        })
-                                    }, "Chain JavaScript"))), React.createElement(Studio$Script, tmp))), React.createElement("div", {
+                            }, React.createElement("nav", undefined, React.createElement(Comps.Header.make, {
+                                      children: null
+                                    }, "Chain JavaScript", React.createElement("button", {
+                                          className: "ml-2 mr-2",
+                                          title: "Format code",
+                                          onClick: (function (param) {
+                                              return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
+                                                            var script = editor.getValue();
+                                                            var newScript = Prettier.format(script, {
+                                                                  parser: "babel",
+                                                                  plugins: [ParserBabel],
+                                                                  singleQuote: true
+                                                                });
+                                                            return Curry._1(setState, (function (oldState) {
+                                                                          var init = oldState.chain;
+                                                                          return {
+                                                                                  diagram: oldState.diagram,
+                                                                                  card: oldState.card,
+                                                                                  schema: oldState.schema,
+                                                                                  chain: {
+                                                                                    name: init.name,
+                                                                                    script: newScript,
+                                                                                    requests: init.requests,
+                                                                                    blocks: init.blocks
+                                                                                  },
+                                                                                  compiledChain: oldState.compiledChain,
+                                                                                  chainResult: oldState.chainResult,
+                                                                                  scriptFunctions: oldState.scriptFunctions,
+                                                                                  chainExecutionResults: oldState.chainExecutionResults,
+                                                                                  blocks: oldState.blocks,
+                                                                                  inspected: oldState.inspected,
+                                                                                  blockEdit: oldState.blockEdit,
+                                                                                  scriptEditor: oldState.scriptEditor,
+                                                                                  savedChainId: oldState.savedChainId,
+                                                                                  requestValueCache: oldState.requestValueCache,
+                                                                                  debugUIItems: oldState.debugUIItems
+                                                                                };
+                                                                        }));
+                                                          }));
+                                            })
+                                        }, React.createElement(Icons.PureScript.make, {}))))), React.createElement(Studio$Script, tmp))), React.createElement("div", {
                       className: "w-1/3"
                     }, sidebar)), tmp$2);
 }
@@ -1706,10 +2013,12 @@ var Main = {
 function Studio(Props) {
   var schema = Props.schema;
   var initialChain = Props.initialChain;
+  var config = Props.config;
   return React.createElement(ReactFlowRenderer$1.ReactFlowProvider, {
               children: React.createElement(Studio$Main, {
                     schema: schema,
-                    initialChain: initialChain
+                    initialChain: initialChain,
+                    config: config
                   })
             });
 }
@@ -1722,6 +2031,7 @@ export {
   makeBlankBlock ,
   compileChain ,
   BlockSearch ,
+  NodeLabel ,
   diagramFromChain ,
   backgroundStyle ,
   requestScriptTypeScriptSignature ,

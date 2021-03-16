@@ -6,3 +6,5 @@ let assignToWindowForDeveloperDebug = (~name as _name: string, _value: 'b): unit
   }
 
 @val external prompt: string => option<string> = "prompt"
+@val external alert: string => unit = "alert"
+@val external confirm: string => bool = "confirm"

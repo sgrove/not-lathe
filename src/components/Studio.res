@@ -39,6 +39,16 @@ type scriptEditor = {
   monaco: option<BsReactMonaco.monaco>,
 }
 
+type studioConfig = {
+  oneGraphAppId: string,
+  persistQueryToken: string,
+  chainAccessToken: option<string>,
+}
+
+type debuggable =
+  | Chain
+  | CompiledChain
+
 type state = {
   diagram: diagram,
   card: option<Card.block>,
@@ -54,6 +64,7 @@ type state = {
   scriptEditor: scriptEditor,
   savedChainId: option<string>,
   requestValueCache: Js.Dict.t<Js.Json.t>,
+  debugUIItems: array<debuggable>,
 }
 
 let makeBlankBlock = (): Card.block => {
@@ -236,7 +247,87 @@ type diagramEdgeData = {
   target: string,
 }
 
-let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ()): diagram => {
+module NodeLabel = {
+  type state = {isOpen: bool}
+
+  @react.component
+  let make = (~onInspectBlock, ~block: Card.block, ~onEditBlock, ~schema) => {
+    let (state, setState) = React.useState(() => {
+      isOpen: false,
+    })
+
+    let parsedOperation = block.body->GraphQLJs.parse
+    let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+    let services =
+      block.services
+      ->Belt.Array.keepMap(service =>
+        service
+        ->Utils.serviceImageUrl
+        ->Belt.Option.map(((url, friendlyServiceName)) =>
+          <img
+            className="shadow-lg rounded-full"
+            alt=friendlyServiceName
+            title=friendlyServiceName
+            style={ReactDOMStyle.make(~pointerEvents="none", ())}
+            src=url
+          />
+        )
+      )
+      ->React.array
+
+    open React
+
+    <div
+      onContextMenu={event => {
+        ReactEvent.Mouse.preventDefault(event)
+        onInspectBlock->Belt.Option.forEach(fn => fn(block))
+      }}
+      className="flex align-middle items-center min-w-max flex-col">
+      <div className="flex flex-row items-center justify-end">
+        <div
+          className="p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-2"
+          onClick={event => {
+            event->ReactEvent.Mouse.stopPropagation
+            event->ReactEvent.Mouse.preventDefault
+            setState(oldState => {isOpen: !oldState.isOpen})
+          }}>
+          <Icons.Inspect color="black" />
+        </div>
+        <div className="m-2"> {services} </div>
+        <div className="flex-1 inline-block"> {block.title->string} </div>
+        <div
+          className="p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-0"
+          onClick={event => {
+            ReactEvent.Mouse.preventDefault(event)
+            onEditBlock(block)
+          }}>
+          <Icons.GraphQL color="black" />
+        </div>
+      </div>
+      <div>
+        <div
+          className={"m-2 p-2 bg-gray-600 rounded-sm text-gray-200 " ++ (
+            state.isOpen ? "" : "hidden"
+          )}>
+          <Inspector.GraphQLPreview
+            requestId=block.title
+            schema
+            definition
+            onCopy={path => {
+              let dataPath = path->Js.Array2.joinWith("?.")
+              let fullPath = "payload." ++ dataPath
+
+              fullPath->Inspector.Clipboard.copy
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  }
+}
+
+let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema, ()): diagram => {
   open ReactFlow
 
   let nodes = chain.blocks->Belt.Array.map(block => {
@@ -253,36 +344,15 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ()): di
       ~typ,
       ~id=block.id->Uuid.toString,
       ~data={
-        label: <div
-          onDoubleClick={_ => onEditBlock(block)}
-          onContextMenu={event => {
-            ReactEvent.Mouse.preventDefault(event)
-            onInspectBlock->Belt.Option.forEach(fn => fn(block))
-          }}
-          className="flex align-middle">
-          <div className="inline-block"> {block.title->React.string} </div>
-          <div className="inline-block ml-2">
-            {block.services
-            ->Belt.Array.keepMap(service =>
-              service
-              ->Utils.serviceImageUrl
-              ->Belt.Option.map(((url, friendlyServiceName)) =>
-                <img
-                  className="shadow-lg rounded-full"
-                  alt=friendlyServiceName
-                  title=friendlyServiceName
-                  style={ReactDOMStyle.make(~pointerEvents="none", ())}
-                  src=url
-                />
-              )
-            )
-            ->React.array}
-          </div>
-        </div>,
+        label: <NodeLabel onEditBlock onInspectBlock block schema />,
       },
       ~position={x: 0., y: 0.},
       ~draggable=true,
-      ~connectable=true,
+      ~connectable=switch typ {
+      | #fragment => false
+      | _ => true
+      },
+      ~onClick={_ => Debug.alert("Clicked")},
       ~style=ReactDOMStyle.make(~width="unset", ()),
       (),
     )
@@ -662,7 +732,7 @@ module Modal = {
 
 module Main = {
   @react.component
-  let make = (~schema, ~initialChain: Chain.t) => {
+  let make = (~schema, ~initialChain: Chain.t, ~config: studioConfig) => {
     let (_missingAuthServices, setMissingAuthServices) = React.useState(() => [])
 
     let (state, setState) = React.useState(() => {
@@ -680,6 +750,7 @@ module Main = {
 
       let diagram = diagramFromChain(
         initialChain,
+        ~schema,
         ~onEditBlock=_block => {
           ()
         },
@@ -715,6 +786,7 @@ module Main = {
         chainExecutionResults: None,
         savedChainId: None,
         requestValueCache: Js.Dict.empty(),
+        debugUIItems: [],
       }
     })
 
@@ -724,8 +796,7 @@ module Main = {
 
       let source = state.chain.script
 
-      let sourceFile =
-        TypeScript.ts->TypeScript.createSourceFile(~name="main.ts", ~source, ~target=99, true)
+      let sourceFile = TypeScript.createSourceFile(~name="main.ts", ~source, ~target=99, true)
       let pos = TypeScript.findFnPos(sourceFile, functionName)
 
       pos->Belt.Option.forEach(((start, end)) => {
@@ -749,6 +820,7 @@ module Main = {
     let diagramFromChain = chain =>
       diagramFromChain(
         chain,
+        ~schema,
         ~onEditBlock=block => {
           setState(oldState => {...oldState, blockEdit: Edit(block)})
         },
@@ -825,22 +897,24 @@ module Main = {
           title: definition.name.value,
           services: services,
           body: GraphQLJs.printAst(definition->Obj.magic),
-          kind: switch definition.operation {
-          | #fragment => Fragment
-          | #query => Query
-          | #mutation => Mutation
-          | #subscription => Subscription
+          kind: switch definition.operation->Obj.magic {
+          | None => Fragment
+          | Some(#query) => Query
+          | Some(#mutation) => Mutation
+          | Some(#subscription) => Subscription
           },
         }
 
         block
       })
 
+      Js.log3("Adding Blocks: ", blocks, blocks->Belt.Array.length)
+
       let inspectedReq = ref(None)
 
       let newChain = blocks->Belt.Array.reduce(state.chain, (newChain, block) => {
         switch block.kind {
-        | Fragment => newChain
+        | Fragment => {...newChain, blocks: newChain.blocks->Belt.Array.concat([block])}
         | _ =>
           let operationDoc = block.body->GraphQLJs.parse
           let definition = operationDoc.definitions[0]
@@ -887,24 +961,30 @@ module Main = {
           let names = newReq->Chain.requestScriptNames
 
           let nameExistsInScript =
-            state.chain.script
+            newChain.script
             ->Js.String2.match_(Js.Re.fromString(j`export function ${names.functionName}`))
             ->Belt.Option.isSome
 
           let newScript: string = nameExistsInScript
-            ? state.chain.script
-            : state.chain.script ++
+            ? newChain.script
+            : newChain.script ++
               j`
 
 export function ${names.functionName} (payload : ${names.inputTypeName}) : ${names.returnTypeName} {
   return {}
 }`
           let newChain: Chain.t = {
-            name: state.chain.name,
-            blocks: state.chain.blocks->Belt.Array.concat([block]),
-            requests: state.chain.requests->Belt.Array.concat([newReq]),
+            name: newChain.name,
+            blocks: newChain.blocks->Belt.Array.concat([block]),
+            requests: newChain.requests->Belt.Array.concat([newReq]),
             script: newScript,
           }
+
+          Js.log3(
+            "\tNew req/block count: ",
+            newChain.blocks->Belt.Array.length,
+            newChain.requests->Belt.Array.length,
+          )
 
           let {dDotTs: _newTypes, importLine} = monacoTypelibForChain(schema, newChain)
 
@@ -940,7 +1020,86 @@ ${newScript}`
         ->Belt.Option.map(request => Inspector.Request({request: request, chain: newChain}))
         ->Belt.Option.getWithDefault(state.inspected)
 
-      setState(oldState => {...oldState, chain: newChain, diagram: diagram, inspected: inspected})
+      setState(oldState => {
+        ...oldState,
+        chain: newChain,
+        diagram: diagram,
+        inspected: inspected,
+      })
+    }
+
+    let removeRequest = (oldChain: Chain.t, targetRequest: Chain.request) => {
+      let newRequests = oldChain.requests->Belt.Array.keepMap(request => {
+        switch request.id == targetRequest.id {
+        | true => None
+        | false =>
+          let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+            let dependency = switch varDep.dependency {
+            | ArgumentDependency(argDep) =>
+              Chain.ArgumentDependency({
+                ...argDep,
+                fromRequestIds: argDep.fromRequestIds->Belt.Array.keep(id =>
+                  id != targetRequest.id
+                ),
+              })
+            | other => other
+            }
+
+            {...varDep, dependency: dependency}
+          })
+
+          let newRequest = {
+            ...request,
+            variableDependencies: varDeps,
+            dependencyRequestIds: request.dependencyRequestIds->Belt.Array.keep(id =>
+              id != targetRequest.id
+            ),
+          }
+
+          Some(newRequest)
+        }
+      })
+
+      let newChain = {
+        ...oldChain,
+        requests: newRequests,
+        blocks: oldChain.blocks->Belt.Array.keep(oldBlock => oldBlock != targetRequest.operation),
+      }
+
+      newChain
+    }
+
+    let removeEdge = (oldChain: Chain.t, ~dependencyId, ~targetRequestId) => {
+      let newRequests = oldChain.requests->Belt.Array.map(request => {
+        switch request.id == targetRequestId {
+        | false => request
+        | true =>
+          let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+            let dependency = switch varDep.dependency {
+            | ArgumentDependency(argDep) =>
+              Chain.ArgumentDependency({
+                ...argDep,
+                fromRequestIds: argDep.fromRequestIds->Belt.Array.keep(id => id != dependencyId),
+              })
+            | other => other
+            }
+
+            {...varDep, dependency: dependency}
+          })
+
+          let newRequest = {
+            ...request,
+            variableDependencies: varDeps,
+            dependencyRequestIds: request.dependencyRequestIds->Belt.Array.keep(id =>
+              id != dependencyId
+            ),
+          }
+          Js.log4("Removed edge for request: ", request, newRequest, dependencyId)
+          newRequest
+        }
+      })
+
+      {...oldChain, requests: newRequests}
     }
 
     let blockSearch =
@@ -965,6 +1124,35 @@ ${newScript}`
         onAddBlock={addBlock}
         schema={state.schema}
         onExecuteRequest
+        onDeleteRequest={(targetRequest: Chain.request) => {
+          setState(oldState => {
+            let newChain = removeRequest(oldState.chain, targetRequest)
+
+            let diagram = diagramFromChain(newChain)
+
+            {
+              ...oldState,
+              chain: newChain,
+              inspected: Nothing(newChain),
+              diagram: diagram,
+            }
+          })
+        }}
+        onDeleteEdge={(~targetRequestId, ~dependencyId) => {
+          setState(oldState => {
+            Js.log3("Remove id from", dependencyId, targetRequestId)
+            let newChain = removeEdge(oldState.chain, ~targetRequestId, ~dependencyId)
+
+            let diagram = diagramFromChain(newChain)
+
+            {
+              ...oldState,
+              chain: newChain,
+              inspected: Nothing(newChain),
+              diagram: diagram,
+            }
+          })
+        }}
         requestValueCache={state.requestValueCache}
         onReset={() => {
           setState(oldState => {...oldState, inspected: Nothing(state.chain)})
@@ -980,11 +1168,11 @@ ${newScript}`
             targetChain.exposedVariables->Belt.Array.map(exposed => exposed.exposedName)
 
           OneGraphRe.persistQuery(
-            ~appId="4b34d36f-83e5-4789-9cf7-fe1ebe1ce527",
-            ~persistQueryToken="6VF_G2nda5H4cQpMAP7AMeEcsbwWZAaNsu4QKB70rW4",
+            ~appId=config.oneGraphAppId,
+            ~persistQueryToken=config.persistQueryToken,
             ~queryToPersist=compiled.operationDoc,
             ~freeVariables,
-            ~accessToken=Some("XlMpa0MEz1ZMIYtebUGttQpV9I8CCwL5VejNbfStd2c"),
+            ~accessToken=config.chainAccessToken,
             ~fixedVariables=None,
             ~onComplete={
               results => {
@@ -1065,6 +1253,54 @@ ${newScript}`
               nodeTypes={
                 "fragment": FragmentNodeComponent.make,
               }
+              onElementsRemove={elements => {
+                setState(oldState => {
+                  let newChain = elements->Belt.Array.reduce(oldState.chain, (
+                    accChain,
+                    element,
+                  ) => {
+                    let typ = switch (
+                      Obj.magic(element)["source"]->Js.Undefined.toOption,
+                      Obj.magic(element)["target"]->Js.Undefined.toOption,
+                    ) {
+                    | (Some(source), Some(target)) => #edge(source, target)
+                    | _ => #node(Obj.magic(element)["id"])
+                    }
+
+                    let newChain = switch typ {
+                    | #edge(source, targetRequestId) =>
+                      Js.log3("Removing edge: ", source, targetRequestId)
+                      let newChain = removeEdge(accChain, ~dependencyId=source, ~targetRequestId)
+                      newChain
+                    | #node(source) =>
+                      let targetRequest = accChain.requests->Belt.Array.getBy(request => {
+                        Js.log3("Removing node:  ", source, request.id)
+                        request.operation.id == source
+                      })
+
+                      let newChain =
+                        targetRequest
+                        ->Belt.Option.map(targetRequest => removeRequest(accChain, targetRequest))
+                        ->Belt.Option.getWithDefault(accChain)
+                      newChain
+                    }
+
+                    Js.log3(
+                      "New chain req count: ",
+                      accChain.requests->Belt.Array.length,
+                      newChain.requests->Belt.Array.length,
+                    )
+
+                    newChain
+                  })
+
+                  let diagram = diagramFromChain(newChain)
+
+                  Js.log2("New chain: ", newChain)
+
+                  {...oldState, chain: newChain, diagram: diagram}
+                })
+              }}
               elements=state.diagram.elements
               zoomOnScroll=false
               onPaneClick={_ => {
@@ -1188,7 +1424,7 @@ ${newScript}`
           </div>
           <div className="h-1/2">
             <div
-              style={ReactDOMStyle.make(~backgroundColor="rgb(60, 60, 60)", ())}
+              className="border-t border-gray-500 bg-gray-900"
               onClick={_ => {
                 setState(oldState => {
                   ...oldState,
@@ -1197,28 +1433,31 @@ ${newScript}`
                     isOpen: !oldState.scriptEditor.isOpen,
                   },
                 })
-              }}
-              className="border-t border-gray-500">
-              <nav className="flex flex-col sm:flex-row">
-                <button
-                  className={"text-gray-600 py-1 px-2 block hover:text-blue-500 focus:outline-none text-blue-500 border-b-2 border-blue-500"}
-                  onClick={_ => {
-                    state.scriptEditor.editor->Belt.Option.forEach(editor => {
-                      let script = editor->BsReactMonaco.getValue
-                      let newScript = script->Prettier.format({
-                        "parser": "babel",
-                        "plugins": [Prettier.babel],
-                        "singleQuote": true,
-                      })
-
-                      setState(oldState => {
-                        ...oldState,
-                        chain: {...oldState.chain, script: newScript},
-                      })
-                    })
-                  }}>
+              }}>
+              <nav>
+                <Comps.Header>
                   {"Chain JavaScript"->React.string}
-                </button>
+                  <button
+                    className="ml-2 mr-2"
+                    onClick={_ => {
+                      state.scriptEditor.editor->Belt.Option.forEach(editor => {
+                        let script = editor->BsReactMonaco.getValue
+                        let newScript = script->Prettier.format({
+                          "parser": "babel",
+                          "plugins": [Prettier.babel],
+                          "singleQuote": true,
+                        })
+
+                        setState(oldState => {
+                          ...oldState,
+                          chain: {...oldState.chain, script: newScript},
+                        })
+                      })
+                    }}
+                    title="Format code">
+                    <Icons.PureScript />
+                  </button>
+                </Comps.Header>
               </nav>
             </div>
             <Script
@@ -1547,6 +1786,6 @@ ${newScript}`
 }
 
 @react.component
-let make = (~schema, ~initialChain: Chain.t) => {
-  <ReactFlow.Provider> <Main schema initialChain /> </ReactFlow.Provider>
+let make = (~schema, ~initialChain: Chain.t, ~config) => {
+  <ReactFlow.Provider> <Main schema initialChain config /> </ReactFlow.Provider>
 }

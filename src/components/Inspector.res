@@ -1,5 +1,9 @@
 let special_token = "XlMpa0MEz1ZMIYtebUGttQpV9I8CCwL5VejNbfStd2c"
 
+module AdvancedMode = {
+  let enabled = false
+}
+
 module Clipboard = {
   @module("copy-to-clipboard") external copy: string => unit = "default"
 }
@@ -394,22 +398,8 @@ module Block = {
       None
     }, [originalContent == block.body])
 
-    let _editor =
-      <BsReactMonaco.Editor
-        height="99vh"
-        theme="vs-dark"
-        language="graphql"
-        defaultValue=block.body
-        options={
-          "minimap": {"enabled": false},
-        }
-        onMount={(editorHandle, _monaco) => {
-          editor.current = Some(editorHandle)
-        }}
-      />
-
     <>
-      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll">
+      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
         {block.body->React.string}
       </pre>
       <button
@@ -535,33 +525,35 @@ module ArgumentDependency = {
             </select>
           </div>
         </label>
-        <label className="m-0">
-          <div className="flex rounded-md shadow-sm">
-            <span
-              className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-              {"ifList:"->string}
-            </span>
-            <select
-              className="block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
-              value={argDep.ifList->Obj.magic}
-              onChange={event => {
-                let ifList = ReactEvent.Form.target(event)["value"]->Chain.ifListOfString
-                switch ifList {
-                | Error(_) => ()
-                | Ok(ifList) => setArgDep(oldArgDep => {...oldArgDep, ifList: ifList})
-                }
-              }}>
-              <option value={#FIRST->Chain.stringOfIfList}> {"First item"->string} </option>
-              <option value={#LAST->Chain.stringOfIfList}> {"Last item"->string} </option>
-              <option value={#ALL->Chain.stringOfIfList}>
-                {"All items as an array"->string}
-              </option>
-              <option value={#EACH->Chain.stringOfIfList}>
-                {"Run once for each item"->string}
-              </option>
-            </select>
-          </div>
-        </label>
+        {AdvancedMode.enabled
+          ? <label className="m-0">
+              <div className="flex rounded-md shadow-sm">
+                <span
+                  className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                  {"ifList:"->string}
+                </span>
+                <select
+                  className="block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
+                  value={argDep.ifList->Obj.magic}
+                  onChange={event => {
+                    let ifList = ReactEvent.Form.target(event)["value"]->Chain.ifListOfString
+                    switch ifList {
+                    | Error(_) => ()
+                    | Ok(ifList) => setArgDep(oldArgDep => {...oldArgDep, ifList: ifList})
+                    }
+                  }}>
+                  <option value={#FIRST->Chain.stringOfIfList}> {"First item"->string} </option>
+                  <option value={#LAST->Chain.stringOfIfList}> {"Last item"->string} </option>
+                  <option value={#ALL->Chain.stringOfIfList}>
+                    {"All items as an array"->string}
+                  </option>
+                  <option value={#EACH->Chain.stringOfIfList}>
+                    {"Run once for each item"->string}
+                  </option>
+                </select>
+              </div>
+            </label>
+          : React.null}
         // <label className="m-0">
         //   <div className="flex rounded-md shadow-sm">
         //     <span
@@ -782,6 +774,7 @@ module Request = {
     ~onExecuteRequest,
     ~onLogin,
     ~requestValueCache,
+    ~onDeleteEdge,
   ) => {
     open React
 
@@ -861,7 +854,7 @@ module Request = {
                     functionFromScript: "INITIAL_UNKNOWN",
                     maxRecur: None,
                     ifMissing: #SKIP,
-                    ifList: #ALL,
+                    ifList: #FIRST,
                     fromRequestIds: [],
                     name: varDep.name,
                   }),
@@ -923,6 +916,31 @@ module Request = {
           />
         </div>
       </article>
+    })
+
+    let upstreamRequests = request.dependencyRequestIds->Belt.Array.keepMap(upstreamRequestId => {
+      let upstreamRequest =
+        chain.requests->Belt.Array.getBy(existingRequest => existingRequest.id == upstreamRequestId)
+
+      upstreamRequest->Belt.Option.map(upstreamRequest => {
+        <article key={request.id} className="m-2">
+          <div
+            className={"flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " ++ "rounded-sm"}>
+            <span className="text-green-500 font-semibold text-sm font-mono">
+              {upstreamRequest.id->string}
+            </span>
+            <button
+              className="border-2 border-green-800 p-2 hover:bg-red-900"
+              onClick={event => {
+                event->ReactEvent.Mouse.stopPropagation
+                event->ReactEvent.Mouse.preventDefault
+                onDeleteEdge(~targetRequestId=request.id, ~dependencyId=upstreamRequestId)
+              }}>
+              {"Remove Dependency"->string}
+            </button>
+          </div>
+        </article>
+      })
     })
 
     let editor = React.useRef(None)
@@ -1005,6 +1023,12 @@ module Request = {
             </pre>
           </div>
         : React.null}
+      {request.dependencyRequestIds->Belt.Array.length > 0
+        ? <>
+            <Comps.Header> {"Upstream Requests"->React.string} </Comps.Header>
+            {upstreamRequests->array}
+          </>
+        : React.null}
       <Comps.Header> {"GraphQL Structure"->React.string} </Comps.Header>
       <div className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
         <GraphQLPreview
@@ -1024,7 +1048,7 @@ module Request = {
           onClick={_ => {
             onExecuteRequest(~request, ~variables=formVariables)
           }}>
-          {"Execute block"->string}
+          {"Execute block"->string} <Icons.Play className="inline-block ml-2" />
         </Comps.Header>
         {inputs}
         {authButtons->array}
@@ -1087,6 +1111,7 @@ module Nothing = {
     ~onLogin: string => unit,
     ~onPersistChain: unit => unit,
     ~transformAndExecuteChain,
+    ~onDeleteRequest,
     ~savedChainId,
   ) => {
     let compiledOperation = chain->Chain.compileOperationDoc
@@ -1137,32 +1162,65 @@ module Nothing = {
       })
       ->Belt.Option.getWithDefault(React.null)
 
+    let isChainViable = chain.requests->Belt.Array.length > 0
+
+    open React
+
+    let requests = chain.requests->Belt.Array.map(request => {
+      <article key={request.id} className="m-2">
+        <div
+          className={"flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " ++ "rounded-sm"}>
+          <span className="text-green-500 font-semibold text-sm font-mono">
+            {request.id->string}
+          </span>
+          <button
+            className="border-2 border-green-800 p-2 hover:bg-red-900"
+            onClick={event => {
+              event->ReactEvent.Mouse.stopPropagation
+              event->ReactEvent.Mouse.preventDefault
+              let confirmation = Debug.confirm(j`Really delete "${request.operation.title}"?`)
+
+              switch confirmation {
+              | false => ()
+              | true => onDeleteRequest(request)
+              }
+            }}>
+            {"Delete"->string}
+          </button>
+        </div>
+      </article>
+    })
+
     <>
       {form}
       {authButtons->React.array}
-      <button
-        type_="button"
-        onClick={_ => {
-          let variables = Some(formVariables->Obj.magic)
+      {isChainViable
+        ? <>
+            <button
+              type_="button"
+              onClick={_ => {
+                let variables = Some(formVariables->Obj.magic)
 
-          transformAndExecuteChain(~variables)
-        }}
-        className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
-        {"Run chain"->React.string}
-      </button>
-      {chainExecutionResults
-      ->Belt.Option.map(chainExecutionResults =>
-        <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
-      )
-      ->Belt.Option.getWithDefault(React.null)}
-      <button
-        type_="button"
-        onClick={_ => {
-          onPersistChain()
-        }}
-        className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
-        {"Save Chain"->React.string}
-      </button>
+                transformAndExecuteChain(~variables)
+              }}
+              className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+              {"Run chain"->React.string}
+            </button>
+            {chainExecutionResults
+            ->Belt.Option.map(chainExecutionResults =>
+              <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
+            )
+            ->Belt.Option.getWithDefault(React.null)}
+            <button
+              type_="button"
+              onClick={_ => {
+                onPersistChain()
+              }}
+              className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+              {"Save Chain"->React.string}
+            </button>
+          </>
+        : {"Add some blocks to get started"->React.string}}
       {savedChainId
       ->Belt.Option.map(chainId => {
         <select
@@ -1190,6 +1248,13 @@ module Nothing = {
         </select>
       })
       ->Belt.Option.getWithDefault(React.null)}
+      {requests->Belt.Array.length > 0
+        ? <> <Comps.Header> {"Chain Requests"->React.string} </Comps.Header> {requests->array} </>
+        : React.null}
+      <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
+      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll">
+        {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+      </pre>
     </>
   }
 }
@@ -1213,6 +1278,8 @@ let make = (
   ~onRequestCodeInspected,
   ~onExecuteRequest,
   ~requestValueCache,
+  ~onDeleteRequest,
+  ~onDeleteEdge,
 ) => {
   open React
 
@@ -1244,6 +1311,7 @@ let make = (
         transformAndExecuteChain
         onPersistChain
         savedChainId
+        onDeleteRequest
       />
     | Block(block) => <Block schema block onAddBlock />
     | Request({request})
@@ -1260,6 +1328,7 @@ let make = (
         onLogin
         onExecuteRequest
         requestValueCache
+        onDeleteEdge
       />
     }}
   </div>

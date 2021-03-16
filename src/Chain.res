@@ -454,7 +454,7 @@ let req6 = {
       }),
     },
   ],
-  dependencyRequestIds: [],
+  dependencyRequestIds: ["GitHubStatus"],
 }
 
 let chain2 = {
@@ -768,7 +768,6 @@ let compileOperationDoc = (chain: t): compiledChainWithMeta => {
   }
 
   let requests = chain.requests->Belt.Array.keepMap(request => {
-    Js.log3("Filtering request: ", request.operation.kind, request)
     switch request.operation.kind {
     | Fragment => None
     | _ => Some(makeRequest(request))

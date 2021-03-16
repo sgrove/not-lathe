@@ -2,6 +2,7 @@
 
 import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
+import * as Typescript from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 
@@ -14,7 +15,7 @@ function findFnPos(ast, targetName) {
     if (match !== undefined) {
       return ;
     }
-    if (!ts.isFunctionDeclaration(node)) {
+    if (!Typescript.isFunctionDeclaration(node)) {
       return Belt_Array.forEach(node.getChildren(), helper);
     }
     var fnName = Belt_Option.map(node.name, (function (name) {
@@ -27,7 +28,7 @@ function findFnPos(ast, targetName) {
       return Belt_Array.forEach(node.getChildren(), helper);
     }
   };
-  ts.visitNode(ast, helper);
+  Typescript.visitNode(ast, helper);
   return Belt_Option.map(fnNode.contents, (function (node) {
                 return [
                         node.getStart(),
@@ -43,4 +44,4 @@ export {
   findFnPos ,
   
 }
-/* No side effect */
+/* typescript Not a pure module */

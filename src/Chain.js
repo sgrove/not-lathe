@@ -316,7 +316,7 @@ var req6_variableDependencies = [{
     }
   }];
 
-var req6_dependencyRequestIds = [];
+var req6_dependencyRequestIds = ["GitHubStatus"];
 
 var req6 = {
   id: "SetSlackStatus",
@@ -529,7 +529,6 @@ function compileOperationDoc(chain) {
     return "\n          {\n            id: \"" + request.id + "\",\n            operationName: \"" + request.operation.title + "\",\n            variables: [" + variables.join(",\n  ") + "],\n            argumentDependencies: [" + argumentDependencies.join(",") + "],\n          }";
   };
   var requests = Belt_Array.keepMap(chain.requests, (function (request) {
-          console.log("Filtering request: ", request.operation.kind, request);
           var match = request.operation.kind;
           if (match >= 3) {
             return ;

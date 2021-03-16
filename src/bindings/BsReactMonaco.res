@@ -153,14 +153,14 @@ module TypeScript = {
     ->ignore
   }
 
-  @val
+  @module("typescript")
   external tsTranspile: (
     string,
     {
       @optional
       "target": string,
     },
-  ) => string = "ts.transpile"
+  ) => string = "transpile"
 
   type semanticDiagnostic = {
     category: int,
