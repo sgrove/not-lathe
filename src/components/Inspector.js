@@ -4,7 +4,6 @@ import * as Card from "../Card.js";
 import * as Chain from "../Chain.js";
 import * as Comps from "./Comps.js";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
-import * as Debug from "../Debug.js";
 import * as Icons from "../Icons.js";
 import * as React from "react";
 import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
@@ -18,6 +17,7 @@ import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as OneGraphAuth from "../bindings/OneGraphAuth.js";
 import * as BsReactMonaco from "../bindings/BsReactMonaco.js";
+import * as OnegraphAuth from "onegraph-auth";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as GraphQLFormJs from "../GraphQLForm.js";
 import CopyToClipboard from "copy-to-clipboard";
@@ -195,9 +195,7 @@ function findMissingAuthServicesFromChainResult(result) {
                           catch (exn){
                             errors = [];
                           }
-                          var services = OneGraphAuth.findMissingAuthServices(OneGraphRe.auth, errors);
-                          Debug.assignToWindowForDeveloperDebug("ogAuth", OneGraphRe.auth);
-                          return services;
+                          return OnegraphAuth.findMissingAuthServices(errors);
                         }))));
   }
   catch (exn){
@@ -220,7 +218,7 @@ function transformChain(chain) {
   return Chain.compileOperationDoc(internallyPatchChain(chain));
 }
 
-function remoteChainCalls(chainId, chain) {
+function remoteChainCalls(appId, chainId, chain) {
   var compiled = Chain.compileOperationDoc(internallyPatchChain(chain));
   var targetChain = compiled.chains[0];
   var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
@@ -245,8 +243,8 @@ function remoteChainCalls(chainId, chain) {
             }
             return "\"" + key + "\": " + value;
           })).join(", ");
-  var curl = "curl -X POST \"https://serve.onegraph.com/graphql?app_id=4b34d36f-83e5-4789-9cf7-fe1ebe1ce527\" --data '{\"doc_id\": \"" + chainId + "\", \"operationName\": \"" + targetChain.operationName + "\", \"variables\": {" + freeVariables + "}}'";
-  var $$fetch = "await fetch(\"https://serve.onegraph.com/graphql?app_id=4b34d36f-83e5-4789-9cf7-fe1ebe1ce527\",\n  {\n    method: \"POST\",\n    \"Content-Type\": \"application/json\",\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + freeVariables + "}\n      }\n    )\n  }\n)";
+  var curl = "curl -X POST \"https://serve.onegraph.com/graphql?app_id=" + appId + "\" --data '{\"doc_id\": \"" + chainId + "\", \"operationName\": \"" + targetChain.operationName + "\", \"variables\": {" + freeVariables + "}}'";
+  var $$fetch = "await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  {\n    method: \"POST\",\n    \"Content-Type\": \"application/json\",\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + freeVariables + "}\n      }\n    )\n  }\n)";
   var scriptKitArgs = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
             var key = exposed.exposedName;
             var _other = exposed.upstreamType;
@@ -277,7 +275,7 @@ function remoteChainCalls(chainId, chain) {
             var key = exposed.exposedName;
             return "\"" + key + "\": " + key;
           })).join(", ");
-  var scriptKit = "\n" + scriptKitArgs + "\n\nlet response = await post(\"https://serve.onegraph.com/graphql?app_id=4b34d36f-83e5-4789-9cf7-fe1ebe1ce527\",\n  JSON.stringify(\n    {\n     \"doc_id\": \"" + chainId + "\",\n     \"operationName\": \"" + targetChain.operationName + "\",\n     \"variables\": {" + scriptKitVariables + "}\n    }\n  ) \n)\n\nconsole.log(\"Response: \", response.data)\n";
+  var scriptKit = "\n" + scriptKitArgs + "\n\nlet response = await post(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  JSON.stringify(\n    {\n     \"doc_id\": \"" + chainId + "\",\n     \"operationName\": \"" + targetChain.operationName + "\",\n     \"variables\": {" + scriptKitVariables + "}\n    }\n  ) \n)\n\nconsole.log(\"Response: \", response.data)\n";
   return {
           fetch: $$fetch,
           curl: curl,
@@ -285,10 +283,10 @@ function remoteChainCalls(chainId, chain) {
         };
 }
 
-function transformAndExecuteChain(chain, variables) {
+function transformAndExecuteChain(chain, oneGraphAuth, variables) {
   var compiled = Chain.compileOperationDoc(internallyPatchChain(chain));
   var targetChain = compiled.chains[0];
-  return OneGraphRe.fetchOneGraph(OneGraphRe.auth, compiled.operationDoc, targetChain.operationName, variables);
+  return OneGraphRe.fetchOneGraph(oneGraphAuth, compiled.operationDoc, targetChain.operationName, variables);
 }
 
 function Inspector$Block(Props) {
@@ -862,7 +860,7 @@ function Inspector$Request(Props) {
                     });
         }));
   var missingAuthServices = Belt_Option.mapWithDefault(cachedResult, [], (function (results) {
-          return OneGraphAuth.findMissingAuthServices(OneGraphRe.auth, Caml_option.some(results));
+          return OnegraphAuth.findMissingAuthServices(Caml_option.some(results));
         }));
   var authButtons = Belt_Array.map(missingAuthServices, (function (service) {
           return React.createElement("button", {
@@ -974,7 +972,9 @@ function Inspector$Nothing(Props) {
   var onPersistChain = Props.onPersistChain;
   var transformAndExecuteChain = Props.transformAndExecuteChain;
   var onDeleteRequest = Props.onDeleteRequest;
+  var onRequestInspected = Props.onRequestInspected;
   var savedChainId = Props.savedChainId;
+  var oneGraphAuth = Props.oneGraphAuth;
   var compiledOperation = Chain.compileOperationDoc(chain);
   var missingAuthServices = Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, findMissingAuthServicesFromChainResult), []);
   var authButtons = Belt_Array.map(missingAuthServices, (function (service) {
@@ -1018,7 +1018,10 @@ function Inspector$Nothing(Props) {
                     }, React.createElement("div", {
                           className: "flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl rounded-sm"
                         }, React.createElement("span", {
-                              className: "text-green-500 font-semibold text-sm font-mono"
+                              className: "text-green-500 font-semibold text-sm font-mono",
+                              onClick: (function (param) {
+                                  return Curry._1(onRequestInspected, request);
+                                })
                             }, request.id), React.createElement("button", {
                               className: "border-2 border-green-800 p-2 hover:bg-red-900",
                               onClick: (function ($$event) {
@@ -1055,7 +1058,8 @@ function Inspector$Nothing(Props) {
                                     value: "",
                                     onChange: (function ($$event) {
                                         var chain = Chain.loadFromLocalStorage(chainId);
-                                        var remoteChainCalls$1 = remoteChainCalls(chainId, Belt_Option.getExn(chain));
+                                        var appId = oneGraphAuth.appId;
+                                        var remoteChainCalls$1 = remoteChainCalls(appId, chainId, Belt_Option.getExn(chain));
                                         var match = $$event.target.value;
                                         var value;
                                         switch (match) {
@@ -1120,6 +1124,8 @@ function Inspector(Props) {
   var requestValueCache = Props.requestValueCache;
   var onDeleteRequest = Props.onDeleteRequest;
   var onDeleteEdge = Props.onDeleteEdge;
+  var onRequestInspected = Props.onRequestInspected;
+  var oneGraphAuth = Props.oneGraphAuth;
   var tmp;
   switch (inspected.TAG | 0) {
     case /* Nothing */0 :
@@ -1155,7 +1161,9 @@ function Inspector(Props) {
               onPersistChain: onPersistChain,
               transformAndExecuteChain: transformAndExecuteChain,
               onDeleteRequest: onDeleteRequest,
-              savedChainId: savedChainId
+              onRequestInspected: onRequestInspected,
+              savedChainId: savedChainId,
+              oneGraphAuth: oneGraphAuth
             });
         break;
     case /* Block */1 :

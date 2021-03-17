@@ -113,14 +113,14 @@ export function checkErrorForMissingOneGraphAppId(error) {
   return false;
 }
 
-export const auth = isSsr
-  ? {
-      accessToken: () => null,
-    }
-  : new OneGraphAuth({
-      appId: ONE_GRAPH_APP_ID,
-      oneGraphOrigin: "https://serve.onegraph.com",
-    });
+// export const _auth = isSsr
+//   ? {
+//       accessToken: () => null,
+//     }
+//   : new OneGraphAuth({
+//       appId: ONE_GRAPH_APP_ID,
+//       oneGraphOrigin: "https://serve.onegraph.com",
+//     });
 
 const atob = (str) => {
   return Buffer.from(str, "base64").toString("binary");

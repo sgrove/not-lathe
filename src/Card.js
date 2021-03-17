@@ -14,8 +14,6 @@ function fetchOneGraph(prim, prim$1, prim$2, prim$3) {
   return OneGraphJs.fetchOneGraph(prim, prim$1, prim$2, prim$3);
 }
 
-var auth = OneGraphJs.auth;
-
 var baseState = JSON.parse("{}");
 
 function Card(Props) {
@@ -681,7 +679,6 @@ var make = Card;
 
 export {
   fetchOneGraph ,
-  auth ,
   selectedTab ,
   idleTab ,
   baseState ,
@@ -700,4 +697,4 @@ export {
   getFirstVariables ,
   
 }
-/* auth Not a pure module */
+/* baseState Not a pure module */

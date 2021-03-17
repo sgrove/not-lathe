@@ -856,3 +856,10 @@ let loadFromLocalStorage = (docId: string): option<t> => {
     Obj.magic(json)
   })
 }
+
+let servicesRequired = chain => {
+  chain.requests
+  ->Belt.Array.map(request => request.operation.services)
+  ->Belt.Array.concatMany
+  ->Utils.distinctStrings
+}

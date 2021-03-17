@@ -2,11 +2,7 @@
 
 module type STUDIO_COMPONENT = {
   @react.component
-  let make: (
-    ~schema: GraphQLJs.schema,
-    ~initialChain: Chain.t,
-    ~config: Studio.studioConfig,
-  ) => React.element
+  let make: (~schema: GraphQLJs.schema, ~config: Config.Studio.t) => React.element
 }
 
 @val
@@ -14,17 +10,26 @@ external loader: @as("./components/Studio.js") _ => Js.Promise.t<module(STUDIO_C
   "import"
 
 module Inner = {
-  type schemaState = Loading | Loaded(GraphQLJs.schema)
+  type schemaState =
+    | Loading(string)
+    | Dead({msg: string, error: Js.Promise.error})
+    | Loaded(GraphQLJs.schema)
 
-  type state = {schema: schemaState}
+  type state = {schema: schemaState, oneGraphAuth: OneGraphAuth.t}
+
   @react.component
-  let make = (~mod, ~config) => {
+  let make = (~mod, ~config: Config.Studio.t) => {
     let module(Studio: STUDIO_COMPONENT) = mod
-    let (state, setState) = React.useState(() => {schema: Loading})
+    let (state, setState) = React.useState(() => {
+      schema: Loading("Loading schema..."),
+      oneGraphAuth: OneGraphAuth.create(
+        OneGraphAuth.createOptions(~appId=config.oneGraphAppId, ()),
+      ),
+    })
 
     React.useEffect0(() => {
       let promise = OneGraphRe.fetchOneGraph(
-        OneGraphRe.auth,
+        state.oneGraphAuth,
         GraphQLJs.getIntrospectionQuery(),
         None,
         None,
@@ -39,16 +44,53 @@ module Inner = {
           }->Obj.magic,
         )
         Debug.assignToWindowForDeveloperDebug(~name="mockedSchema", schema)
-        setState(_ => {schema: Loaded(schema)})
-        Js.Promise.resolve(result)
-      }, promise)->ignore
+        setState(oldState => {...oldState, schema: Loaded(schema)})->Js.Promise.resolve
+      }, promise)->Js.Promise.catch(error => {
+        let msg = j`Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/${state.oneGraphAuth->OneGraphAuth.appId}`
+        setState(oldState => {
+          ...oldState,
+          schema: Dead({msg: msg, error: error}),
+        })->Js.Promise.resolve
+      }, _)->ignore
       None
     })
 
+    open React
+
     <div>
       {switch state.schema {
-      | Loading => "Loading schema..."->React.string
-      | Loaded(schema) => <> <Studio schema initialChain={Chain.chain} config /> </>
+      | Loading(msg) => msg->string
+      | Dead({error}) =>
+        let origin = Utils.windowLocationOrigin()->Belt.Option.getWithDefault("")
+        <>
+          <div className="flex h-screen">
+            <div className="m-auto">
+              <div className="bg-white rounded-lg border-gray-300 border p-3 shadow-lg">
+                <div className="flex flex-row">
+                  <div className="px-2"> <Icons.Trash color="red" /> </div>
+                  <div className="ml-2 mr-6">
+                    <span className="font-semibold">
+                      {j`Make sure `->string}
+                      <strong> {origin->string} </strong>
+                      {j`is in your CORS origins on the`->string}
+                      <span className="block text-blue-500 bg-blue-200">
+                        <a
+                          href={j`https://www.onegraph.com/dashboard/app/${state.oneGraphAuth->OneGraphAuth.appId}?add-cors-origin=${origin}`}
+                          target="_blank"
+                          rel="noopener noreferrer">
+                          {j`OneGraph dashboard for your app`->string}
+                        </a>
+                      </span>
+                      {j`and then refresh to try again.`->string}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <pre> {error->Obj.magic->Js.Json.stringifyWithSpace(2)->string} </pre>
+        </>
+      | Loaded(schema) => <> <Studio schema config /> </>
       }}
     </div>
   }
@@ -63,19 +105,19 @@ module ConfigEditor = {
 
   let localStorageName = "oneGraphStudioConfig"
 
-  let saveToLocalStorage = (config: Studio.studioConfig): unit => {
+  let saveToLocalStorage = (config: Config.Studio.t): unit => {
     let jsonString = Obj.magic(config)->Js.Json.stringify
 
     Dom.Storage2.localStorage->Dom.Storage2.setItem(localStorageName, jsonString)
   }
 
-  let loadFromLocalStorage = (): option<Studio.studioConfig> => {
+  let loadFromLocalStorage = (): option<Config.Studio.t> => {
     try {
       let jsonString = Dom.Storage2.localStorage->Dom.Storage2.getItem(localStorageName)
 
       jsonString->Belt.Option.flatMap(jsonString => {
         let json = jsonString->Js.Json.parseExn
-        let config: Studio.studioConfig = Obj.magic(json)
+        let config: Config.Studio.t = Obj.magic(json)
         Some(config)
       })
     } catch {
@@ -95,7 +137,7 @@ module ConfigEditor = {
     | (_, _, None, _) => Error("Please enter PersistQueryToken")
     | (_, _, _, None) => Error("Please enter AccessToken")
     | (Some(oneGraphAppId), _, Some(persistQueryToken), Some(_)) =>
-      let newConfig: Studio.studioConfig = {
+      let newConfig: Config.Studio.t = {
         oneGraphAppId: oneGraphAppId,
         persistQueryToken: persistQueryToken,
         chainAccessToken: config.accessToken,
@@ -253,7 +295,7 @@ module ConfigEditor = {
 type state<'a> = {
   msg: string,
   mod: option<'a>,
-  config: option<Studio.studioConfig>,
+  config: option<Config.Studio.t>,
 }
 
 let default = () => {
@@ -273,16 +315,18 @@ let default = () => {
     }, _)->ignore
     None
   })
-
-  switch state {
-  | {mod: None} => state.msg->React.string
-  | {config: None} =>
-    <ConfigEditor
-      onUpdated={config => {
-        ConfigEditor.saveToLocalStorage(config)
-        setState(oldState => {...oldState, config: Some(config)})
-      }}
-    />
-  | {mod: Some(mod), config: Some(config)} => <Inner mod config />
-  }
+  <>
+    <Next.Head> <title> {"OneGraph Serverless Studio"->React.string} </title> </Next.Head>
+    {switch state {
+    | {mod: None} => state.msg->React.string
+    | {config: None} =>
+      <ConfigEditor
+        onUpdated={config => {
+          ConfigEditor.saveToLocalStorage(config)
+          setState(oldState => {...oldState, config: Some(config)})
+        }}
+      />
+    | {mod: Some(mod), config: Some(config)} => <Inner mod config />
+    }}
+  </>
 }

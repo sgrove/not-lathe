@@ -6,8 +6,6 @@ function fetchOneGraph(prim, prim$1, prim$2, prim$3) {
   return OneGraphJs.fetchOneGraph(prim, prim$1, prim$2, prim$3);
 }
 
-var auth = OneGraphJs.auth;
-
 function persistQuery(prim, prim$1, prim$2, prim$3, prim$4, prim$5, prim$6) {
   OneGraphJs.persistQuery(prim, prim$1, prim$2, prim$3, prim$4, prim$5, prim$6);
   
@@ -23,10 +21,9 @@ function fetchOneGraphPersistedQuery(prim, prim$1, prim$2, prim$3) {
 
 export {
   fetchOneGraph ,
-  auth ,
   persistQuery ,
   basicFetchOneGraphPersistedQuery ,
   fetchOneGraphPersistedQuery ,
   
 }
-/* auth Not a pure module */
+/* ./OneGraph.js Not a pure module */

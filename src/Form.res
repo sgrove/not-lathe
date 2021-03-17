@@ -2,7 +2,7 @@ type state = {chainExecutionResults: option<Js.Json.t>}
 
 module Main = {
   @react.component
-  let make = (~schema, ~chainId: string) => {
+  let make = (~schema, ~chainId: string, ~appId: string) => {
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
     let (state, setState) = React.useState(() => {chainExecutionResults: None})
 
@@ -56,7 +56,7 @@ module Main = {
             let variables = Some(formVariables->Obj.magic)
 
             OneGraphRe.basicFetchOneGraphPersistedQuery(
-              ~appId="4b34d36f-83e5-4789-9cf7-fe1ebe1ce527",
+              ~appId,
               ~accessToken=None,
               ~docId=chainId,
               ~operationName=Some(targetChain.operationName),
@@ -85,6 +85,6 @@ module Main = {
 }
 
 @react.component
-let make = (~schema, ~chainId: string) => {
-  <Main schema chainId />
+let make = (~schema, ~chainId: string, ~appId) => {
+  <Main schema chainId appId />
 }

@@ -235,9 +235,7 @@ let findMissingAuthServicesFromChainResult = result => {
       | _ => []
       }
 
-      let services = OneGraphRe.auth->OneGraphAuth.findMissingAuthServices(Some(errors))
-
-      Debug.assignToWindowForDeveloperDebug(~name="ogAuth", OneGraphRe.auth)
+      let services = OneGraphAuth.findMissingAuthServices(Some(errors))
 
       services
     })
@@ -266,7 +264,7 @@ let transformChain = chain => {
   compiled
 }
 
-let remoteChainCalls = (~chainId, chain: Chain.t) => {
+let remoteChainCalls = (~appId, ~chainId, chain: Chain.t) => {
   let compiled = chain->transformChain
   let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
 
@@ -288,9 +286,9 @@ let remoteChainCalls = (~chainId, chain: Chain.t) => {
     })
     ->Js.Array2.joinWith(", ")
 
-  let curl = j`curl -X POST "https://serve.onegraph.com/graphql?app_id=4b34d36f-83e5-4789-9cf7-fe1ebe1ce527" --data '{"doc_id": "${chainId}", "operationName": "${targetChain.operationName}", "variables": {${freeVariables}}}'`
+  let curl = j`curl -X POST "https://serve.onegraph.com/graphql?app_id=${appId}" --data '{"doc_id": "${chainId}", "operationName": "${targetChain.operationName}", "variables": {${freeVariables}}}'`
 
-  let fetch = j`await fetch("https://serve.onegraph.com/graphql?app_id=4b34d36f-83e5-4789-9cf7-fe1ebe1ce527",
+  let fetch = j`await fetch("https://serve.onegraph.com/graphql?app_id=${appId}",
   {
     method: "POST",
     "Content-Type": "application/json",
@@ -340,7 +338,7 @@ const ${key} = ${coerce}`
   let scriptKit = j`
 ${scriptKitArgs}
 
-let response = await post("https://serve.onegraph.com/graphql?app_id=4b34d36f-83e5-4789-9cf7-fe1ebe1ce527",
+let response = await post("https://serve.onegraph.com/graphql?app_id=${appId}",
   JSON.stringify(
     {
      "doc_id": "${chainId}",
@@ -360,13 +358,13 @@ console.log("Response: ", response.data)
   }
 }
 
-let transformAndExecuteChain = (chain, ~variables) => {
+let transformAndExecuteChain = (chain, ~oneGraphAuth, ~variables) => {
   let compiled = chain->transformChain
 
   let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
 
   let promise = OneGraphRe.fetchOneGraph(
-    OneGraphRe.auth,
+    oneGraphAuth,
     compiled.operationDoc,
     Some(targetChain.operationName),
     variables,
@@ -979,7 +977,7 @@ module Request = {
       ->React.array
 
     let missingAuthServices = cachedResult->Belt.Option.mapWithDefault([], results => {
-      let services = OneGraphRe.auth->OneGraphAuth.findMissingAuthServices(Some(results))
+      let services = OneGraphAuth.findMissingAuthServices(Some(results))
 
       services
     })
@@ -1112,7 +1110,9 @@ module Nothing = {
     ~onPersistChain: unit => unit,
     ~transformAndExecuteChain,
     ~onDeleteRequest,
+    ~onRequestInspected,
     ~savedChainId,
+    ~oneGraphAuth,
   ) => {
     let compiledOperation = chain->Chain.compileOperationDoc
 
@@ -1170,7 +1170,9 @@ module Nothing = {
       <article key={request.id} className="m-2">
         <div
           className={"flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " ++ "rounded-sm"}>
-          <span className="text-green-500 font-semibold text-sm font-mono">
+          <span
+            className="text-green-500 font-semibold text-sm font-mono"
+            onClick={_ => onRequestInspected(request)}>
             {request.id->string}
           </span>
           <button
@@ -1229,7 +1231,9 @@ module Nothing = {
           onChange={event => {
             let chain = chainId->Chain.loadFromLocalStorage
 
-            let remoteChainCalls = remoteChainCalls(~chainId, chain->Belt.Option.getExn)
+            let appId = oneGraphAuth->OneGraphAuth.appId
+
+            let remoteChainCalls = remoteChainCalls(~appId, ~chainId, chain->Belt.Option.getExn)
 
             let value = switch ReactEvent.Form.target(event)["value"] {
             | "form" => Some(j`http://localhost:3003/form?form_id=${chainId}`)
@@ -1280,6 +1284,8 @@ let make = (
   ~requestValueCache,
   ~onDeleteRequest,
   ~onDeleteEdge,
+  ~onRequestInspected,
+  ~oneGraphAuth,
 ) => {
   open React
 
@@ -1312,6 +1318,8 @@ let make = (
         onPersistChain
         savedChainId
         onDeleteRequest
+        onRequestInspected
+        oneGraphAuth
       />
     | Block(block) => <Block schema block onAddBlock />
     | Request({request})

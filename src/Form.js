@@ -13,6 +13,7 @@ import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 function Form$Main(Props) {
   var schema = Props.schema;
   var chainId = Props.chainId;
+  var appId = Props.appId;
   var match = React.useState(function () {
         return {};
       });
@@ -63,7 +64,7 @@ function Form$Main(Props) {
                                     var compiledOperation = Inspector.transformChain(chain);
                                     var targetChain = Belt_Array.get(compiledOperation.chains, 0);
                                     var variables = Caml_option.some(formVariables);
-                                    var __x = OneGraphRe.basicFetchOneGraphPersistedQuery("4b34d36f-83e5-4789-9cf7-fe1ebe1ce527", undefined, chainId, variables, targetChain.operationName);
+                                    var __x = OneGraphRe.basicFetchOneGraphPersistedQuery(appId, undefined, chainId, variables, targetChain.operationName);
                                     __x.then(function (result) {
                                           return Promise.resolve(Curry._1(setState, (function (param) {
                                                             return {
@@ -86,9 +87,11 @@ var Main = {
 function Form(Props) {
   var schema = Props.schema;
   var chainId = Props.chainId;
+  var appId = Props.appId;
   return React.createElement(Form$Main, {
               schema: schema,
-              chainId: chainId
+              chainId: chainId,
+              appId: appId
             });
 }
 

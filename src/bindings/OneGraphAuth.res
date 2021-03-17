@@ -61,8 +61,8 @@ external serviceStatus: (t, unit) => Js.Promise.t<array<servicesStatus>> = "serv
 @bs.send
 external _findMissingAuthServices: (t, option<'a>) => array<string> = "findMissingAuthServices"
 
-let findMissingAuthServices = (auth: t, resultIsh: option<'a>): array<string> =>
-  _findMissingAuthServices(auth, resultIsh)
+@module("onegraph-auth")
+external findMissingAuthServices: option<'a> => array<string> = "findMissingAuthServices"
 
 let logout = (auth, service, ~foreignUserId=?, ()) =>
   logout_(auth, service, Js.Nullable.fromOption(foreignUserId))

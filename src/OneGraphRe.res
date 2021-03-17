@@ -6,8 +6,6 @@ external fetchOneGraph: (
   option<Js.Json.t>,
 ) => Js.Promise.t<GraphQLJs.introspectionQueryResult> = "fetchOneGraph"
 
-@module("./OneGraph.js") external auth: OneGraphAuth.t = "auth"
-
 @module("./OneGraph.js")
 external persistQuery: (
   ~appId: string,

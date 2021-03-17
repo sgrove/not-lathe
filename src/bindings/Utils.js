@@ -2,6 +2,7 @@
 
 import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
+import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 
 var capitalizeFirstLetter = (function capitalizeFirstLetter(string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
@@ -448,11 +449,18 @@ function serviceImageUrl(sizeOpt, greyscaleOpt, service) {
               }));
 }
 
+function windowLocationOrigin(param) {
+  return Belt_Option.map(Caml_option.undefined_to_opt(typeof window === "undefined" ? undefined : window), (function ($$window) {
+                return $$window.location.origin;
+              }));
+}
+
 export {
   capitalizeFirstLetter ,
   distinctStrings ,
   services ,
   serviceImageUrl ,
+  windowLocationOrigin ,
   
 }
 /* services Not a pure module */

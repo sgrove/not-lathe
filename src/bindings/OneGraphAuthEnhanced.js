@@ -10,8 +10,6 @@ function stringOfService(service) {
   }
 }
 
-var findMissingAuthServices = OneGraphAuth.findMissingAuthServices;
-
 var logout = OneGraphAuth.logout;
 
 var authHeaders = OneGraphAuth.authHeaders;
@@ -21,7 +19,6 @@ var clearToken = OneGraphAuth.clearToken;
 var distinctServices = OneGraphAuth.distinctServices;
 
 export {
-  findMissingAuthServices ,
   logout ,
   authHeaders ,
   clearToken ,

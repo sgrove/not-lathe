@@ -3,10 +3,6 @@
 import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
 import * as Js_null_undefined from "bs-platform/lib/es6/js_null_undefined.mjs";
 
-function findMissingAuthServices(auth, resultIsh) {
-  return auth.findMissingAuthServices(resultIsh);
-}
-
 function logout(auth, service, foreignUserId, param) {
   return auth.logout(service, Js_null_undefined.fromOption(foreignUserId));
 }
@@ -29,7 +25,6 @@ function distinctServices(_services) {
 }
 
 export {
-  findMissingAuthServices ,
   logout ,
   authHeaders ,
   clearToken ,

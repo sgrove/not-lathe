@@ -80,3 +80,9 @@ let serviceImageUrl = (~size=25, ~greyscale=false, service) => {
     friendlyServiceName,
   ))
 }
+
+let windowLocationOrigin: unit => option<string> = () => {
+  %external(window)->Belt.Option.map((window: Dom.window) =>
+    Obj.magic(window)["location"]["origin"]
+  )
+}

@@ -18,8 +18,6 @@ external fetchOneGraph: (
   option<Js.Json.t>,
 ) => Js.Promise.t<Js.Json.t> = "fetchOneGraph"
 
-@module("./OneGraph.js") external auth: OneGraphAuth.t = "auth"
-
 type tab = Block | Query
 
 type state = {tab: tab, ast: GraphQLJs.graphqlAst}
