@@ -6,7 +6,7 @@ import * as OnegraphAuth from "onegraph-auth";
 import * as Js_null_undefined from "bs-platform/lib/es6/js_null_undefined.mjs";
 
 function create(options) {
-  var match = typeof __DEV__ === "undefined" ? undefined : __DEV__;
+  var match = typeof window === "undefined" ? undefined : window;
   if (match !== undefined) {
     return Caml_option.some(new OnegraphAuth.OneGraphAuth(options));
   }

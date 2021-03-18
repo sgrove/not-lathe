@@ -20,7 +20,7 @@ type t
 external create: createOptions => t = "OneGraphAuth"
 
 let create = (options: createOptions): option<t> => {
-  switch %external(__DEV__) {
+  switch %external(window) {
   | Some(_) => Some(create(options))
   | None => None
   }

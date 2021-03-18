@@ -61,7 +61,19 @@ module Inner = {
 
     <div>
       {switch state.schema {
-      | Loading(msg) => msg->string
+      | Loading(msg) =>
+        <div className="flex h-screen">
+          <div className="m-auto">
+            <div className="bg-white rounded-lg border-gray-300 border p-3 shadow-lg">
+              <div className="flex flex-row">
+                <div className="px-2"> <Icons.Play color="gray" /> </div>
+                <div className="ml-2 mr-6">
+                  <span className="font-semibold"> {msg->React.string} </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       | Dead({error}) =>
         let origin = Utils.windowLocationOrigin()->Belt.Option.getWithDefault("")
         <>
@@ -320,7 +332,21 @@ let default = () => {
   <>
     <Next.Head> <title> {"OneGraph Serverless Studio"->React.string} </title> </Next.Head>
     {switch state {
-    | {mod: None} => state.msg->React.string
+    | {mod: None} => <>
+        <div className="flex h-screen">
+          <div className="m-auto">
+            <div className="bg-white rounded-lg border-gray-300 border p-3 shadow-lg">
+              <div className="flex flex-row">
+                <div className="px-2"> <Icons.Play color="gray" /> </div>
+                <div className="ml-2 mr-6">
+                  <span className="font-semibold"> {state.msg->React.string} </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+
     | {config: None} =>
       <ConfigEditor
         onUpdated={config => {

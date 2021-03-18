@@ -84,7 +84,23 @@ function Index$Inner(Props) {
   var tmp;
   switch (msg.TAG | 0) {
     case /* Loading */0 :
-        tmp = msg._0;
+        tmp = React.createElement("div", {
+              className: "flex h-screen"
+            }, React.createElement("div", {
+                  className: "m-auto"
+                }, React.createElement("div", {
+                      className: "bg-white rounded-lg border-gray-300 border p-3 shadow-lg"
+                    }, React.createElement("div", {
+                          className: "flex flex-row"
+                        }, React.createElement("div", {
+                              className: "px-2"
+                            }, React.createElement(Icons.Play.make, {
+                                  color: "gray"
+                                })), React.createElement("div", {
+                              className: "ml-2 mr-6"
+                            }, React.createElement("span", {
+                                  className: "font-semibold"
+                                }, msg._0))))));
         break;
     case /* Dead */1 :
         var origin = Belt_Option.getWithDefault(Utils.windowLocationOrigin(undefined), "");
@@ -380,7 +396,23 @@ function $$default(param) {
               })
           });
   } else {
-    tmp = state.msg;
+    tmp = React.createElement(React.Fragment, undefined, React.createElement("div", {
+              className: "flex h-screen"
+            }, React.createElement("div", {
+                  className: "m-auto"
+                }, React.createElement("div", {
+                      className: "bg-white rounded-lg border-gray-300 border p-3 shadow-lg"
+                    }, React.createElement("div", {
+                          className: "flex flex-row"
+                        }, React.createElement("div", {
+                              className: "px-2"
+                            }, React.createElement(Icons.Play.make, {
+                                  color: "gray"
+                                })), React.createElement("div", {
+                              className: "ml-2 mr-6"
+                            }, React.createElement("span", {
+                                  className: "font-semibold"
+                                }, state.msg)))))));
   }
   return React.createElement(React.Fragment, undefined, React.createElement(Head, {
                   children: React.createElement("title", undefined, "OneGraph Serverless Studio")
