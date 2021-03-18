@@ -10,11 +10,15 @@ module Inner = {
   let make = (~oneGraphAppId) => {
     let (state, setState) = React.useState(() => {
       schema: Loading("Loading schema..."),
-      oneGraphAuth: OneGraphAuth.create(OneGraphAuth.createOptions(~appId=oneGraphAppId, ())),
+      oneGraphAuth: None,
     })
 
     React.useEffect0(() => {
-      state.oneGraphAuth->Belt.Option.forEach(oneGraphAuth => {
+      let oneGraphAuth = OneGraphAuth.create(
+        OneGraphAuth.createOptions(~appId=config.oneGraphAppId, ()),
+      )
+
+      oneGraphAuth->Belt.Option.forEach(oneGraphAuth => {
         let promise = OneGraphRe.fetchOneGraph(
           oneGraphAuth,
           GraphQLJs.getIntrospectionQuery(),
@@ -33,9 +37,9 @@ module Inner = {
           Debug.assignToWindowForDeveloperDebug(~name="mockedSchema", schema)
           setState(oldState => {...oldState, schema: Loaded(schema)})->Js.Promise.resolve
         }, promise)->Js.Promise.catch(error => {
-          let msg = j`Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/${oneGraphAppId}`
-          setState(oldState => {
-            ...oldState,
+          let msg = j`Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/${oneGraphAuth->OneGraphAuth.appId}`
+          setState(_oldState => {
+            oneGraphAuth: Some(oneGraphAuth),
             schema: Dead({msg: msg, error: error}),
           })->Js.Promise.resolve
         }, _)->ignore

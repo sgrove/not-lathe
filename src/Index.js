@@ -29,15 +29,15 @@ function Index$Inner(Props) {
                   _0: "Loading schema...",
                   [Symbol.for("name")]: "Loading"
                 },
-                oneGraphAuth: OneGraphAuth.create({
-                      appId: config.oneGraphAppId
-                    })
+                oneGraphAuth: undefined
               };
       });
   var setState = match[1];
-  var state = match[0];
   React.useEffect((function () {
-          Belt_Option.forEach(state.oneGraphAuth, (function (oneGraphAuth) {
+          var oneGraphAuth = OneGraphAuth.create({
+                appId: config.oneGraphAppId
+              });
+          Belt_Option.forEach(oneGraphAuth, (function (oneGraphAuth) {
                   var promise = OneGraphRe.fetchOneGraph(oneGraphAuth, Graphql.getIntrospectionQuery(), undefined, undefined);
                   GraphQLJs.install(undefined);
                   var __x = promise.then(function (result) {
@@ -64,7 +64,7 @@ function Index$Inner(Props) {
                       });
                   __x.catch(function (error) {
                         var msg = "Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/" + oneGraphAuth.appId;
-                        return Promise.resolve(Curry._1(setState, (function (oldState) {
+                        return Promise.resolve(Curry._1(setState, (function (_oldState) {
                                           return {
                                                   schema: {
                                                     TAG: 1,
@@ -72,7 +72,7 @@ function Index$Inner(Props) {
                                                     error: error,
                                                     [Symbol.for("name")]: "Dead"
                                                   },
-                                                  oneGraphAuth: oldState.oneGraphAuth
+                                                  oneGraphAuth: Caml_option.some(oneGraphAuth)
                                                 };
                                         })));
                       });
@@ -80,7 +80,7 @@ function Index$Inner(Props) {
                 }));
           
         }), []);
-  var msg = state.schema;
+  var msg = match[0].schema;
   var tmp;
   switch (msg.TAG | 0) {
     case /* Loading */0 :
