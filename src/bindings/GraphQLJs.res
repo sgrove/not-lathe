@@ -175,14 +175,18 @@ module Mock = {
     "mockOperationDocVariables"
 
   @module("../GraphQLMockInputType.js")
-  external typeScriptForOperation: (schema, graphqlOperationDefinition) => string =
-    "typeScriptForOperation"
+  external typeScriptForOperation: (
+    schema,
+    graphqlOperationDefinition,
+    ~fragmentDefinitions: Js.Dict.t<graphqlOperationDefinition>,
+  ) => string = "typeScriptForOperation"
 
   @module("../GraphQLMockInputType.js")
   external typeScriptSignatureForOperations: (
     schema,
     string,
     array<graphqlOperationDefinition>,
+    ~fragmentDefinitions: Js.Dict.t<graphqlOperationDefinition>,
   ) => string = "typeScriptSignatureForOperations"
 
   @module("../GraphQLMockInputType.js")
@@ -191,6 +195,11 @@ module Mock = {
     schema,
     graphqlOperationDefinition,
   ) => string = "typeScriptSignatureForOperationVariables"
+
+  @module("../GraphQLMockInputType.js")
+  external gatherFragmentDefinitions: {"operationDoc": string} => Js.Dict.t<
+    graphqlOperationDefinition,
+  > = "gatherFragmentDefinitions"
 }
 
 let operationNames = (ast: graphqlAst) => {

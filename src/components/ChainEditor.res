@@ -246,14 +246,7 @@ module NodeLabel = {
   type state = {isOpen: bool}
 
   @react.component
-  let make = (~onInspectBlock, ~block: Card.block, ~onEditBlock, ~schema) => {
-    let (state, _setState) = React.useState(() => {
-      isOpen: false,
-    })
-
-    let parsedOperation = block.body->GraphQLJs.parse
-    let definition = parsedOperation.definitions->Belt.Array.getExn(0)
-
+  let make = (~onInspectBlock, ~block: Card.block, ~onEditBlock, ~schema as _) => {
     let services =
       block.services
       ->Belt.Array.keepMap(service =>
@@ -292,24 +285,6 @@ module NodeLabel = {
           <Icons.GraphQL color="black" />
         </div>
       </div>
-      <div>
-        <div
-          className={"m-2 p-2 bg-gray-600 rounded-sm text-gray-200 " ++ (
-            state.isOpen ? "" : "hidden"
-          )}>
-          <Inspector.GraphQLPreview
-            requestId=block.title
-            schema
-            definition
-            onCopy={path => {
-              let dataPath = path->Js.Array2.joinWith("?.")
-              let fullPath = "payload." ++ dataPath
-
-              fullPath->Inspector.Clipboard.copy
-            }}
-          />
-        </div>
-      </div>
     </div>
   }
 }
@@ -336,6 +311,7 @@ let emptyGraphLevel = level => {
 
 let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema, ()): diagram => {
   let nodeHeight = 100.
+  let nodeGap = 10.
 
   let fragmentNodes =
     chain.blocks
@@ -423,7 +399,7 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
 
       let nodeTitleWidth = request.operation.title->Js.String2.length->float_of_int *. 7.2
       let nodePadding = 105.
-      let requestWidth = nodeTitleWidth +. nodePadding
+      let requestWidth = nodeTitleWidth +. nodePadding +. nodeGap
 
       let graphLevel =
         graphLevels
@@ -653,6 +629,21 @@ let requestScriptTypeScriptSignature = (
   schema: GraphQLJs.schema,
   chain: Chain.t,
 ): requestScriptTypeScriptSignature => {
+  let chainFragmentsDoc =
+    chain.blocks
+    ->Belt.Array.keepMap(block => {
+      switch block.kind {
+      | Fragment => Some(block.body)
+      | _ => None
+      }
+    })
+    ->Js.Array2.joinWith("\n\n")
+    ->Js.String2.concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }")
+
+  let chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
+    "operationDoc": chainFragmentsDoc,
+  })
+
   let upstreamArgDepRequestIds =
     request.variableDependencies
     ->Belt.Array.keepMap(varDep => {
@@ -677,7 +668,11 @@ let requestScriptTypeScriptSignature = (
         let dependencyRequest = ast.definitions->Belt.Array.get(0)
 
         dependencyRequest->Belt.Option.map(dependencyRequest => {
-          let tsSignature = GraphQLJs.Mock.typeScriptForOperation(schema, dependencyRequest)
+          let tsSignature = GraphQLJs.Mock.typeScriptForOperation(
+            schema,
+            dependencyRequest,
+            ~fragmentDefinitions=chainFragmentDefinitions,
+          )
           (request.id, tsSignature)
         })
       }
@@ -1028,9 +1023,24 @@ module Main = {
       let ast = request.operation.body->GraphQLJs.parse
       let operationName = ast.definitions[0].name.value
 
+      // TODO: Only send referenced fragments
+      let chainFragments =
+        state.chain.blocks
+        ->Belt.Array.keepMap(block => {
+          switch block.kind {
+          | Fragment => Some(block.body)
+          | _ => None
+          }
+        })
+        ->Js.Array2.joinWith("\n\n")
+
+      let fullDoc = j`${request.operation.body}
+
+${chainFragments}`->Js.String2.trim
+
       let promise = OneGraphRe.fetchOneGraph(
         oneGraphAuth,
-        request.operation.body,
+        fullDoc,
         Some(operationName),
         Some(variables->Obj.magic),
       )

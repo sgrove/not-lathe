@@ -32,7 +32,6 @@ import * as OnegraphAuth from "onegraph-auth";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import FragmentNodeJs from "./FragmentNode.js";
-import CopyToClipboard from "copy-to-clipboard";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 import ReactFlowRenderer from "react-flow-renderer";
 import * as ReactFlowRenderer$1 from "react-flow-renderer";
@@ -220,14 +219,6 @@ function ChainEditor$NodeLabel(Props) {
   var onInspectBlock = Props.onInspectBlock;
   var block = Props.block;
   var onEditBlock = Props.onEditBlock;
-  var schema = Props.schema;
-  var match = React.useState(function () {
-        return {
-                isOpen: false
-              };
-      });
-  var parsedOperation = Graphql.parse(block.body);
-  var definition = Belt_Array.getExn(parsedOperation.definitions, 0);
   var services = Belt_Array.keepMap(block.services, (function (service) {
           return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
                         var friendlyServiceName = param[1];
@@ -265,20 +256,6 @@ function ChainEditor$NodeLabel(Props) {
                         })
                     }, React.createElement(Icons.GraphQL.make, {
                           color: "black"
-                        }))), React.createElement("div", undefined, React.createElement("div", {
-                      className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 " + (
-                        match[0].isOpen ? "" : "hidden"
-                      )
-                    }, React.createElement(Inspector.GraphQLPreview.make, {
-                          requestId: block.title,
-                          schema: schema,
-                          definition: definition,
-                          onCopy: (function (path) {
-                              var dataPath = path.join("?.");
-                              var fullPath = "payload." + dataPath;
-                              CopyToClipboard(fullPath);
-                              
-                            })
                         }))));
 }
 
@@ -366,7 +343,7 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
           }));
     var requestLevel = highestDependency + 1 | 0;
     var nodeTitleWidth = request.operation.title.length * 7.2;
-    var requestWidth = nodeTitleWidth + 105;
+    var requestWidth = nodeTitleWidth + 105 + 10;
     var graphLevel = Belt_Option.getWithDefault(Js_dict.get(graphLevels, String(requestLevel)), emptyGraphLevel(requestLevel));
     var graphNode_left = graphLevel.width;
     var graphNode = {
@@ -575,6 +552,16 @@ var backgroundStyle = {
 };
 
 function requestScriptTypeScriptSignature(request, schema, chain) {
+  var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
+              var match = block.kind;
+              if (match >= 3) {
+                return block.body;
+              }
+              
+            })).join("\n\n").concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }");
+  var chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
+        operationDoc: chainFragmentsDoc
+      });
   var upstreamArgDepRequestIds = Belt_Array.concatMany(Belt_Array.keepMap(request.variableDependencies, (function (varDep) {
               var argDep = varDep.dependency;
               if (argDep.TAG === /* ArgumentDependency */0) {
@@ -592,7 +579,7 @@ function requestScriptTypeScriptSignature(request, schema, chain) {
           var ast = Graphql.parse(request.operation.body);
           var dependencyRequest = Belt_Array.get(ast.definitions, 0);
           return Belt_Option.map(dependencyRequest, (function (dependencyRequest) {
-                        var tsSignature = GraphQLJs.Mock.typeScriptForOperation(schema, dependencyRequest);
+                        var tsSignature = GraphQLJs.Mock.typeScriptForOperation(schema, dependencyRequest, chainFragmentDefinitions);
                         return [
                                 request.id,
                                 tsSignature
@@ -929,7 +916,15 @@ function ChainEditor$Main(Props) {
   var onExecuteRequest = function (request, variables) {
     var ast = Graphql.parse(request.operation.body);
     var operationName = Caml_array.get(ast.definitions, 0).name.value;
-    var promise = OneGraphRe.fetchOneGraph(oneGraphAuth, request.operation.body, operationName, Caml_option.some(variables));
+    var chainFragments = Belt_Array.keepMap(state.chain.blocks, (function (block) {
+              var match = block.kind;
+              if (match >= 3) {
+                return block.body;
+              }
+              
+            })).join("\n\n");
+    var fullDoc = (request.operation.body + "\n\n" + chainFragments).trim();
+    var promise = OneGraphRe.fetchOneGraph(oneGraphAuth, fullDoc, operationName, Caml_option.some(variables));
     promise.then(function (result) {
           return Promise.resolve(Curry._1(setState, (function (oldState) {
                             oldState.requestValueCache[request.id] = result;

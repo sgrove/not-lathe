@@ -19,6 +19,7 @@ import {
 } from "graphql";
 
 import React from "react";
+import { Fragment } from "react";
 
 export function mockInputType(schema, schemaType) {
   let scalarGenerators = {
@@ -139,20 +140,33 @@ let basicToTypeScript = (type, nesting) => {
   return base;
 };
 
-const setIn = (object, path, value) => {
+const modifyIn = (object, path, modify) => {
+  // if (path.length === 0) {
+  //   console.error(object, path, updater);
+  //   throw "No path to update at";
+  // }
+
   if (path.length === 1) {
+    modify(object, path);
+  } else {
+    if ([undefined, null].indexOf(object[path[0]]) > -1) {
+      object[path[0]] = typeof path[1] === "number" ? [] : {};
+    }
+    modifyIn(object[path[0]], path.slice(1), modify);
+  }
+  return object;
+};
+
+const setIn = (object, path, value) => {
+  return modifyIn(object, path, (object, path) => {
     if (value === null) {
       delete object[path[0]];
     } else {
       object[path[0]] = value;
     }
-  } else {
-    if ([undefined, null].indexOf(object[path[0]]) > -1) {
-      object[path[0]] = typeof path[1] === "number" ? [] : {};
-    }
-    setIn(object[path[0]], path.slice(1), value);
-  }
-  return object;
+
+    return object;
+  });
 };
 
 export const namedPathOfAncestors = (ancestors) =>
@@ -174,7 +188,9 @@ export const namedPathOfAncestors = (ancestors) =>
 
 export function typeScriptDefinitionObjectForOperation(
   schema,
-  operationDefinition
+  operationDefinition,
+  fragmentDefinitions,
+  shouldLog = false
 ) {
   let values = [];
   let typeInfo = new TypeInfo(schema);
@@ -185,6 +201,8 @@ export function typeScriptDefinitionObjectForOperation(
     Int: "number",
     Float: "number",
     Boolean: "boolean",
+    GitHubGitObjectID: "string",
+    JSON: "JSON",
   };
 
   var typeMap = {};
@@ -192,10 +210,96 @@ export function typeScriptDefinitionObjectForOperation(
   visit(
     operationDefinition,
     visitWithTypeInfo(typeInfo, {
+      FragmentSpread: {
+        leave: (node, key, parent, path, ancestors) => {
+          const fragmentName = [node.name.value];
+          const fragmentDefinition = fragmentDefinitions[fragmentName];
+
+          const parentName = parent?.alias?.value || parent?.name?.value;
+
+          let namedPath = namedPathOfAncestors(ancestors);
+
+          console.log("namedPath: ", namedPath, parent, node);
+
+          if (!fragmentDefinition) {
+            console.warn("No fragDef for ", fragmentName, fragmentDefinitions);
+            return;
+          }
+
+          const fullFragmentTypeScriptType = typeScriptDefinitionObjectForOperation(
+            schema,
+            fragmentDefinition,
+            fragmentDefinitions,
+            false
+          );
+
+          const fragmentTypeScriptType = fullFragmentTypeScriptType?.data;
+
+          if (fragmentTypeScriptType) {
+            modifyIn(typeMap, namedPath, (object, path) => {
+              Object.entries(fragmentTypeScriptType).forEach(([key, value]) => {
+                const property = object[path[0]] || {};
+                property[key] = value;
+                object[path[0]] = property;
+                console.log("Mofify: ", namedPath, path, property, key, value);
+              });
+              return object;
+            });
+          }
+        },
+      },
+      InlineFragment: {
+        leave: (node, key, parent, path, ancestors) => {
+          const fragmentDefinition = node.selectionSet;
+          let copiedAncestors = [...ancestors];
+          copiedAncestors.pop();
+
+          let namedPath = namedPathOfAncestors(copiedAncestors).filter(
+            (step) => !step.startsWith("$inlineFragment")
+          );
+
+          if (!fragmentDefinition) {
+            console.warn("No inlineFragDef for ", node, fragmentDefinitions);
+            return;
+          }
+
+          const fragmentTypeScriptType = typeScriptDefinitionObjectForOperation(
+            schema,
+            fragmentDefinition,
+            fragmentDefinitions,
+            false
+          )?.data;
+
+          if (fragmentTypeScriptType) {
+            modifyIn(typeMap, namedPath, (object, path) => {
+              Object.entries(fragmentTypeScriptType).forEach((key, value) => {
+                object[key] = value;
+              });
+
+              return object;
+            });
+          }
+        },
+      },
       Field: {
         leave: (node, key, parent, path, ancestors) => {
-          let name = node.alias || node.name.value;
-          let namedPath = [...namedPathOfAncestors(ancestors), name];
+          let name = node.alias?.value || node.name.value;
+          let namedPath = [...namedPathOfAncestors(ancestors), name].filter(
+            (step) => {
+              return !step.startsWith("$inlineFragment");
+            }
+          );
+          if (shouldLog) {
+            if (namedPath.length === 0) {
+              console.warn(
+                "Empty path: ",
+                [...ancestors],
+                namedPathOfAncestors(ancestors),
+                name
+              );
+            }
+            console.log("Leaving: ", namedPath.join("."));
+          }
           let gqlType = typeInfo.getType();
           let namedType = getNamedType(gqlType);
           let nestingLevel = listCount(gqlType);
@@ -205,11 +309,32 @@ export function typeScriptDefinitionObjectForOperation(
           if (isObject) return;
 
           if (gqlType) {
-            let basicType = scalarMap[namedType.name] || "any";
+            let basicType = scalarMap[namedType.name];
+
+            if (!basicType) {
+              console.warn(
+                "Couldn't find scalar for ",
+                namedType.name,
+                "on",
+                namedPath.join(".")
+              );
+              basicType = "any";
+            }
 
             let tsType = basicToTypeScript(basicType, nestingLevel);
 
-            setIn(typeMap, namedPath, tsType);
+            modifyIn(typeMap, namedPath, (object, path) => {
+              if (typeof object[path[0]] === "undefined") {
+                object[path[0]] = tsType;
+              } else {
+                console.log(
+                  "Found existing value in updateIn for field, wanted to set to: ",
+                  object[path[0]],
+                  tsType
+                );
+              }
+              return object;
+            });
           }
         },
       },
@@ -218,11 +343,19 @@ export function typeScriptDefinitionObjectForOperation(
 
   return { data: typeMap, errors: ["any"] };
 }
-export function typeScriptForOperation(schema, operationDefinition) {
+
+export function typeScriptForOperation(
+  schema,
+  operationDefinition,
+  fragmentDefinitions
+) {
   let typeMap = typeScriptDefinitionObjectForOperation(
     schema,
-    operationDefinition
+    operationDefinition,
+    fragmentDefinitions
   );
+
+  console.log("Final typemap for ", operationDefinition?.name?.value, typeMap);
 
   let valueHelper = (value) => {
     if (typeof value === "string") {
@@ -254,17 +387,34 @@ export default function capitalizeFirstLetter(string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-export function typeScriptSignatureForOperation(schema, operationDefinition) {
-  let types = typeScriptForOperation(schema, operationDefinition);
+export function typeScriptSignatureForOperation(
+  schema,
+  operationDefinition,
+  fragmentDefinitions
+) {
+  let types = typeScriptForOperation(
+    schema,
+    operationDefinition,
+    fragmentDefinitions
+  );
 
   let name = operationDefinition.name.value;
 
   return `export type ${capitalizeFirstLetter(name)}Payload = ${types}`;
 }
 
-export function typeScriptSignatureForOperations(schema, name, operations) {
+export function typeScriptSignatureForOperations(
+  schema,
+  name,
+  operations,
+  fragmentDefinitions
+) {
   let entries = operations.map((operationDefinition) => {
-    let types = typeScriptForOperation(schema, operationDefinition);
+    let types = typeScriptForOperation(
+      schema,
+      operationDefinition,
+      fragmentDefinitions
+    );
 
     let name = operationDefinition.name.value;
 
@@ -348,7 +498,13 @@ export function typeScriptSignatureForOperationVariables(
   return types === "" ? "null" : types;
 }
 
-function PreviewForAst({ requestId, schema, ast, onCopy }) {
+function PreviewForAst({
+  requestId,
+  schema,
+  ast,
+  onCopy,
+  fragmentDefinitions,
+}) {
   let baseGqlType =
     ast.kind === "OperationDefinition"
       ? ast.operation === "query"
@@ -370,9 +526,17 @@ function PreviewForAst({ requestId, schema, ast, onCopy }) {
     let parentNamedType =
       getNamedType(parentGqlType) || getNamedType(parentGqlType.type);
 
-    let alias = selection.alias;
+    let alias = selection.alias?.value;
 
     let name = selection.name.value;
+    let displayedName = alias || name;
+    console.log(
+      "displayedName: ",
+      displayedName,
+      selection.name.value,
+      selection.alias,
+      selection
+    );
 
     let field = parentNamedType.getFields()[name];
     let gqlType = field?.type;
@@ -387,7 +551,7 @@ function PreviewForAst({ requestId, schema, ast, onCopy }) {
       isUnionType(namedType) ||
       isInterfaceType(namedType);
 
-    let keySelection = selection.alias || name;
+    let keySelection = displayedName;
 
     let listAccessor = isList ? "[0]" : "";
 
@@ -396,11 +560,39 @@ function PreviewForAst({ requestId, schema, ast, onCopy }) {
     let fullPath = [...path, key];
 
     let sub = selection.selectionSet?.selections
-      .map((selection) => {
+      .map(function innerHelper(selection) {
         if (selection.kind === "Field") {
           return helper(selection, fullPath, namedType);
         } else if (selection.kind === "InlineFragment") {
-          null;
+          const fragmentGqlType = typeFromAST(schema, selection.typeCondition);
+
+          if (!fragmentGqlType) {
+            return null;
+          }
+
+          const fragmentSelections = selection.selectionSet.selections.map(
+            (subSelection) => {
+              return helper(subSelection, fullPath, fragmentGqlType);
+            }
+          );
+
+          return fragmentSelections;
+        } else if (selection.kind === "FragmentSpread") {
+          const fragmentName = [selection.name.value];
+          const fragment = fragmentDefinitions[fragmentName];
+
+          if (fragment) {
+            const fragmentGqlType = typeFromAST(schema, fragment.typeCondition);
+            if (!fragmentGqlType) {
+              return null;
+            }
+
+            const fragmentSelections = fragment.selectionSet.selections.map(
+              innerHelper
+            );
+
+            return fragmentSelections;
+          }
         }
 
         return null;
@@ -418,13 +610,17 @@ function PreviewForAst({ requestId, schema, ast, onCopy }) {
     let finalMock = (mock || "") === "" ? "" : ` // ${listMock}`;
 
     return (
-      <div key={alias || name} style={{ paddingLeft: "10px" }}>
+      <div
+        key={displayedName}
+        style={{ paddingLeft: "10px" }}
+        title={fullPath.join(".")}
+      >
         <span
           style={{ cursor: "copy" }}
           onClick={() => onCopy(fullPath)}
           className="hover:bg-blue-700"
         >
-          {name}
+          {JSON.stringify(displayedName)}
           <span style={{ color: "gray" }}>{finalMock}</span>
         </span>
         {sub}
@@ -441,7 +637,13 @@ function PreviewForAst({ requestId, schema, ast, onCopy }) {
   return sub;
 }
 
-export function GraphQLPreview({ requestId, schema, definition, onCopy }) {
+export function GraphQLPreview({
+  requestId,
+  schema,
+  definition,
+  fragmentDefinitions,
+  onCopy,
+}) {
   return (
     <div
       style={{ textAlign: "left", overflow: "scroll", fontFamily: "monospace" }}
@@ -451,9 +653,21 @@ export function GraphQLPreview({ requestId, schema, definition, onCopy }) {
         ast={definition}
         schema={schema}
         onCopy={onCopy}
+        fragmentDefinitions={fragmentDefinitions || {}}
       />
     </div>
   );
+}
+export function gatherFragmentDefinitions({ operationDoc }) {
+  const parsed = parse(operationDoc);
+  const fragmentDefs = parsed.definitions.filter(
+    (def) => def.kind === "FragmentDefinition"
+  );
+  const entries = fragmentDefs.map((def) => {
+    return [def.name.value, def];
+  });
+
+  return Object.fromEntries(entries);
 }
 
 const services = [

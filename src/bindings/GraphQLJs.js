@@ -77,16 +77,20 @@ function mockOperationDocVariables(prim, prim$1) {
   return GraphQLMockInputTypeJs.mockOperationDocVariables(prim, prim$1);
 }
 
-function typeScriptForOperation(prim, prim$1) {
-  return GraphQLMockInputTypeJs.typeScriptForOperation(prim, prim$1);
+function typeScriptForOperation(prim, prim$1, prim$2) {
+  return GraphQLMockInputTypeJs.typeScriptForOperation(prim, prim$1, prim$2);
 }
 
-function typeScriptSignatureForOperations(prim, prim$1, prim$2) {
-  return GraphQLMockInputTypeJs.typeScriptSignatureForOperations(prim, prim$1, prim$2);
+function typeScriptSignatureForOperations(prim, prim$1, prim$2, prim$3) {
+  return GraphQLMockInputTypeJs.typeScriptSignatureForOperations(prim, prim$1, prim$2, prim$3);
 }
 
 function typeScriptSignatureForOperationVariables(prim, prim$1, prim$2) {
   return GraphQLMockInputTypeJs.typeScriptSignatureForOperationVariables(prim, prim$1, prim$2);
+}
+
+function gatherFragmentDefinitions(prim) {
+  return GraphQLMockInputTypeJs.gatherFragmentDefinitions(prim);
 }
 
 var Mock = {
@@ -95,7 +99,8 @@ var Mock = {
   mockOperationDocVariables: mockOperationDocVariables,
   typeScriptForOperation: typeScriptForOperation,
   typeScriptSignatureForOperations: typeScriptSignatureForOperations,
-  typeScriptSignatureForOperationVariables: typeScriptSignatureForOperationVariables
+  typeScriptSignatureForOperationVariables: typeScriptSignatureForOperationVariables,
+  gatherFragmentDefinitions: gatherFragmentDefinitions
 };
 
 function operationNames(ast) {

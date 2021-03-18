@@ -14,6 +14,7 @@ module GraphQLPreview = {
     ~requestId: string,
     ~schema: GraphQLJs.schema,
     ~definition: GraphQLJs.graphqlOperationDefinition,
+    ~fragmentDefinitions: Js.Dict.t<GraphQLJs.graphqlOperationDefinition>,
     ~onCopy: array<string> => unit,
   ) => React.element = "GraphQLPreview"
 }
@@ -780,6 +781,16 @@ module Request = {
     let (mockedEvalResults, setMockedEvalResults) = useState(() => None)
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
 
+    let chainFragmentsDoc =
+      chain.blocks
+      ->Belt.Array.keepMap(block => {
+        switch block.kind {
+        | Fragment => Some(block.body)
+        | _ => None
+        }
+      })
+      ->Js.Array2.joinWith("\n\n")
+
     useEffect2(() => {
       let requestsWithLockedVariables = patchChainRequestsArgDeps(chain)
       let chain = {
@@ -1033,6 +1044,9 @@ module Request = {
           requestId=request.id
           schema
           definition
+          fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+            "operationDoc": chainFragmentsDoc,
+          })}
           onCopy={path => {
             let dataPath = path->Js.Array2.joinWith("?.")
             let fullPath = "payload." ++ dataPath

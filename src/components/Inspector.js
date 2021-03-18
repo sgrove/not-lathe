@@ -606,6 +606,13 @@ function Inspector$Request(Props) {
       });
   var setFormVariables = match$2[1];
   var formVariables = match$2[0];
+  var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
+            var match = block.kind;
+            if (match >= 3) {
+              return block.body;
+            }
+            
+          })).join("\n\n");
   React.useEffect((function () {
           var requestsWithLockedVariables = patchChainRequestsArgDeps(chain);
           var chain_name = chain.name;
@@ -901,6 +908,9 @@ function Inspector$Request(Props) {
                       requestId: request.id,
                       schema: schema,
                       definition: definition,
+                      fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
+                            operationDoc: chainFragmentsDoc
+                          }),
                       onCopy: (function (path) {
                           var dataPath = path.join("?.");
                           var fullPath = "payload." + dataPath;
