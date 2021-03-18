@@ -13,7 +13,7 @@ import * as OneGraphRe from "./OneGraphRe.js";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Belt_Result from "bs-platform/lib/es6/belt_Result.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
-import * as OnegraphAuth from "onegraph-auth";
+import * as OneGraphAuth from "./bindings/OneGraphAuth.js";
 import * as Mock from "@graphql-tools/mock";
 
 import dynamic from 'next/dynamic'
@@ -29,7 +29,7 @@ function Index$Inner(Props) {
                   _0: "Loading schema...",
                   [Symbol.for("name")]: "Loading"
                 },
-                oneGraphAuth: new OnegraphAuth.OneGraphAuth({
+                oneGraphAuth: OneGraphAuth.create({
                       appId: config.oneGraphAppId
                     })
               };
@@ -37,44 +37,47 @@ function Index$Inner(Props) {
   var setState = match[1];
   var state = match[0];
   React.useEffect((function () {
-          var promise = OneGraphRe.fetchOneGraph(state.oneGraphAuth, Graphql.getIntrospectionQuery(), undefined, undefined);
-          GraphQLJs.install(undefined);
-          var __x = promise.then(function (result) {
-                var basicSchema = Graphql.buildClientSchema(result.data);
-                var schema = Mock.addMocksToSchema({
-                      schema: basicSchema,
-                      mocks: {
-                        JSON: (function (param) {
-                            return {};
-                          })
-                      }
-                    });
-                Debug.assignToWindowForDeveloperDebug("mockedSchema", schema);
-                return Promise.resolve(Curry._1(setState, (function (oldState) {
-                                  return {
-                                          schema: {
-                                            TAG: 2,
-                                            _0: schema,
-                                            [Symbol.for("name")]: "Loaded"
-                                          },
-                                          oneGraphAuth: oldState.oneGraphAuth
-                                        };
-                                })));
-              });
-          __x.catch(function (error) {
-                var msg = "Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/" + state.oneGraphAuth.appId;
-                return Promise.resolve(Curry._1(setState, (function (oldState) {
-                                  return {
-                                          schema: {
-                                            TAG: 1,
-                                            msg: msg,
-                                            error: error,
-                                            [Symbol.for("name")]: "Dead"
-                                          },
-                                          oneGraphAuth: oldState.oneGraphAuth
-                                        };
-                                })));
-              });
+          Belt_Option.forEach(state.oneGraphAuth, (function (oneGraphAuth) {
+                  var promise = OneGraphRe.fetchOneGraph(oneGraphAuth, Graphql.getIntrospectionQuery(), undefined, undefined);
+                  GraphQLJs.install(undefined);
+                  var __x = promise.then(function (result) {
+                        var basicSchema = Graphql.buildClientSchema(result.data);
+                        var schema = Mock.addMocksToSchema({
+                              schema: basicSchema,
+                              mocks: {
+                                JSON: (function (param) {
+                                    return {};
+                                  })
+                              }
+                            });
+                        Debug.assignToWindowForDeveloperDebug("mockedSchema", schema);
+                        return Promise.resolve(Curry._1(setState, (function (oldState) {
+                                          return {
+                                                  schema: {
+                                                    TAG: 2,
+                                                    _0: schema,
+                                                    [Symbol.for("name")]: "Loaded"
+                                                  },
+                                                  oneGraphAuth: oldState.oneGraphAuth
+                                                };
+                                        })));
+                      });
+                  __x.catch(function (error) {
+                        var msg = "Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/" + oneGraphAuth.appId;
+                        return Promise.resolve(Curry._1(setState, (function (oldState) {
+                                          return {
+                                                  schema: {
+                                                    TAG: 1,
+                                                    msg: msg,
+                                                    error: error,
+                                                    [Symbol.for("name")]: "Dead"
+                                                  },
+                                                  oneGraphAuth: oldState.oneGraphAuth
+                                                };
+                                        })));
+                      });
+                  
+                }));
           
         }), []);
   var msg = state.schema;
@@ -104,7 +107,7 @@ function Index$Inner(Props) {
                                     }, "Make sure ", React.createElement("strong", undefined, origin), "is in your CORS origins on the", React.createElement("span", {
                                           className: "block text-blue-500 bg-blue-200"
                                         }, React.createElement("a", {
-                                              href: "https://www.onegraph.com/dashboard/app/" + state.oneGraphAuth.appId + "?add-cors-origin=" + origin,
+                                              href: "https://www.onegraph.com/dashboard/app/" + config.oneGraphAppId + "?add-cors-origin=" + origin,
                                               rel: "noopener noreferrer",
                                               target: "_blank"
                                             }, "OneGraph dashboard for your app")), "and then refresh to try again.")))))), React.createElement("pre", undefined, JSON.stringify(msg.error, null, 2)));

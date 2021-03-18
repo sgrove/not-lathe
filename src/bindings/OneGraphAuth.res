@@ -19,6 +19,13 @@ type t
 @new @module("onegraph-auth")
 external create: createOptions => t = "OneGraphAuth"
 
+let create = (options: createOptions): option<t> => {
+  switch %external(__DEV__) {
+  | Some(_) => Some(create(options))
+  | None => None
+  }
+}
+
 type token = {"accessToken": string, "expireDate": int}
 
 type authResponse = {"token": token}

@@ -1965,5 +1965,9 @@ let make = (~schema, ~initialChain: Chain.t, ~config: Config.Studio.t) => {
   let oneGraphAuth = OneGraphAuth.create(
     OneGraphAuth.createOptions(~appId=config.oneGraphAppId, ()),
   )
-  <ReactFlow.Provider> <Main schema initialChain config oneGraphAuth /> </ReactFlow.Provider>
+  oneGraphAuth
+  ->Belt.Option.map(oneGraphAuth => {
+    <ReactFlow.Provider> <Main schema initialChain config oneGraphAuth /> </ReactFlow.Provider>
+  })
+  ->Belt.Option.getWithDefault("Loading Chain Editor..."->React.string)
 }

@@ -27,8 +27,8 @@ import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as BlockEditor from "./BlockEditor.js";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as GraphQLUtils from "../bindings/GraphQLUtils.js";
+import * as OneGraphAuth from "../bindings/OneGraphAuth.js";
 import * as BsReactMonaco from "../bindings/BsReactMonaco.js";
-import * as OnegraphAuth from "onegraph-auth";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import FragmentNodeJs from "./FragmentNode.js";
@@ -2166,17 +2166,19 @@ function ChainEditor(Props) {
   var schema = Props.schema;
   var initialChain = Props.initialChain;
   var config = Props.config;
-  var oneGraphAuth = new OnegraphAuth.OneGraphAuth({
+  var oneGraphAuth = OneGraphAuth.create({
         appId: config.oneGraphAppId
       });
-  return React.createElement(ReactFlowRenderer$1.ReactFlowProvider, {
-              children: React.createElement(ChainEditor$Main, {
-                    schema: schema,
-                    initialChain: initialChain,
-                    config: config,
-                    oneGraphAuth: oneGraphAuth
-                  })
-            });
+  return Belt_Option.getWithDefault(Belt_Option.map(oneGraphAuth, (function (oneGraphAuth) {
+                    return React.createElement(ReactFlowRenderer$1.ReactFlowProvider, {
+                                children: React.createElement(ChainEditor$Main, {
+                                      schema: schema,
+                                      initialChain: initialChain,
+                                      config: config,
+                                      oneGraphAuth: oneGraphAuth
+                                    })
+                              });
+                  })), "Loading Chain Editor...");
 }
 
 var make$1 = ChainEditor;

@@ -10,6 +10,8 @@ function stringOfService(service) {
   }
 }
 
+var create = OneGraphAuth.create;
+
 var logout = OneGraphAuth.logout;
 
 var authHeaders = OneGraphAuth.authHeaders;
@@ -19,6 +21,7 @@ var clearToken = OneGraphAuth.clearToken;
 var distinctServices = OneGraphAuth.distinctServices;
 
 export {
+  create ,
   logout ,
   authHeaders ,
   clearToken ,
@@ -26,4 +29,4 @@ export {
   stringOfService ,
   
 }
-/* No side effect */
+/* OneGraphAuth Not a pure module */

@@ -4,7 +4,7 @@ module Inner = {
     | Dead({msg: string, error: Js.Promise.error})
     | Loaded(GraphQLJs.schema)
 
-  type state = {schema: schemaState, oneGraphAuth: OneGraphAuth.t}
+  type state = {schema: schemaState, oneGraphAuth: option<OneGraphAuth.t>}
 
   @react.component
   let make = (~oneGraphAppId) => {
@@ -14,30 +14,32 @@ module Inner = {
     })
 
     React.useEffect0(() => {
-      let promise = OneGraphRe.fetchOneGraph(
-        state.oneGraphAuth,
-        GraphQLJs.getIntrospectionQuery(),
-        None,
-        None,
-      )
-      GraphQLJs.install()->ignore
-      Js.Promise.then_(result => {
-        let basicSchema = GraphQLJs.buildClientSchema(Obj.magic(result)["data"])
-        let schema = GraphQLTools.addMocksToSchema(
-          {
-            "schema": basicSchema,
-            "mocks": {"JSON": () => Js.Dict.empty()},
-          }->Obj.magic,
+      state.oneGraphAuth->Belt.Option.forEach(oneGraphAuth => {
+        let promise = OneGraphRe.fetchOneGraph(
+          oneGraphAuth,
+          GraphQLJs.getIntrospectionQuery(),
+          None,
+          None,
         )
-        Debug.assignToWindowForDeveloperDebug(~name="mockedSchema", schema)
-        setState(oldState => {...oldState, schema: Loaded(schema)})->Js.Promise.resolve
-      }, promise)->Js.Promise.catch(error => {
-        let msg = j`Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/${oneGraphAppId}`
-        setState(oldState => {
-          ...oldState,
-          schema: Dead({msg: msg, error: error}),
-        })->Js.Promise.resolve
-      }, _)->ignore
+        GraphQLJs.install()->ignore
+        Js.Promise.then_(result => {
+          let basicSchema = GraphQLJs.buildClientSchema(Obj.magic(result)["data"])
+          let schema = GraphQLTools.addMocksToSchema(
+            {
+              "schema": basicSchema,
+              "mocks": {"JSON": () => Js.Dict.empty()},
+            }->Obj.magic,
+          )
+          Debug.assignToWindowForDeveloperDebug(~name="mockedSchema", schema)
+          setState(oldState => {...oldState, schema: Loaded(schema)})->Js.Promise.resolve
+        }, promise)->Js.Promise.catch(error => {
+          let msg = j`Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/${oneGraphAppId}`
+          setState(oldState => {
+            ...oldState,
+            schema: Dead({msg: msg, error: error}),
+          })->Js.Promise.resolve
+        }, _)->ignore
+      })
       None
     })
     let router = Next.Router.useRouter()
