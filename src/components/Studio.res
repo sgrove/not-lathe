@@ -1,6 +1,8 @@
 @react.component
 let make = (~schema, ~config) => {
-  let initialChain = Chain.chain
+  let initialChain = Chain.emptyChain
+  // To debug with a local JSON chain:
+  // let initialChain = Chain.devJsonChain()
 
   open React
   let navButton = (~onClick, content) => {

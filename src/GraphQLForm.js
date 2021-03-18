@@ -88,15 +88,16 @@ export const formInput = (schema, def, setFormVariables, options) => {
         );
 
         return (
-          <>
+          <div key={fieldName}>
             <label
+              key={fieldName}
               className={options?.labelClassname ?? labelClassname}
               htmlFor={subPath.join("-")}
             >
               .{fieldName}
             </label>
             {currentFieldInput}
-          </>
+          </div>
         );
       });
 
@@ -186,21 +187,28 @@ export const formInput = (schema, def, setFormVariables, options) => {
         coerceFn
       );
 
+      let finalInputAttrs = Object.fromEntries(
+        inputAttrs
+          .map(([key, value]) => (!!value ? [key, value] : null))
+          .filter(Boolean)
+      );
+
       subDataEl = (
-        <>
-          <div className="relative text-lg bg-transparent text-gray-800">
-            <div className="flex items-center ml-2 mr-2 border-b border-gray-500">
-              <input
-                id={path.join("-")}
-                onChange={updateFunction}
-                {...inputAttrs.map(([key, value]) => `${key}="${value}"`)}
-                className="bg-transparent border-none px-2 leading-tight focus:outline-none text-white"
-                type="text"
-                placeholder={namedType.name}
-              />
-            </div>
+        <div
+          key={path.join("-")}
+          className="relative text-lg bg-transparent text-gray-800"
+        >
+          <div className="flex items-center ml-2 mr-2 border-b border-gray-500">
+            <input
+              id={path.join("-")}
+              onChange={updateFunction}
+              {...finalInputAttrs}
+              className="bg-transparent border-none px-2 leading-tight focus:outline-none text-white"
+              type="text"
+              placeholder={namedType.name}
+            />
           </div>
-        </>
+        </div>
       );
     } else if (isEnum) {
       const updateFunction = updateFormVariables(
@@ -217,7 +225,7 @@ export const formInput = (schema, def, setFormVariables, options) => {
             ? `: ${gqlEnum.description}`
             : "";
           return (
-            <option value={enumValue}>
+            <option key={enumValue} value={enumValue}>
               {gqlEnum.name}
               {enumDescription}
             </option>
@@ -225,15 +233,14 @@ export const formInput = (schema, def, setFormVariables, options) => {
         });
 
       subDataEl = (
-        <>
-          <select
-            className="ml-2 mr-2 m-0 pt-0 pb-0 pl-4 pr-8 w-full rounded-sm"
-            id={path.join("-")}
-            onChange={updateFunction}
-          >
-            {selectOptions}
-          </select>
-        </>
+        <select
+          className="ml-2 mr-2 m-0 pt-0 pb-0 pl-4 pr-8 w-full rounded-sm"
+          id={path.join("-")}
+          onChange={updateFunction}
+          key={path.join("-")}
+        >
+          {selectOptions}
+        </select>
       );
     } else {
       window.unknownDef = def;
@@ -253,11 +260,11 @@ export const formInput = (schema, def, setFormVariables, options) => {
   const formEl = helper([name], hydratedType);
 
   return (
-    <>
+    <div key={def.variable.name.value}>
       <label className={options?.labelClassname ?? labelClassname}>
         ${def.variable.name.value}
       </label>
       {formEl}
-    </>
+    </div>
   );
 };

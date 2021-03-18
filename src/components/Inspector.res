@@ -1256,8 +1256,12 @@ module Nothing = {
         ? <> <Comps.Header> {"Chain Requests"->React.string} </Comps.Header> {requests->array} </>
         : React.null}
       <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
-      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll">
+      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
         {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+      </pre>
+      <Comps.Header> {"Compiled Executable Chain"->React.string} </Comps.Header>
+      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
+        {chain->transformChain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
       </pre>
     </>
   }

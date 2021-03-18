@@ -198,6 +198,7 @@ function ChainEditor$BlockSearch(Props) {
                                                   return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
                                                                 var friendlyServiceName = param[1];
                                                                 return React.createElement("img", {
+                                                                            key: friendlyServiceName,
                                                                             className: "rounded-full",
                                                                             style: {
                                                                               pointerEvents: "none"
@@ -225,7 +226,6 @@ function ChainEditor$NodeLabel(Props) {
                 isOpen: false
               };
       });
-  var setState = match[1];
   var parsedOperation = Graphql.parse(block.body);
   var definition = Belt_Array.getExn(parsedOperation.definitions, 0);
   var services = Belt_Array.keepMap(block.services, (function (service) {
@@ -252,24 +252,11 @@ function ChainEditor$NodeLabel(Props) {
                               }));
                 })
             }, React.createElement("div", {
-                  className: "flex flex-row items-center justify-end"
+                  className: "flex flex-row items-center justify-end font-mono"
                 }, React.createElement("div", {
-                      className: "p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-2",
-                      onClick: (function ($$event) {
-                          $$event.stopPropagation();
-                          $$event.preventDefault();
-                          return Curry._1(setState, (function (oldState) {
-                                        return {
-                                                isOpen: !oldState.isOpen
-                                              };
-                                      }));
-                        })
-                    }, React.createElement(Icons.Inspect.make, {
-                          color: "black"
-                        })), React.createElement("div", {
                       className: "m-2"
                     }, services), React.createElement("div", {
-                      className: "flex-1 inline-block"
+                      className: "flex-1 inline-block "
                     }, block.title), React.createElement("div", {
                       className: "p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-0",
                       onClick: (function ($$event) {
@@ -299,8 +286,16 @@ var NodeLabel = {
   make: ChainEditor$NodeLabel
 };
 
+function emptyGraphLevel(level) {
+  return {
+          nodeCount: 0,
+          width: 0,
+          nodes: [],
+          level: level
+        };
+}
+
 function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
-  console.log("Node width/height: ", 350, 100);
   var fragmentNodes = Belt_Array.mapWithIndex(Belt_SortArray.stableSortBy(Belt_Array.keep(chain.blocks, (function (block) {
                   var match = block.kind;
                   return match >= 3;
@@ -329,17 +324,35 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
                   }
                 };
         }));
+  var match = fragmentNodes.length;
+  var fragmentLabelNode = match !== 0 ? [{
+        id: "fragmentColumnLabel",
+        type: "fragment",
+        data: {
+          label: "Reusable Fragments"
+        },
+        position: {
+          x: -250,
+          y: -50
+        },
+        draggable: false,
+        connectable: false,
+        style: {
+          width: "unset"
+        }
+      }] : [];
   var operationBlocks = Belt_Array.keep(chain.blocks, (function (block) {
           var match = block.kind;
           return match < 3;
         }));
   var levels = {};
+  var graphLevels = {};
   var findReqLevel = function (request) {
     var level = Js_dict.get(levels, request.id);
     if (level !== undefined) {
       return level;
     }
-    var highestDependency = Belt_Array.reduce(request.dependencyRequestIds, -1, (function (level, nextId) {
+    var highestDependency = Belt_Array.reduce(request.dependencyRequestIds, -2, (function (level, nextId) {
             return Belt_Option.getWithDefault(Belt_Option.flatMap(Belt_Array.getBy(chain.requests, (function (depReq) {
                                   return depReq.id === nextId;
                                 })), (function (depReq) {
@@ -351,7 +364,28 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
                               return Math.max(level, dependencyLevel);
                             })), level);
           }));
-    return highestDependency + 1 | 0;
+    var requestLevel = highestDependency + 1 | 0;
+    var nodeTitleWidth = request.operation.title.length * 7.2;
+    var requestWidth = nodeTitleWidth + 105;
+    var graphLevel = Belt_Option.getWithDefault(Js_dict.get(graphLevels, String(requestLevel)), emptyGraphLevel(requestLevel));
+    var graphNode_left = graphLevel.width;
+    var graphNode = {
+      request: request,
+      level: requestLevel,
+      left: graphNode_left
+    };
+    var newGraphLevel_nodeCount = graphLevel.nodeCount + 1 | 0;
+    var newGraphLevel_width = graphLevel.width + requestWidth;
+    var newGraphLevel_nodes = Belt_Array.concat(graphLevel.nodes, [graphNode]);
+    var newGraphLevel_level = graphLevel.level;
+    var newGraphLevel = {
+      nodeCount: newGraphLevel_nodeCount,
+      width: newGraphLevel_width,
+      nodes: newGraphLevel_nodes,
+      level: newGraphLevel_level
+    };
+    graphLevels[String(requestLevel)] = newGraphLevel;
+    return requestLevel;
   };
   Belt_Array.forEach(operationBlocks, (function (block) {
           var req = Belt_Array.getBy(chain.requests, (function (req) {
@@ -363,65 +397,49 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
                         
                       }));
         }));
-  console.log("Levels: ", levels);
-  var levelCounts = Belt_Array.reduce(Js_dict.values(levels), {}, (function (acc, level) {
-          var value = Belt_Option.getWithDefault(Js_dict.get(acc, String(level)), 0) + 1 | 0;
-          acc[String(level)] = value;
-          return acc;
-        }));
-  console.log("Level counts: ", levelCounts);
-  var levelTracker = {};
-  var getLevelAndIncrementIndex = function (level) {
-    var levelKey = String(level);
-    var level$1 = Belt_Option.getWithDefault(Js_dict.get(levelTracker, levelKey), 0);
-    levelTracker[levelKey] = level$1 + 1 | 0;
-    return level$1;
-  };
-  var densestLevel = Belt_Array.reduce(Js_dict.values(levelCounts), 0, (function (highest, next) {
-          if (next > highest) {
-            return next;
+  var totalWidth = Belt_Array.reduce(Js_dict.values(graphLevels), 0, (function (highest, next) {
+          if (next.width > highest) {
+            return next.width;
           } else {
             return highest;
           }
         }));
-  var totalWidth = (densestLevel + 50) * 350;
-  var operationNodes = Belt_Array.map(operationBlocks, (function (block) {
-          var req = Belt_Array.getBy(chain.requests, (function (req) {
-                  return req.id === block.title;
-                }));
-          var variables = Card.getFirstVariables(block);
-          var hasVariables = variables.length !== 0;
-          var typ = hasVariables ? "default" : "input";
-          var level = Belt_Option.getWithDefault(Belt_Option.flatMap(req, (function (req) {
-                      return Js_dict.get(levels, req.id);
-                    })), 0);
-          var levelIdx = getLevelAndIncrementIndex(level);
-          var siblingCount = Belt_Option.getWithDefault(Js_dict.get(levelCounts, String(level)), 0);
-          var center = totalWidth / 2;
-          var furthestLeft = center - siblingCount * (350 / 2);
-          var x = furthestLeft + 350 * levelIdx;
-          return {
-                  id: block.id.toString(),
-                  type: typ,
-                  data: {
-                    label: React.createElement(ChainEditor$NodeLabel, {
-                          onInspectBlock: onInspectBlock,
-                          block: block,
-                          onEditBlock: onEditBlock,
-                          schema: schema
-                        })
-                  },
-                  position: {
-                    x: x,
-                    y: 100 * level + 50
-                  },
-                  draggable: true,
-                  connectable: true,
-                  style: {
-                    width: "unset"
-                  }
-                };
-        }));
+  var operationNodes = Belt_Array.concatMany(Belt_Array.map(Belt_SortArray.stableSortBy(Js_dict.values(graphLevels), (function (a, b) {
+                  return a.level - b.level | 0;
+                })), (function (graphLevel) {
+              return Belt_Array.map(graphLevel.nodes, (function (node) {
+                            var req = node.request;
+                            var block = req.operation;
+                            var variables = Card.getFirstVariables(block);
+                            var hasVariables = variables.length !== 0;
+                            var typ = hasVariables ? "default" : "input";
+                            var level = node.level;
+                            var halfWidth = totalWidth / 2;
+                            var furthestLeft = halfWidth - graphLevel.width / 2;
+                            var x = furthestLeft + node.left;
+                            return {
+                                    id: block.id.toString(),
+                                    type: typ,
+                                    data: {
+                                      label: React.createElement(ChainEditor$NodeLabel, {
+                                            onInspectBlock: onInspectBlock,
+                                            block: block,
+                                            onEditBlock: onEditBlock,
+                                            schema: schema
+                                          })
+                                    },
+                                    position: {
+                                      x: x,
+                                      y: 100 * level + 50
+                                    },
+                                    draggable: true,
+                                    connectable: true,
+                                    style: {
+                                      width: "unset"
+                                    }
+                                  };
+                          }));
+            })));
   var argDepEdges = Belt_Array.concatMany(Belt_Array.map(chain.blocks, (function (block) {
               var req = Belt_Array.getBy(chain.requests, (function (req) {
                       return req.id === block.title;
@@ -507,7 +525,7 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
                                         }));
                           }));
             })));
-  var match = Belt_Array.reduce(Belt_Array.concat(argDepEdges, reqEdge), [
+  var match$1 = Belt_Array.reduce(Belt_Array.concat(argDepEdges, reqEdge), [
         undefined,
         []
       ], (function (param, edge) {
@@ -525,7 +543,7 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
                   ];
           }
         }));
-  var edges = Belt_Array.map(match[1], (function (param) {
+  var edges = Belt_Array.map(match$1[1], (function (param) {
           return {
                   id: param.id,
                   source: param.source,
@@ -535,7 +553,11 @@ function diagramFromChain(chain, onEditBlock, onInspectBlock, schema, param) {
                 };
         }));
   var nodes = Belt_Array.concat(fragmentNodes, operationNodes);
-  var elements = Belt_Array.concat(nodes, edges);
+  var elements = Belt_Array.concatMany([
+        nodes,
+        edges,
+        fragmentLabelNode
+      ]);
   return {
           nodes: nodes,
           edges: edges,
@@ -589,7 +611,7 @@ function requestScriptTypeScriptSignature(request, schema, chain) {
   switch (inputType) {
     case "" :
     case "{}" :
-        inputType$1 = "null";
+        inputType$1 = "EmptyObject";
         break;
     default:
       inputType$1 = inputType;
@@ -955,7 +977,6 @@ function ChainEditor$Main(Props) {
                     services: services
                   };
           }));
-    console.log("Adding Blocks: ", blocks, blocks.length);
     var inspectedReq = {
       contents: undefined
     };
@@ -1011,7 +1032,6 @@ function ChainEditor$Main(Props) {
               requests: newChain_requests,
               blocks: newChain_blocks
             };
-            console.log("\tNew req/block count: ", newChain_blocks.length, newChain_requests.length);
             var match$1 = monacoTypelibForChain(schema, newChain$1);
             var importLine = match$1.importLine;
             var hasImport = Belt_Option.isSome(Caml_option.null_to_opt(newScript.match(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"))));
@@ -1134,19 +1154,14 @@ function ChainEditor$Main(Props) {
                             dependency: dependency
                           };
                   }));
-            var newRequest_id = request.id;
-            var newRequest_operation = request.operation;
-            var newRequest_dependencyRequestIds = Belt_Array.keep(request.dependencyRequestIds, (function (id) {
-                    return id !== dependencyId;
-                  }));
-            var newRequest = {
-              id: newRequest_id,
-              variableDependencies: varDeps,
-              operation: newRequest_operation,
-              dependencyRequestIds: newRequest_dependencyRequestIds
-            };
-            console.log("Removed edge for request: ", request, newRequest, dependencyId);
-            return newRequest;
+            return {
+                    id: request.id,
+                    variableDependencies: varDeps,
+                    operation: request.operation,
+                    dependencyRequestIds: Belt_Array.keep(request.dependencyRequestIds, (function (id) {
+                            return id !== dependencyId;
+                          }))
+                  };
           }));
     return {
             name: oldChain.name,
@@ -1414,7 +1429,6 @@ function ChainEditor$Main(Props) {
           }),
         onDeleteEdge: (function (targetRequestId, dependencyId) {
             return Curry._1(setState, (function (oldState) {
-                          console.log("Remove id from", dependencyId, targetRequestId);
                           var newChain = removeEdge(oldState.chain, dependencyId, targetRequestId);
                           var diagram = diagramFromChain$1(newChain);
                           return {
@@ -1599,7 +1613,9 @@ function ChainEditor$Main(Props) {
                         return true;
                       }
                     })).length;
-              console.log("Initial block: ", initialAst.name.value, initial.id);
+              var guessedInitialBlock = {
+                contents: undefined
+              };
               var blocks = Belt_Array.mapWithIndex(ast.definitions, (function (_idx, definition) {
                       var match = definition.kind;
                       var kind = match === "FragmentDefinition" ? "fragment" : definition.operation;
@@ -1611,25 +1627,33 @@ function ChainEditor$Main(Props) {
                           match$1 >= 3 ? kind === "fragment" : false
                         );
                       var sameOperationAsInitial = sameNameAsInitial || sameOperationKindChanged ? true : false;
-                      console.log("sameOperationAsInitial", sameNameAsInitial, sameOperationKindChanged, definition.name.value);
                       var services = Belt_Array.map(GraphQLUtils.gatherAllReferencedServices(schema, definition), (function (service) {
                               return service.slug;
                             }));
                       var blank = makeBlankBlock(undefined);
                       var title = Belt_Option.getWithDefault(definition.name.value, "Untitled");
-                      return {
-                              id: sameOperationAsInitial ? initial.id : Uuid$1.v4(),
-                              title: title,
-                              description: blank.description,
-                              body: Graphql.print(definition),
-                              kind: kind === "mutation" ? /* Mutation */1 : (
-                                  kind === "fragment" ? /* Fragment */3 : (
-                                      kind === "subscription" ? /* Subscription */2 : /* Query */0
-                                    )
-                                ),
-                              contributedBy: blank.contributedBy,
-                              services: services
-                            };
+                      var block_id = sameOperationAsInitial ? initial.id : Uuid$1.v4();
+                      var block_description = blank.description;
+                      var block_body = Graphql.print(definition);
+                      var block_kind = kind === "mutation" ? /* Mutation */1 : (
+                          kind === "fragment" ? /* Fragment */3 : (
+                              kind === "subscription" ? /* Subscription */2 : /* Query */0
+                            )
+                        );
+                      var block_contributedBy = blank.contributedBy;
+                      var block = {
+                        id: block_id,
+                        title: title,
+                        description: block_description,
+                        body: block_body,
+                        kind: block_kind,
+                        contributedBy: block_contributedBy,
+                        services: services
+                      };
+                      if (sameNameAsInitial || sameOperationKindChanged) {
+                        guessedInitialBlock.contents = block;
+                      }
+                      return block;
                     }));
               try {
                 return Curry._1(setState, (function (oldState) {
@@ -1645,10 +1669,20 @@ function ChainEditor$Main(Props) {
                                                           })), [block])
                                               };
                                       }
+                                      var isLikelyInitialBlock = Caml_obj.caml_equal(block, guessedInitialBlock.contents);
+                                      var initialReq = isLikelyInitialBlock ? Belt_Array.getBy(newChain.requests, (function (request) {
+                                                return Caml_obj.caml_equal(request.operation.id, initial.id);
+                                              })) : undefined;
                                       var doc = Graphql.parse(block.body);
-                                      var variableNames = GraphQLUtils.getOperationVariables(Caml_array.get(doc.definitions, 0));
+                                      var definition = Caml_array.get(doc.definitions, 0);
+                                      var variableNames = GraphQLUtils.getOperationVariables(definition);
                                       var variableDependencies = Belt_Array.map(variableNames, (function (param) {
                                               var variableName = param[0];
+                                              var existingVarDep = Belt_Option.flatMap(initialReq, (function (request) {
+                                                      return Belt_Array.getBy(request.variableDependencies, (function (existingVariableDependency) {
+                                                                    return existingVariableDependency.name === variableName;
+                                                                  }));
+                                                    }));
                                               var variableDep = {
                                                 TAG: 1,
                                                 _0: {
@@ -1661,20 +1695,21 @@ function ChainEditor$Main(Props) {
                                                 },
                                                 [Symbol.for("name")]: "Direct"
                                               };
-                                              return {
-                                                      name: variableName,
-                                                      dependency: variableDep
-                                                    };
+                                              return Belt_Option.getWithDefault(existingVarDep, {
+                                                          name: variableName,
+                                                          dependency: variableDep
+                                                        });
                                             }));
                                       var newReq_id = block.title;
-                                      var newReq_dependencyRequestIds = [];
+                                      var newReq_dependencyRequestIds = Belt_Option.mapWithDefault(initialReq, [], (function (req) {
+                                              return req.dependencyRequestIds;
+                                            }));
                                       var newReq = {
                                         id: newReq_id,
                                         variableDependencies: variableDependencies,
                                         operation: block,
                                         dependencyRequestIds: newReq_dependencyRequestIds
                                       };
-                                      console.log("NewReq VarDeps: ", doc, variableNames, variableDependencies);
                                       var names = Chain.requestScriptNames(newReq);
                                       var nameExistsInScript = Belt_Option.isSome(Caml_option.null_to_opt(newChain.script.match(new RegExp("export function " + names.functionName))));
                                       var newScript = nameExistsInScript ? newChain.script : newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}");
@@ -1932,6 +1967,7 @@ function ChainEditor$Main(Props) {
                                   var targetRequest = Belt_Array.getBy(state.chain.requests, (function (request) {
                                           return request.operation.id.toString() === target;
                                         }));
+                                  console.log("Connected source/target: ", sourceRequest, targetRequest);
                                   if (sourceRequest !== undefined && targetRequest !== undefined) {
                                     return Curry._1(setState, (function (oldState) {
                                                   var newRequests = Belt_Array.map(oldState.chain.requests, (function (request) {
@@ -1977,6 +2013,13 @@ function ChainEditor$Main(Props) {
                                                                   dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
                                                                 };
                                                         }));
+                                                  var sortedRequests = Chain.toposortRequests(newRequests);
+                                                  if (sortedRequests.TAG !== /* Ok */0) {
+                                                    return oldState;
+                                                  }
+                                                  var sortedRequests$1 = sortedRequests._0;
+                                                  console.log("New/Sorted requests: ", newRequests, sortedRequests$1);
+                                                  console.log("New/Sorted lengths & diff (exp: 0): ", newRequests.length, sortedRequests$1.length, sortedRequests$1.length - newRequests.length | 0);
                                                   var init = oldState.chain;
                                                   var newChain_name = init.name;
                                                   var newChain_script = init.script;
@@ -1984,7 +2027,7 @@ function ChainEditor$Main(Props) {
                                                   var newChain = {
                                                     name: newChain_name,
                                                     script: newChain_script,
-                                                    requests: newRequests,
+                                                    requests: sortedRequests$1,
                                                     blocks: newChain_blocks
                                                   };
                                                   var diagram = diagramFromChain$1(newChain);
@@ -2150,6 +2193,7 @@ export {
   compileChain ,
   BlockSearch ,
   NodeLabel ,
+  emptyGraphLevel ,
   diagramFromChain ,
   backgroundStyle ,
   requestScriptTypeScriptSignature ,

@@ -557,12 +557,14 @@ export function makeVariablesForSetSlackStatus(
   blocks: [Card.gitHubStatus, Card.setSlackStatus],
 }
 
-let chain = {
+let emptyChain = {
   name: "main",
   script: ``,
   requests: [],
   blocks: [],
 }
+
+let chain = emptyChain
 
 type compiled = {
   operationDoc: string,
@@ -767,12 +769,21 @@ let compileOperationDoc = (chain: t): compiledChainWithMeta => {
           }`
   }
 
-  let requests = chain.requests->Belt.Array.keepMap(request => {
-    switch request.operation.kind {
-    | Fragment => None
-    | _ => Some(makeRequest(request))
-    }
-  })
+  let requests =
+    chain.requests
+    ->Belt.SortArray.stableSortBy((a, b) =>
+      switch (a.operation.kind, b.operation.kind) {
+      | (Subscription, _) => -1
+      | (_, Subscription) => 1
+      | _ => 0
+      }
+    )
+    ->Belt.Array.keepMap(request => {
+      switch request.operation.kind {
+      | Fragment => None
+      | _ => Some(makeRequest(request))
+      }
+    })
 
   let compiledString = j`requests: [${requests->Js.Array2.joinWith(",")}],
     script: """
@@ -862,4 +873,223 @@ let servicesRequired = chain => {
   ->Belt.Array.map(request => request.operation.services)
   ->Belt.Array.concatMany
   ->Utils.distinctStrings
+}
+
+exception CircularDependencyDetected
+
+let toposortRequests = (requests: array<request>): result<
+  array<request>,
+  [#circularDependencyDetected],
+> => {
+  let rec toposortHelper = (request, visited, temp, requests, sorted) => {
+    visited->Belt.Set.String.has(request.id)
+      ? ()
+      : {
+          Js.log2("Add Req: ", request.id)
+          sorted := sorted.contents->Belt.Array.concat([request])
+        }
+
+    let deps = request.dependencyRequestIds
+    let (visited, temp) = deps->Belt.Array.reduce((visited, temp), ((visited, temp), depId) => {
+      let alreadyVisited = visited->Belt.Set.String.has(depId)
+      let loopDetected = temp->Belt.Set.String.has(depId)
+
+      switch (loopDetected, alreadyVisited) {
+      | (true, _) => raise(CircularDependencyDetected)
+      | (_, true) => (visited, temp)
+      | (false, false) =>
+        requests
+        ->Belt.Array.getBy(existingRequest => existingRequest.id == depId)
+        ->Belt.Option.mapWithDefault((visited, temp), dependencyRequest => {
+          let visited = visited->Belt.Set.String.add(request.id)
+          let temp = temp->Belt.Set.String.add(request.id)
+          toposortHelper(dependencyRequest, visited, temp, requests, sorted)
+        })
+      }
+    })
+
+    let visited = visited->Belt.Set.String.add(request.id)
+    let temp = temp->Belt.Set.String.remove(request.id)
+
+    (visited, temp)
+  }
+
+  let visited = Belt.Set.String.empty
+  let temp = Belt.Set.String.empty
+  let sorted = ref([])
+
+  try {
+    let _ = requests->Belt.Array.reduce((visited, temp), ((visited, temp), request) => {
+      toposortHelper(request, visited, temp, requests, sorted)
+    })
+
+    Ok(sorted.contents)
+  } catch {
+  | CircularDependencyDetected => Error(#circularDependencyDetected)
+  | other =>
+    Js.Console.warn2("Unexpected exception", other)
+    Error(#circularDependencyDetected)
+  }
+}
+
+let devJsonChain = (): t => {
+  %raw(`{
+  "name": "main",
+  "script": "import {\n  SearchInput,\n  SearchVariables,\n  GitHubStatusChangeInput,\n  GitHubStatusChangeVariables,\n  PlayInput,\n  PlayVariables,\n} from 'oneGraphStudio';\n\nexport function makeVariablesForSearch(payload: SearchInput): SearchVariables {\n  return {\n    query:\n      payload.GitHubStatusChange?.data?.poll?.query?.gitHub?.user?.status\n        ?.message,\n  };\n}\n\nexport function makeVariablesForPlay(payload: PlayInput): PlayVariables {\n  const words =\n    payload.GitHubStatusChange?.data?.poll?.query?.gitHub?.user?.status?.message\n      ?.split(' ')\n      ?.map((word: string) => word.trim()) || [];\n\n  let lastNumber = null;\n\n  (words || [])?.forEach((word) => {\n    try {\n      lastNumber = parseInt(word);\n    } catch (e) {\n      return null;\n    }\n  });\n\n  const calculatedPosition = lastNumber || 0;\n\n  return {\n    trackId: payload.Search?.data?.spotify?.search?.tracks[0]?.id,\n    positionMs: calculatedPosition,\n  };\n}\n\nexport function makeVariablesForGitHubStatusChange(\n  payload: GitHubStatusChangeInput\n): GitHubStatusChangeVariables {\n  return {};\n}\n",
+  "requests": [
+    {
+      "id": "Search",
+      "variableDependencies": [
+        {
+          "name": "query",
+          "dependency": {
+            "TAG": 0,
+            "_0": {
+              "functionFromScript": "INITIAL_UNKNOWN",
+              "ifMissing": "ERROR",
+              "ifList": "FIRST",
+              "fromRequestIds": [
+                "GitHubStatusChange"
+              ],
+              "name": "query"
+            }
+          }
+        }
+      ],
+      "operation": {
+        "id": "5655cb51-5391-4a21-804d-d6963a016029",
+        "title": "Search",
+        "description": "TODO",
+        "body": "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+        "kind": 0,
+        "services": [
+          "spotify"
+        ]
+      },
+      "dependencyRequestIds": [
+        "GitHubStatusChange"
+      ]
+    },
+    {
+      "id": "GitHubStatusChange",
+      "variableDependencies": [
+        {
+          "name": "login",
+          "dependency": {
+            "TAG": 1,
+            "_0": {
+              "name": "login",
+              "value": {
+                "TAG": 1,
+                "_0": "login"
+              }
+            }
+          }
+        }
+      ],
+      "operation": {
+        "id": "7906c420-f8b8-4b0d-8df6-fd27b29ed007",
+        "title": "GitHubStatusChange",
+        "description": "TODO",
+        "body": "subscription GitHubStatusChange($login: String!) {\n  poll(\n    schedule: {every: {minutes: 1}}\n    onlyTriggerWhenPayloadChanged: true\n    webhookUrl: \"https://websmee.com/hook/studio-test\"\n  ) {\n    query {\n      gitHub {\n        user(login: $login) {\n          status {\n            message\n          }\n        }\n      }\n    }\n  }\n}",
+        "kind": 2,
+        "services": [
+          "github"
+        ]
+      },
+      "dependencyRequestIds": []
+    },
+    {
+      "id": "Play",
+      "variableDependencies": [
+        {
+          "name": "positionMs",
+          "dependency": {
+            "TAG": 0,
+            "_0": {
+              "functionFromScript": "INITIAL_UNKNOWN",
+              "ifMissing": "SKIP",
+              "ifList": "FIRST",
+              "fromRequestIds": [
+                "GitHubStatusChange"
+              ],
+              "name": "positionMs"
+            }
+          }
+        },
+        {
+          "name": "trackId",
+          "dependency": {
+            "TAG": 0,
+            "_0": {
+              "functionFromScript": "INITIAL_UNKNOWN",
+              "ifMissing": "ERROR",
+              "ifList": "FIRST",
+              "fromRequestIds": [
+                "GitHubStatusChange"
+              ],
+              "name": "trackId"
+            }
+          }
+        }
+      ],
+      "operation": {
+        "id": "e5f6abcc-3d03-4bc3-b724-d76b8971697b",
+        "title": "Play",
+        "description": "TODO",
+        "body": "mutation Play($positionMs: Int, $trackId: String!) {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: $positionMs}) {\n      player {\n        isPlaying\n        progressMs\n      }\n    }\n  }\n}",
+        "kind": 1,
+        "services": [
+          "spotify"
+        ]
+      },
+      "dependencyRequestIds": [
+        "Search",
+        "GitHubStatusChange"
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "id": "5655cb51-5391-4a21-804d-d6963a016029",
+      "title": "Search",
+      "description": "TODO",
+      "body": "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+      "kind": 0,
+      "services": [
+        "spotify"
+      ]
+    },
+    {
+      "id": "efda338e-68be-47ba-b279-cb3e6f8e81db",
+      "title": "Player",
+      "description": "TODO",
+      "body": "fragment Player on SpotifyPlayer {\n  timestamp\n  progressMs\n  isPlaying\n  currentlyPlayingType\n  repeatState\n  shuffleState\n  item {\n    id\n    name\n  }\n}",
+      "kind": 3,
+      "services": [
+        "spotify"
+      ]
+    },
+    {
+      "id": "e5f6abcc-3d03-4bc3-b724-d76b8971697b",
+      "title": "Play",
+      "description": "TODO",
+      "body": "mutation Play($positionMs: Int, $trackId: String!) {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: $positionMs}) {\n      player {\n        isPlaying\n        progressMs\n      }\n    }\n  }\n}",
+      "kind": 1,
+      "services": [
+        "spotify"
+      ]
+    },
+    {
+      "id": "7906c420-f8b8-4b0d-8df6-fd27b29ed007",
+      "title": "GitHubStatusChange",
+      "description": "TODO",
+      "body": "subscription GitHubStatusChange($login: String!) {\n  poll(\n    schedule: {every: {minutes: 1}}\n    onlyTriggerWhenPayloadChanged: true\n    webhookUrl: \"https://websmee.com/hook/studio-test\"\n  ) {\n    query {\n      gitHub {\n        user(login: $login) {\n          status {\n            message\n          }\n        }\n      }\n    }\n  }\n}",
+      "kind": 2,
+      "services": [
+        "github"
+      ]
+    }
+  ]
+}`)
 }

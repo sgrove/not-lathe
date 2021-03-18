@@ -216,6 +216,7 @@ module BlockSearch = {
                   ->Utils.serviceImageUrl
                   ->Belt.Option.map(((url, friendlyServiceName)) =>
                     <img
+                      key={friendlyServiceName}
                       alt=friendlyServiceName
                       title=friendlyServiceName
                       style={ReactDOMStyle.make(~pointerEvents="none", ())}
@@ -246,7 +247,7 @@ module NodeLabel = {
 
   @react.component
   let make = (~onInspectBlock, ~block: Card.block, ~onEditBlock, ~schema) => {
-    let (state, setState) = React.useState(() => {
+    let (state, _setState) = React.useState(() => {
       isOpen: false,
     })
 
@@ -279,18 +280,9 @@ module NodeLabel = {
         onInspectBlock->Belt.Option.forEach(fn => fn(block))
       }}
       className="flex align-middle items-center min-w-max flex-col">
-      <div className="flex flex-row items-center justify-end">
-        <div
-          className="p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-2"
-          onClick={event => {
-            event->ReactEvent.Mouse.stopPropagation
-            event->ReactEvent.Mouse.preventDefault
-            setState(oldState => {isOpen: !oldState.isOpen})
-          }}>
-          <Icons.Inspect color="black" />
-        </div>
+      <div className="flex flex-row items-center justify-end font-mono">
         <div className="m-2"> {services} </div>
-        <div className="flex-1 inline-block"> {block.title->string} </div>
+        <div className="flex-1 inline-block "> {block.title->string} </div>
         <div
           className="p-2 hover:shadow-lg rounded-md border hover:border-gray-300 cursor-pointer m-0"
           onClick={event => {
@@ -322,13 +314,28 @@ module NodeLabel = {
   }
 }
 
+type graphNode = {
+  request: Chain.request,
+  level: int,
+  left: float,
+}
+
+type graphLevel = {
+  nodeCount: int,
+  width: float,
+  nodes: array<graphNode>,
+  level: int,
+}
+
+let emptyGraphLevel = level => {
+  nodeCount: 0,
+  width: 0.,
+  nodes: [],
+  level: level,
+}
+
 let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema, ()): diagram => {
-  open ReactFlow
-
-  let nodeWidth = 350.
   let nodeHeight = 100.
-
-  Js.log3("Node width/height: ", nodeWidth, nodeHeight)
 
   let fragmentNodes =
     chain.blocks
@@ -342,7 +349,7 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
       Js.String2.localeCompare(a.title, b.title)->Belt.Float.toInt
     )
     ->Belt.Array.mapWithIndex((idx, block) => {
-      let node = Node.t(
+      let node = ReactFlow.Node.t(
         ~typ=#fragment,
         ~id=block.id->Uuid.toString,
         ~data={
@@ -357,6 +364,24 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
       node
     })
 
+  let fragmentLabelNode = switch fragmentNodes->Belt.Array.length {
+  | 0 => []
+  | _ =>
+    let node = ReactFlow.Node.t(
+      ~typ=#fragment,
+      ~id="fragmentColumnLabel",
+      ~data={
+        label: {"Reusable Fragments"->React.string},
+      },
+      ~position={x: -250., y: -50.},
+      ~draggable=false,
+      ~connectable=false,
+      ~style=ReactDOMStyle.make(~width="unset", ()),
+      (),
+    )
+    [node]
+  }
+
   let operationBlocks = chain.blocks->Belt.Array.keep(block => {
     switch block.kind {
     | Fragment => false
@@ -365,6 +390,7 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
   })
 
   let levels = Js.Dict.empty()
+  let graphLevels = Js.Dict.empty()
 
   let rec findReqLevel = (request: Chain.request) => {
     let level = levels->Js.Dict.get(request.id)
@@ -372,7 +398,7 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
     switch level {
     | Some(level) => level
     | None =>
-      let highestDependency = request.dependencyRequestIds->Belt.Array.reduce(-1, (
+      let highestDependency = request.dependencyRequestIds->Belt.Array.reduce(-2, (
         level,
         nextId,
       ) => {
@@ -393,7 +419,33 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
         ->Belt.Option.getWithDefault(level)
       })
 
-      highestDependency + 1
+      let requestLevel = highestDependency + 1
+
+      let nodeTitleWidth = request.operation.title->Js.String2.length->float_of_int *. 7.2
+      let nodePadding = 105.
+      let requestWidth = nodeTitleWidth +. nodePadding
+
+      let graphLevel =
+        graphLevels
+        ->Js.Dict.get(requestLevel->string_of_int)
+        ->Belt.Option.getWithDefault(emptyGraphLevel(requestLevel))
+
+      let graphNode = {
+        request: request,
+        level: requestLevel,
+        left: graphLevel.width,
+      }
+
+      let newGraphLevel = {
+        ...graphLevel,
+        width: graphLevel.width +. requestWidth,
+        nodeCount: graphLevel.nodeCount + 1,
+        nodes: graphLevel.nodes->Belt.Array.concat([graphNode]),
+      }
+
+      graphLevels->Js.Dict.set(requestLevel->string_of_int, newGraphLevel)
+
+      requestLevel
     }
   }
 
@@ -408,76 +460,55 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
     })
   })
 
-  Js.log2("Levels: ", levels)
-  let levelCounts =
-    levels
+  let totalWidth =
+    graphLevels
     ->Js.Dict.values
-    ->Belt.Array.reduce(Js.Dict.empty(), (acc, level) => {
-      let value = acc->Js.Dict.get(level->string_of_int)->Belt.Option.getWithDefault(0) + 1
-      acc->Js.Dict.set(level->string_of_int, value)
-      acc
-    })
+    ->Belt.Array.reduce(0., (highest, next) => next.width > highest ? next.width : highest)
 
-  Js.log2("Level counts: ", levelCounts)
-
-  let levelTracker = Js.Dict.empty()
-  let getLevelAndIncrementIndex = (level: int) => {
-    let levelKey = level->string_of_int
-    let level = levelTracker->Js.Dict.get(levelKey)->Belt.Option.getWithDefault(0)
-    levelTracker->Js.Dict.set(levelKey, level + 1)
-    level
-  }
-
-  let densestLevel =
-    levelCounts
+  let operationNodes =
+    graphLevels
     ->Js.Dict.values
-    ->Belt.Array.reduce(0, (highest, next) => next > highest ? next : highest)
+    ->Belt.SortArray.stableSortBy((a, b) => a.level - b.level)
+    ->Belt.Array.map(graphLevel =>
+      graphLevel.nodes->Belt.Array.map(node => {
+        let req = node.request
+        let block = req.operation
 
-  let totalWidth = (densestLevel->float_of_int +. 50.) *. nodeWidth
+        let variables = block->Card.getFirstVariables
+        let hasVariables = variables->Belt.Array.length > 0
 
-  let operationNodes = operationBlocks->Belt.Array.map(block => {
-    let req = chain.requests->Belt.Array.getBy(req => {
-      req.id == block.title
-    })
+        let typ = switch hasVariables {
+        | true => #default
+        | false => #input
+        }
 
-    let variables = block->Card.getFirstVariables
-    let hasVariables = variables->Belt.Array.length > 0
+        let level = node.level
 
-    let typ = switch hasVariables {
-    | true => #default
-    | false => #input
-    }
+        let halfWidth = totalWidth /. 2.
 
-    let level =
-      req->Belt.Option.flatMap(req => levels->Js.Dict.get(req.id))->Belt.Option.getWithDefault(0)
+        let furthestLeft = halfWidth -. graphLevel.width /. 2.
 
-    let levelIdx = level->getLevelAndIncrementIndex
+        let x = furthestLeft +. node.left
 
-    let siblingCount = levelCounts->Js.Dict.get(level->string_of_int)->Belt.Option.getWithDefault(0)
-
-    let center = totalWidth /. 2.
-
-    let furthestLeft = center -. siblingCount->float_of_int *. (nodeWidth /. 2.)
-
-    let x = furthestLeft +. nodeWidth *. levelIdx->float_of_int
-
-    let node = Node.t(
-      ~typ,
-      ~id=block.id->Uuid.toString,
-      ~data={
-        label: <NodeLabel onEditBlock onInspectBlock block schema />,
-      },
-      ~position={
-        x: x,
-        y: nodeHeight *. level->float_of_int +. 50.,
-      },
-      ~draggable=true,
-      ~connectable=true,
-      ~style=ReactDOMStyle.make(~width="unset", ()),
-      (),
+        let node = ReactFlow.Node.t(
+          ~typ,
+          ~id=block.id->Uuid.toString,
+          ~data={
+            label: <NodeLabel onEditBlock onInspectBlock block schema />,
+          },
+          ~position={
+            x: x,
+            y: nodeHeight *. level->float_of_int +. 50.,
+          },
+          ~draggable=true,
+          ~connectable=true,
+          ~style=ReactDOMStyle.make(~width="unset", ()),
+          (),
+        )
+        node
+      })
     )
-    node
-  })
+    ->Belt.Array.concatMany
 
   let argDepEdges: array<diagramEdgeData> =
     chain.blocks
@@ -588,7 +619,7 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
   )
 
   let edges = distinctEdges->Belt.Array.map(({id, source, target}) => {
-    let edge = Edge.t(~id, ~source, ~target, ~animated=true, ~typ=#step, ())
+    let edge = ReactFlow.Edge.t(~id, ~source, ~target, ~animated=true, ~typ=#step, ())
     edge
   })
 
@@ -596,7 +627,7 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
 
   // let layoutedElements = Dagre.getLayoutedElements(~nodes, ~edges, ~nodeWidth=10., ~nodeHeight=50.)
 
-  let elements = Belt.Array.concat(nodes, edges->Obj.magic)->Obj.magic
+  let elements = Belt.Array.concatMany([nodes, edges->Obj.magic, fragmentLabelNode])->Obj.magic
 
   {nodes: nodes, edges: edges, elements: elements}
 }
@@ -673,7 +704,7 @@ let requestScriptTypeScriptSignature = (
 
   let inputType = switch inputType {
   | ""
-  | "{}" => "null"
+  | "{}" => "EmptyObject"
   | other => other
   }
 
@@ -1046,8 +1077,6 @@ module Main = {
         block
       })
 
-      Js.log3("Adding Blocks: ", blocks, blocks->Belt.Array.length)
-
       let inspectedReq = ref(None)
 
       let newChain = blocks->Belt.Array.reduce(state.chain, (newChain, block) => {
@@ -1117,12 +1146,6 @@ export function ${names.functionName} (payload : ${names.inputTypeName}) : ${nam
             requests: newChain.requests->Belt.Array.concat([newReq]),
             script: newScript,
           }
-
-          Js.log3(
-            "\tNew req/block count: ",
-            newChain.blocks->Belt.Array.length,
-            newChain.requests->Belt.Array.length,
-          )
 
           let {dDotTs: _newTypes, importLine} = monacoTypelibForChain(schema, newChain)
 
@@ -1232,7 +1255,6 @@ ${newScript}`
               id != dependencyId
             ),
           }
-          Js.log4("Removed edge for request: ", request, newRequest, dependencyId)
           newRequest
         }
       })
@@ -1280,7 +1302,6 @@ ${newScript}`
         }}
         onDeleteEdge={(~targetRequestId, ~dependencyId) => {
           setState(oldState => {
-            Js.log3("Remove id from", dependencyId, targetRequestId)
             let newChain = removeEdge(oldState.chain, ~targetRequestId, ~dependencyId)
 
             let diagram = diagramFromChain(newChain)
@@ -1469,6 +1490,8 @@ ${newScript}`
                   request.operation.id->Uuid.toString == target
                 })
 
+                Js.log3("Connected source/target: ", sourceRequest, targetRequest)
+
                 switch (sourceRequest, targetRequest) {
                 | (None, _)
                 | (_, None) =>
@@ -1507,11 +1530,25 @@ ${newScript}`
                       }
                     })
 
-                    let newChain = {...oldState.chain, requests: newRequests}
+                    let sortedRequests = Chain.toposortRequests(newRequests)
 
-                    let diagram = diagramFromChain(newChain)
+                    switch sortedRequests {
+                    | Error(#circularDependencyDetected) => oldState
+                    | Ok(sortedRequests) =>
+                      Js.log3("New/Sorted requests: ", newRequests, sortedRequests)
+                      Js.log4(
+                        "New/Sorted lengths & diff (exp: 0): ",
+                        newRequests->Belt.Array.length,
+                        sortedRequests->Belt.Array.length,
+                        sortedRequests->Belt.Array.length - newRequests->Belt.Array.length,
+                      )
 
-                    {...oldState, chain: newChain, diagram: diagram}
+                      let newChain = {...oldState.chain, requests: sortedRequests}
+
+                      let diagram = diagramFromChain(newChain)
+
+                      {...oldState, chain: newChain, diagram: diagram}
+                    }
                   })
                 }
               }}
@@ -1681,7 +1718,7 @@ ${newScript}`
                 })
                 ->Belt.Array.length
 
-              Js.log3("Initial block: ", initialAst.name.value, initial.id)
+              let guessedInitialBlock = ref(None)
 
               let blocks = ast.definitions->Belt.Array.mapWithIndex((_idx, definition) => {
                 let kind = switch Obj.magic(definition)["kind"] {
@@ -1705,13 +1742,6 @@ ${newScript}`
                 | (true, _)
                 | (_, true) => true
                 }
-
-                Js.log4(
-                  "sameOperationAsInitial",
-                  sameNameAsInitial,
-                  sameOperationKindChanged,
-                  definition.name.value,
-                )
 
                 let services =
                   definition
@@ -1737,6 +1767,11 @@ ${newScript}`
                   },
                 }
 
+                switch (sameNameAsInitial, sameOperationKindChanged) {
+                | (true, _) | (_, true) => guessedInitialBlock := Some(block)
+                | _ => ()
+                }
+
                 block
               })
 
@@ -1751,36 +1786,39 @@ ${newScript}`
                         ->Belt.Array.concat([block]),
                       }
                     | _ =>
+                      let isLikelyInitialBlock = Some(block) == guessedInitialBlock.contents
+
+                      let initialReq = isLikelyInitialBlock
+                        ? newChain.requests->Belt.Array.getBy(request => {
+                            request.operation.id == initial.id
+                          })
+                        : None
+
                       let doc = block.body->GraphQLJs.parse
-                      let definition = doc
-                      let variableNames = doc.definitions[0]->GraphQLUtils.getOperationVariables
+                      let definition = doc.definitions[0]
+                      let variableNames = definition->GraphQLUtils.getOperationVariables
 
                       let variableDependencies = variableNames->Belt.Array.map(((
                         variableName,
                         _variableType,
                       )) => {
-                        let argDep: Chain.variableDependencyKind = ArgumentDependency({
-                          fromRequestIds: [],
-                          maxRecur: None,
-                          ifMissing: #SKIP,
-                          ifList: #FIRST,
-                          functionFromScript: "",
-                          name: variableName,
-                        })
+                        let existingVarDep = initialReq->Belt.Option.flatMap(request =>
+                          request.variableDependencies->Belt.Array.getBy(
+                            existingVariableDependency => {
+                              existingVariableDependency.name == variableName
+                            },
+                          )
+                        )
 
                         let variableDep: Chain.variableDependencyKind = Direct({
                           {name: variableName, value: Variable(variableName)}
                         })
 
-                        let defaultNewDependency = switch true {
-                        | false => argDep
-                        | true => variableDep
-                        }
-
-                        let varDep: Chain.variableDependency = {
-                          name: variableName,
-                          dependency: defaultNewDependency,
-                        }
+                        let varDep: Chain.variableDependency =
+                          existingVarDep->Belt.Option.getWithDefault({
+                            name: variableName,
+                            dependency: variableDep,
+                          })
 
                         varDep
                       })
@@ -1789,15 +1827,10 @@ ${newScript}`
                         id: block.title,
                         operation: block,
                         variableDependencies: variableDependencies,
-                        dependencyRequestIds: [],
+                        dependencyRequestIds: initialReq->Belt.Option.mapWithDefault([], req =>
+                          req.dependencyRequestIds
+                        ),
                       }
-
-                      Js.log4(
-                        "NewReq VarDeps: ",
-                        definition,
-                        variableNames,
-                        newReq.variableDependencies,
-                      )
 
                       let names = newReq->Chain.requestScriptNames
 

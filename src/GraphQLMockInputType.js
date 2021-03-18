@@ -204,11 +204,13 @@ export function typeScriptDefinitionObjectForOperation(
 
           if (isObject) return;
 
-          let basicType = scalarMap[namedType.name] || "any";
+          if (gqlType) {
+            let basicType = scalarMap[namedType.name] || "any";
 
-          let tsType = basicToTypeScript(basicType, nestingLevel);
+            let tsType = basicToTypeScript(basicType, nestingLevel);
 
-          setIn(typeMap, namedPath, tsType);
+            setIn(typeMap, namedPath, tsType);
+          }
         },
       },
     })

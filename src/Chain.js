@@ -7,6 +7,9 @@ import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
+import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
+import * as Caml_exceptions from "bs-platform/lib/es6/caml_exceptions.mjs";
+import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 
 function stringOfIfMissing(x) {
   if (x === "ALLOW") {
@@ -363,17 +366,17 @@ var _chain = {
   blocks: _chain_blocks
 };
 
-var chain_script = "";
+var emptyChain_script = "";
 
-var chain_requests = [];
+var emptyChain_requests = [];
 
-var chain_blocks = [];
+var emptyChain_blocks = [];
 
-var chain = {
+var emptyChain = {
   name: "main",
-  script: chain_script,
-  requests: chain_requests,
-  blocks: chain_blocks
+  script: emptyChain_script,
+  requests: emptyChain_requests,
+  blocks: emptyChain_blocks
 };
 
 function compileAsObj(chain) {
@@ -528,7 +531,19 @@ function compileOperationDoc(chain) {
           }));
     return "\n          {\n            id: \"" + request.id + "\",\n            operationName: \"" + request.operation.title + "\",\n            variables: [" + variables.join(",\n  ") + "],\n            argumentDependencies: [" + argumentDependencies.join(",") + "],\n          }";
   };
-  var requests = Belt_Array.keepMap(chain.requests, (function (request) {
+  var requests = Belt_Array.keepMap(Belt_SortArray.stableSortBy(chain.requests, (function (a, b) {
+              var match = a.operation.kind;
+              var match$1 = b.operation.kind;
+              if (match !== 2) {
+                if (match$1 !== 2) {
+                  return 0;
+                } else {
+                  return 1;
+                }
+              } else {
+                return -1;
+              }
+            })), (function (request) {
           var match = request.operation.kind;
           if (match >= 3) {
             return ;
@@ -579,7 +594,256 @@ function servicesRequired(chain) {
                       }))));
 }
 
+var CircularDependencyDetected = /* @__PURE__ */Caml_exceptions.create("Chain.CircularDependencyDetected");
+
+function toposortRequests(requests) {
+  var toposortHelper = function (request, visited, temp, requests, sorted) {
+    if (Belt_SetString.has(visited, request.id)) {
+      
+    } else {
+      console.log("Add Req: ", request.id);
+      sorted.contents = Belt_Array.concat(sorted.contents, [request]);
+    }
+    var deps = request.dependencyRequestIds;
+    var match = Belt_Array.reduce(deps, [
+          visited,
+          temp
+        ], (function (param, depId) {
+            var temp = param[1];
+            var visited = param[0];
+            var alreadyVisited = Belt_SetString.has(visited, depId);
+            var loopDetected = Belt_SetString.has(temp, depId);
+            if (loopDetected) {
+              throw {
+                    RE_EXN_ID: CircularDependencyDetected,
+                    Error: new Error()
+                  };
+            }
+            if (alreadyVisited) {
+              return [
+                      visited,
+                      temp
+                    ];
+            } else {
+              return Belt_Option.mapWithDefault(Belt_Array.getBy(requests, (function (existingRequest) {
+                                return existingRequest.id === depId;
+                              })), [
+                          visited,
+                          temp
+                        ], (function (dependencyRequest) {
+                            var visited$1 = Belt_SetString.add(visited, request.id);
+                            var temp$1 = Belt_SetString.add(temp, request.id);
+                            return toposortHelper(dependencyRequest, visited$1, temp$1, requests, sorted);
+                          }));
+            }
+          }));
+    var visited$1 = Belt_SetString.add(match[0], request.id);
+    var temp$1 = Belt_SetString.remove(match[1], request.id);
+    return [
+            visited$1,
+            temp$1
+          ];
+  };
+  var sorted = {
+    contents: []
+  };
+  try {
+    Belt_Array.reduce(requests, [
+          undefined,
+          undefined
+        ], (function (param, request) {
+            return toposortHelper(request, param[0], param[1], requests, sorted);
+          }));
+    return {
+            TAG: 0,
+            _0: sorted.contents,
+            [Symbol.for("name")]: "Ok"
+          };
+  }
+  catch (raw_other){
+    var other = Caml_js_exceptions.internalToOCamlException(raw_other);
+    if (other.RE_EXN_ID === CircularDependencyDetected) {
+      return {
+              TAG: 1,
+              _0: "circularDependencyDetected",
+              [Symbol.for("name")]: "Error"
+            };
+    } else {
+      console.warn("Unexpected exception", other);
+      return {
+              TAG: 1,
+              _0: "circularDependencyDetected",
+              [Symbol.for("name")]: "Error"
+            };
+    }
+  }
+}
+
+function devJsonChain(param) {
+  return {
+  "name": "main",
+  "script": "import {\n  SearchInput,\n  SearchVariables,\n  GitHubStatusChangeInput,\n  GitHubStatusChangeVariables,\n  PlayInput,\n  PlayVariables,\n} from 'oneGraphStudio';\n\nexport function makeVariablesForSearch(payload: SearchInput): SearchVariables {\n  return {\n    query:\n      payload.GitHubStatusChange?.data?.poll?.query?.gitHub?.user?.status\n        ?.message,\n  };\n}\n\nexport function makeVariablesForPlay(payload: PlayInput): PlayVariables {\n  const words =\n    payload.GitHubStatusChange?.data?.poll?.query?.gitHub?.user?.status?.message\n      ?.split(' ')\n      ?.map((word: string) => word.trim()) || [];\n\n  let lastNumber = null;\n\n  (words || [])?.forEach((word) => {\n    try {\n      lastNumber = parseInt(word);\n    } catch (e) {\n      return null;\n    }\n  });\n\n  const calculatedPosition = lastNumber || 0;\n\n  return {\n    trackId: payload.Search?.data?.spotify?.search?.tracks[0]?.id,\n    positionMs: calculatedPosition,\n  };\n}\n\nexport function makeVariablesForGitHubStatusChange(\n  payload: GitHubStatusChangeInput\n): GitHubStatusChangeVariables {\n  return {};\n}\n",
+  "requests": [
+    {
+      "id": "Search",
+      "variableDependencies": [
+        {
+          "name": "query",
+          "dependency": {
+            "TAG": 0,
+            "_0": {
+              "functionFromScript": "INITIAL_UNKNOWN",
+              "ifMissing": "ERROR",
+              "ifList": "FIRST",
+              "fromRequestIds": [
+                "GitHubStatusChange"
+              ],
+              "name": "query"
+            }
+          }
+        }
+      ],
+      "operation": {
+        "id": "5655cb51-5391-4a21-804d-d6963a016029",
+        "title": "Search",
+        "description": "TODO",
+        "body": "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+        "kind": 0,
+        "services": [
+          "spotify"
+        ]
+      },
+      "dependencyRequestIds": [
+        "GitHubStatusChange"
+      ]
+    },
+    {
+      "id": "GitHubStatusChange",
+      "variableDependencies": [
+        {
+          "name": "login",
+          "dependency": {
+            "TAG": 1,
+            "_0": {
+              "name": "login",
+              "value": {
+                "TAG": 1,
+                "_0": "login"
+              }
+            }
+          }
+        }
+      ],
+      "operation": {
+        "id": "7906c420-f8b8-4b0d-8df6-fd27b29ed007",
+        "title": "GitHubStatusChange",
+        "description": "TODO",
+        "body": "subscription GitHubStatusChange($login: String!) {\n  poll(\n    schedule: {every: {minutes: 1}}\n    onlyTriggerWhenPayloadChanged: true\n    webhookUrl: \"https://websmee.com/hook/studio-test\"\n  ) {\n    query {\n      gitHub {\n        user(login: $login) {\n          status {\n            message\n          }\n        }\n      }\n    }\n  }\n}",
+        "kind": 2,
+        "services": [
+          "github"
+        ]
+      },
+      "dependencyRequestIds": []
+    },
+    {
+      "id": "Play",
+      "variableDependencies": [
+        {
+          "name": "positionMs",
+          "dependency": {
+            "TAG": 0,
+            "_0": {
+              "functionFromScript": "INITIAL_UNKNOWN",
+              "ifMissing": "SKIP",
+              "ifList": "FIRST",
+              "fromRequestIds": [
+                "GitHubStatusChange"
+              ],
+              "name": "positionMs"
+            }
+          }
+        },
+        {
+          "name": "trackId",
+          "dependency": {
+            "TAG": 0,
+            "_0": {
+              "functionFromScript": "INITIAL_UNKNOWN",
+              "ifMissing": "ERROR",
+              "ifList": "FIRST",
+              "fromRequestIds": [
+                "GitHubStatusChange"
+              ],
+              "name": "trackId"
+            }
+          }
+        }
+      ],
+      "operation": {
+        "id": "e5f6abcc-3d03-4bc3-b724-d76b8971697b",
+        "title": "Play",
+        "description": "TODO",
+        "body": "mutation Play($positionMs: Int, $trackId: String!) {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: $positionMs}) {\n      player {\n        isPlaying\n        progressMs\n      }\n    }\n  }\n}",
+        "kind": 1,
+        "services": [
+          "spotify"
+        ]
+      },
+      "dependencyRequestIds": [
+        "Search",
+        "GitHubStatusChange"
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "id": "5655cb51-5391-4a21-804d-d6963a016029",
+      "title": "Search",
+      "description": "TODO",
+      "body": "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+      "kind": 0,
+      "services": [
+        "spotify"
+      ]
+    },
+    {
+      "id": "efda338e-68be-47ba-b279-cb3e6f8e81db",
+      "title": "Player",
+      "description": "TODO",
+      "body": "fragment Player on SpotifyPlayer {\n  timestamp\n  progressMs\n  isPlaying\n  currentlyPlayingType\n  repeatState\n  shuffleState\n  item {\n    id\n    name\n  }\n}",
+      "kind": 3,
+      "services": [
+        "spotify"
+      ]
+    },
+    {
+      "id": "e5f6abcc-3d03-4bc3-b724-d76b8971697b",
+      "title": "Play",
+      "description": "TODO",
+      "body": "mutation Play($positionMs: Int, $trackId: String!) {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: $positionMs}) {\n      player {\n        isPlaying\n        progressMs\n      }\n    }\n  }\n}",
+      "kind": 1,
+      "services": [
+        "spotify"
+      ]
+    },
+    {
+      "id": "7906c420-f8b8-4b0d-8df6-fd27b29ed007",
+      "title": "GitHubStatusChange",
+      "description": "TODO",
+      "body": "subscription GitHubStatusChange($login: String!) {\n  poll(\n    schedule: {every: {minutes: 1}}\n    onlyTriggerWhenPayloadChanged: true\n    webhookUrl: \"https://websmee.com/hook/studio-test\"\n  ) {\n    query {\n      gitHub {\n        user(login: $login) {\n          status {\n            message\n          }\n        }\n      }\n    }\n  }\n}",
+      "kind": 2,
+      "services": [
+        "github"
+      ]
+    }
+  ]
+};
+}
+
 var target = "mutation ExecuteChainMutation(\n  $webhookUrl: JSON!\n  $chain: OneGraphQueryChainInput!\n  $sheetId: JSON!\n) {\n  oneGraph {\n    executeChain(\n      input: {\n        requests: [\n          {\n            id: \"SlackReactionSubscription\"\n            operationName: \"SlackReactionSubscription\"\n            variables: [\n              { name: \"webhookUrl\", value: $webhookUrl }\n            ]\n          }\n          {\n            id: \"AddToDocMutation\"\n            operationName: \"AddToDocMutation\"\n            argumentDependencies: {\n              name: \"row\"\n              ifList: ALL\n              fromRequestIds: [\"SlackReactionSubscription\"]\n              functionFromScript: \"getRow\"\n              ifMissing: SKIP\n            }\n            variables: { name: \"sheetId\", value: $sheetId }\n          }\n        ]\n        script: \"const a = true;\"\n      }\n    ) {\n      results {\n        request {\n          id\n        }\n        result\n        argumentDependencies {\n          name\n          returnValues\n          logs {\n            level\n            body\n          }\n          name\n        }\n      }\n    }\n  }\n}\n\nmutation AddToDocMutation(\n  $sheetId: String!\n  $row: [String!]!\n) {\n  google {\n    sheets {\n      appendValues(\n        id: $sheetId\n        valueInputOption: \"USER_ENTERED\"\n        majorDimenson: \"ROWS\"\n        range: \"'Raw Data'!A1\"\n        values: [$row]\n      ) {\n        updates {\n          spreadsheetId\n          updatedRange\n          updatedCells\n          updatedData {\n            values\n          }\n        }\n      }\n    }\n  }\n}\n\nsubscription SlackReactionSubscription(\n  $webhookUrl: String!\n) {\n  slack(webhookUrl: $webhookUrl) {\n    reactionAddedEvent {\n      eventTime\n      event {\n        user {\n          id\n          name\n        }\n        eventTs\n        reaction\n        item {\n          channel {\n            name\n          }\n          message {\n            permaLink\n            user {\n              id\n              name\n            }\n            text\n            ts\n          }\n        }\n      }\n    }\n  }\n}";
+
+var chain = emptyChain;
 
 export {
   stringOfIfMissing ,
@@ -601,6 +865,7 @@ export {
   req6 ,
   chain2 ,
   _chain ,
+  emptyChain ,
   chain ,
   compileAsObj ,
   requestScriptNames ,
@@ -609,6 +874,9 @@ export {
   saveToLocalStorage ,
   loadFromLocalStorage ,
   servicesRequired ,
+  CircularDependencyDetected ,
+  toposortRequests ,
+  devJsonChain ,
   
 }
 /* addToDocMutation Not a pure module */

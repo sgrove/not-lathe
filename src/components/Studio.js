@@ -21,7 +21,7 @@ function Studio(Props) {
                         
                       }), "> Workspace")), React.createElement(ChainEditor.make, {
                   schema: schema,
-                  initialChain: Chain.chain,
+                  initialChain: Chain.emptyChain,
                   config: config
                 }));
 }

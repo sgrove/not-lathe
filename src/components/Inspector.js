@@ -1099,8 +1099,12 @@ function Inspector$Nothing(Props) {
                       }), requests) : null, React.createElement(Comps.Header.make, {
                   children: "Internal Debug info"
                 }), React.createElement("pre", {
-                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll"
-                }, JSON.stringify(chain, null, 2)));
+                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
+                }, JSON.stringify(chain, null, 2)), React.createElement(Comps.Header.make, {
+                  children: "Compiled Executable Chain"
+                }), React.createElement("pre", {
+                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
+                }, JSON.stringify(Chain.compileOperationDoc(internallyPatchChain(chain)), null, 2)));
 }
 
 var Nothing = {
