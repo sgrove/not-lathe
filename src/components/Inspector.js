@@ -246,6 +246,73 @@ function remoteChainCalls(appId, chainId, chain) {
           })).join(", ");
   var curl = "curl -X POST \"https://serve.onegraph.com/graphql?app_id=" + appId + "\" --data '{\"doc_id\": \"" + chainId + "\", \"operationName\": \"" + targetChain.operationName + "\", \"variables\": {" + freeVariables + "}}'";
   var $$fetch = "await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  {\n    method: \"POST\",\n    \"Content-Type\": \"application/json\",\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + freeVariables + "}\n      }\n    )\n  }\n)";
+  var htmlInputs = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+            var key = exposed.exposedName;
+            var _other = exposed.upstreamType;
+            var exit = 0;
+            switch (_other) {
+              case "Float" :
+              case "Float!" :
+                  exit = 3;
+                  break;
+              case "Int" :
+              case "Int!" :
+                  exit = 2;
+                  break;
+              case "String" :
+              case "String!" :
+                  exit = 1;
+                  break;
+              default:
+                return "";
+            }
+            switch (exit) {
+              case 1 :
+                  return "\n  <label>\n    " + key + "\n    <input type=\"text\" name=\"" + key + "\">\n  </label>";
+              case 2 :
+                  return "\n  <label>\n    " + key + "\n    <input type=\"number\" name=\"" + key + "\" step=1>\n  </label>";
+              case 3 :
+                  return "\n  <label>\n    " + key + "\n    <input type=\"number\" name=\"" + key + "\" step=0.1>\n  </label>";
+              
+            }
+          })).join("\n");
+  var netlifyHtml = "<form class=\"" + chain.name + "-form\" action=\"/.netlify/functions/" + chain.name + "\" method=\"POST\">" + htmlInputs + "\n  <button class=\"button\" type=\"submit\">Say hello!</button>\n</form>";
+  var netlifyVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+            var key = exposed.exposedName;
+            var _other = exposed.upstreamType;
+            var coerce;
+            switch (_other) {
+              case "Boolean" :
+              case "Boolean!" :
+                  coerce = "params[\"" + key + "\"]?.trim() === \"true\"";
+                  break;
+              case "Float" :
+              case "Float!" :
+                  coerce = "parseFloat(params[\"" + key + "\"])";
+                  break;
+              case "Int" :
+              case "Int!" :
+                  coerce = "parseInt(params[\"" + key + "\"])";
+                  break;
+              case "JSON" :
+              case "JSON!" :
+                  coerce = "JSON.parse(params[\"" + key + "\"])";
+                  break;
+              case "String" :
+              case "String!" :
+                  coerce = "params[\"" + key + "\"]";
+                  break;
+              default:
+                coerce = "params[\"" + key + "\"]";
+            }
+            return "const " + key + " = " + coerce;
+          })).join("\n\t");
+  var netlifyVariablesObject = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+            var key = exposed.exposedName;
+            return "\"" + key + "\": " + key;
+          })).join(", ");
+  var netlifyScript = "// ./functions/" + chain.name + ".js\nconst fetch = require(\"node-fetch\");\nconst querystring = require(\"querystring\");\n\nexports.handler = async (event, context) => {\n  // Only allow POST\n  if (event.httpMethod !== \"POST\") {\n    return { statusCode: 405, body: \"Method Not Allowed\" };\n  }\n\n  // When the method is POST, the name will no longer be in the event’s\n  // queryStringParameters – it’ll be in the event body encoded as a query string\n  const params = querystring.parse(event.body);\n  " + netlifyVariables + "\n\n  // Execute chain\n  await fetch(\n    \"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  {\n    method: \"POST\",\n    \"Content-Type\": \"application/json\",\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + netlifyVariablesObject + "}\n      }\n    )\n  })\n\n  return {\n    statusCode: 200,\n    body: \"Finished executing chain!\",\n  };\n};\n";
+  var netlify = netlifyHtml + "\n\n" + netlifyScript;
   var scriptKitArgs = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
             var key = exposed.exposedName;
             var _other = exposed.upstreamType;
@@ -280,7 +347,8 @@ function remoteChainCalls(appId, chainId, chain) {
   return {
           fetch: $$fetch,
           curl: curl,
-          scriptKit: scriptKit
+          scriptKit: scriptKit,
+          netlify: netlify
         };
 }
 
@@ -1061,9 +1129,7 @@ function Inspector$Nothing(Props) {
                                 })
                             }, "Delete")));
         }));
-  return React.createElement(React.Fragment, undefined, form, authButtons, React.createElement("pre", {
-                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
-                }, JSON.stringify(formVariables, null, 2)), isChainViable ? React.createElement(React.Fragment, undefined, React.createElement("button", {
+  return React.createElement(React.Fragment, undefined, form, authButtons, isChainViable ? React.createElement(React.Fragment, undefined, React.createElement("button", {
                         className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
                         type: "button",
                         onClick: (function (param) {
@@ -1100,6 +1166,9 @@ function Inspector$Nothing(Props) {
                                           case "form" :
                                               value = "http://localhost:3003/form?form_id=" + chainId;
                                               break;
+                                          case "netlify" :
+                                              value = remoteChainCalls$1.netlify;
+                                              break;
                                           case "scriptkit" :
                                               value = remoteChainCalls$1.scriptKit;
                                               break;
@@ -1120,19 +1189,13 @@ function Inspector$Nothing(Props) {
                                       }, "Copy fetch call"), React.createElement("option", {
                                         value: "curl"
                                       }, "Copy cURL call"), React.createElement("option", {
+                                        value: "netlify"
+                                      }, "Copy Netlify function usage"), React.createElement("option", {
                                         value: "scriptkit"
                                       }, "Copy ScriptKit usage"));
                       })), null), requests.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
                         children: "Chain Requests"
-                      }), requests) : null, React.createElement(Comps.Header.make, {
-                  children: "Internal Debug info"
-                }), React.createElement("pre", {
-                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
-                }, JSON.stringify(chain, null, 2)), React.createElement(Comps.Header.make, {
-                  children: "Compiled Executable Chain"
-                }), React.createElement("pre", {
-                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
-                }, JSON.stringify(Chain.compileOperationDoc(internallyPatchChain(chain)), null, 2)));
+                      }), requests) : null);
 }
 
 var Nothing = {

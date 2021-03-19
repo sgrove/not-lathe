@@ -567,7 +567,7 @@ export function makeVariablesForSetSlackStatus(
 }
 
 let emptyChain = {
-  name: "main",
+  name: "hello_onegraph_its_netlify",
   script: ``,
   scriptDependencies: [],
   requests: [],

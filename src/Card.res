@@ -1607,7 +1607,7 @@ query AboutMe {
     kind: Query,
   },
   {
-    title: "Search",
+    title: "FullPlayer",
     id: "ac28feb9-dbed-4116-afb1-d9bce22a8629"->Uuid.parseExn,
     contributedBy: None,
     services: ["spotify"],
@@ -1714,13 +1714,43 @@ fragment Player on SpotifyPlayer {
     kind: Query,
   },
   {
-    title: "SpotifyWinWinWin",
+    title: "Search",
+    id: "ac28feb9-dbed-4116-afb1-d9bce22a8629"->Uuid.parseExn,
+    contributedBy: None,
+    services: ["spotify"],
+    description: "Search for matching Spotify tracks (songs) with the GraphQL operation `Search`",
+    body: "query Search($query: String!) {
+  spotify {
+    search(data: { query: $query }) {
+      tracks {
+        name
+        id
+        album {
+          name
+          id
+          images {
+            height
+            url
+            width
+          }
+          href
+        }
+        href
+      }
+    }
+  }
+}
+",
+    kind: Query,
+  },
+  {
+    title: "SpotifyPlayTrack",
     id: "5be36d92-3012-411e-861e-fb51640482e0"->Uuid.parseExn,
     contributedBy: Some("@sgrove"),
     services: ["spotify"],
     description: "Get pumped at GraphQL Asia!
 ",
-    body: `mutation SpotifyWinWinWin($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {
+    body: `mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {
   spotify {
     playTrack(
       input: {
@@ -1941,6 +1971,30 @@ Once you've made a custom GitHub app, set the client id/secret for it in your On
         bio
         email
       }
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "PostSimpleMarkdownSlackMessage",
+    id: "cfeff87d-486a-445d-b388-a620e51810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["github"],
+    description: "TODO",
+    body: "mutation PostSimpleMarkdownSlackMessage(
+  $channel: String!
+  $text: String!
+) {
+  slack {
+    postMessage(
+      data: {
+        channel: $channel
+        markdown: true
+        text: $text
+      }
+    ) {
+      ok
     }
   }
 }",

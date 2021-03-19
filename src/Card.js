@@ -566,7 +566,7 @@ var blocks = [
   },
   {
     id: Uuid.parseExn("ac28feb9-dbed-4116-afb1-d9bce22a8629"),
-    title: "Search",
+    title: "FullPlayer",
     description: "Control your Spotify player completely from GraphQL!\n\n- Find the currently logged-in Spotify user with `AboutMe`\n- Search for matching Spotify tracks (songs) with the GraphQL operation `Search`\n- Use the mutations (`Resume`/`Pause`/`Next`/`Previous`/`Play`) to control the Spotify player\n",
     body: "query Search($query: String!) {\n  spotify {\n    search(data: { query: $query }) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}\n\n## Find some information about the currently logged-in\n## Spotify user.\nquery AboutMe {\n  me {\n    spotify {\n      birthdate\n      country\n      displayName\n      email\n      href\n      id\n      images {\n        height\n        url\n        width\n      }\n      product\n      type\n      uri\n    }\n  }\n}\n\n## Note that by default this will affect the\n## currently active device. If you get an error,\n## either specify `deviceId`, or start playing\n## a song on any of your Spotify devices.\nmutation Pause {\n  __typename\n  spotify {\n    pausePlayer {\n      player {\n        ...Player\n      }\n    }\n  }\n}\n\nmutation Resume {\n  __typename\n  spotify {\n    skipNextTrack {\n      player {\n        ...Player\n      }\n    }\n  }\n}\n\nmutation Next {\n  __typename\n  spotify {\n    skipPreviousTrack {\n      player {\n        ...Player\n      }\n    }\n  }\n}\n\nfragment Player on SpotifyPlayer {\n  timestamp\n  progressMs\n  isPlaying\n  currentlyPlayingType\n  repeatState\n  shuffleState\n  item {\n    id\n    name\n  }\n}",
     kind: /* Query */0,
@@ -574,10 +574,19 @@ var blocks = [
     services: ["spotify"]
   },
   {
+    id: Uuid.parseExn("ac28feb9-dbed-4116-afb1-d9bce22a8629"),
+    title: "Search",
+    description: "Search for matching Spotify tracks (songs) with the GraphQL operation `Search`",
+    body: "query Search($query: String!) {\n  spotify {\n    search(data: { query: $query }) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}\n",
+    kind: /* Query */0,
+    contributedBy: undefined,
+    services: ["spotify"]
+  },
+  {
     id: Uuid.parseExn("5be36d92-3012-411e-861e-fb51640482e0"),
-    title: "SpotifyWinWinWin",
+    title: "SpotifyPlayTrack",
     description: "Get pumped at GraphQL Asia!\n",
-    body: "mutation SpotifyWinWinWin($trackId: String = \"12PNcnMsjsZ3eHm62t8hiy\") {\n  spotify {\n    playTrack(\n      input: {\n        trackIds: [$trackId]\n        positionMs: 69500\n      }\n    ) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}",
+    body: "mutation SpotifyPlayTrack($trackId: String = \"12PNcnMsjsZ3eHm62t8hiy\") {\n  spotify {\n    playTrack(\n      input: {\n        trackIds: [$trackId]\n        positionMs: 69500\n      }\n    ) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}",
     kind: /* Mutation */1,
     contributedBy: "@sgrove",
     services: ["spotify"]
@@ -650,6 +659,15 @@ var blocks = [
     title: "UpdateGitHubUserProfile",
     description: "Updates the currently authenticated GitHub user's profile. To run this, you'll need to either use a personal access token, or you'll need to make a custom GitHub app that requests the `user` permission. \n\nOnce you've made a custom GitHub app, set the client id/secret for it in your OneGraph dashboard, authenticate a user, and run this mutation!\n",
     body: "mutation UpdateGitHubUserProfile(\n  $hireable: Boolean\n  $name: String\n  $twitterUsername: String\n  $bio: String\n) {\n  gitHub {\n    # Note that you'll need a custom GitHub app\n    # with the `user` permission requested in\n    # order to update a user's profile\n    updateAuthenticatedUser_oneGraph(\n      input: {\n        bio: $bio\n        hireable: $hireable\n        name: $name\n        twitterUsername: $twitterUsername\n      }\n    ) {\n      updatedUser {\n        bio\n        email\n      }\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["github"]
+  },
+  {
+    id: Uuid.parseExn("cfeff87d-486a-445d-b388-a620e51810ea"),
+    title: "PostSimpleMarkdownSlackMessage",
+    description: "TODO",
+    body: "mutation PostSimpleMarkdownSlackMessage(\n  $channel: String!\n  $text: String!\n) {\n  slack {\n    postMessage(\n      data: {\n        channel: $channel\n        markdown: true\n        text: $text\n      }\n    ) {\n      ok\n    }\n  }\n}",
     kind: /* Mutation */1,
     contributedBy: "@sgrove",
     services: ["github"]

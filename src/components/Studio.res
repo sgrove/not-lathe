@@ -17,6 +17,7 @@ let make = (~schema, ~config) => {
     <nav className="p-2 bg-black text-white">
       {navButton(~onClick=_ => (), "OneGraph"->string)}
       {navButton(~onClick=_ => (), "> Workspace"->string)}
+      {navButton(~onClick=_ => (), <strong> {"> hello_onegraph_its_netlify"->string} </strong>)}
     </nav>
     <ChainEditor schema initialChain config />
   </div>

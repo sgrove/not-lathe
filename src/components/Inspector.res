@@ -45,6 +45,7 @@ type remoteChainCalls = {
   fetch: string,
   curl: string,
   scriptKit: string,
+  netlify: string,
 }
 
 type mockRequestValueVariable = {
@@ -302,6 +303,119 @@ let remoteChainCalls = (~appId, ~chainId, chain: Chain.t) => {
   }
 )`
 
+  let htmlInputs =
+    targetChain.exposedVariables
+    ->Belt.Array.map(exposed => {
+      let key = exposed.exposedName
+      let html = switch exposed.upstreamType {
+      | "String"
+      | "String!" =>
+        `
+  <label>
+    ${key}
+    <input type="text" name="${key}">
+  </label>`
+      | "Int"
+      | "Int!" =>
+        `
+  <label>
+    ${key}
+    <input type="number" name="${key}" step=1>
+  </label>`
+      | "Float"
+      | "Float!" =>
+        `
+  <label>
+    ${key}
+    <input type="number" name="${key}" step=0.1>
+  </label>`
+      | _other => ""
+      }
+
+      html
+    })
+    ->Js.Array2.joinWith("\n")
+
+  let netlifyHtml = j`<form class="${chain.name}-form" action="/.netlify/functions/${chain.name}" method="POST">${htmlInputs}
+  <button class="button" type="submit">Say hello!</button>
+</form>`
+
+  let netlifyVariables =
+    targetChain.exposedVariables
+    ->Belt.Array.map(exposed => {
+      let key = exposed.exposedName
+      let coerce = switch exposed.upstreamType {
+      | "String"
+      | "String!" =>
+        j`params["${key}"]`
+      | "Int"
+      | "Int!" =>
+        j`parseInt(params["${key}"])`
+      | "Float"
+      | "Float!" =>
+        j`parseFloat(params["${key}"])`
+      | "Boolean"
+      | "Boolean!" =>
+        j`params["${key}"]?.trim() === "true"`
+      | "JSON"
+      | "JSON!" =>
+        j`JSON.parse(params["${key}"])`
+      | _other => j`params["${key}"]`
+      }
+
+      j`const ${key} = ${coerce}`
+    })
+    ->Js.Array2.joinWith("\n\t")
+
+  let netlifyVariablesObject =
+    targetChain.exposedVariables
+    ->Belt.Array.map(exposed => {
+      let key = exposed.exposedName
+
+      j`"${key}": ${key}`
+    })
+    ->Js.Array2.joinWith(", ")
+
+  let netlifyScript = j`// ./functions/${chain.name}.js
+const fetch = require("node-fetch");
+const querystring = require("querystring");
+
+exports.handler = async (event, context) => {
+  // Only allow POST
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
+  // When the method is POST, the name will no longer be in the event’s
+  // queryStringParameters – it’ll be in the event body encoded as a query string
+  const params = querystring.parse(event.body);
+  ${netlifyVariables}
+
+  // Execute chain
+  await fetch(
+    "https://serve.onegraph.com/graphql?app_id=${appId}",
+  {
+    method: "POST",
+    "Content-Type": "application/json",
+    body: JSON.stringify({
+      "doc_id": "${chainId}",
+      "operationName": "${targetChain.operationName}",
+      "variables": {${netlifyVariablesObject}}
+      }
+    )
+  })
+
+  return {
+    statusCode: 200,
+    body: "Finished executing chain!",
+  };
+};
+`
+
+  let netlify = j`${netlifyHtml}
+
+${netlifyScript}`
+
   let scriptKitArgs =
     targetChain.exposedVariables
     ->Belt.Array.map(exposed => {
@@ -356,6 +470,7 @@ console.log("Response: ", response.data)
     curl: curl,
     fetch: fetch,
     scriptKit: scriptKit,
+    netlify: netlify,
   }
 }
 
@@ -1223,36 +1338,38 @@ module Nothing = {
     <>
       {form}
       {authButtons->React.array}
-      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-        {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
-      </pre>
-      {isChainViable
-        ? <>
-            <button
-              type_="button"
-              onClick={_ => {
-                let variables = Some(formVariables->Obj.magic)
+      {
+        // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
+        //   {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+        // </pre>
+        isChainViable
+          ? <>
+              <button
+                type_="button"
+                onClick={_ => {
+                  let variables = Some(formVariables->Obj.magic)
 
-                transformAndExecuteChain(~variables)
-              }}
-              className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
-              {"Run chain"->React.string}
-            </button>
-            {chainExecutionResults
-            ->Belt.Option.map(chainExecutionResults =>
-              <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
-            )
-            ->Belt.Option.getWithDefault(React.null)}
-            <button
-              type_="button"
-              onClick={_ => {
-                onPersistChain()
-              }}
-              className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
-              {"Save Chain"->React.string}
-            </button>
-          </>
-        : {"Add some blocks to get started"->React.string}}
+                  transformAndExecuteChain(~variables)
+                }}
+                className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+                {"Run chain"->React.string}
+              </button>
+              {chainExecutionResults
+              ->Belt.Option.map(chainExecutionResults =>
+                <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
+              )
+              ->Belt.Option.getWithDefault(React.null)}
+              <button
+                type_="button"
+                onClick={_ => {
+                  onPersistChain()
+                }}
+                className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+                {"Save Chain"->React.string}
+              </button>
+            </>
+          : {"Add some blocks to get started"->React.string}
+      }
       {savedChainId
       ->Belt.Option.map(chainId => {
         <select
@@ -1269,6 +1386,7 @@ module Nothing = {
             | "form" => Some(j`http://localhost:3003/form?form_id=${chainId}`)
             | "fetch" => Some(remoteChainCalls.fetch)
             | "curl" => Some(remoteChainCalls.curl)
+            | "netlify" => Some(remoteChainCalls.netlify)
             | "scriptkit" => Some(remoteChainCalls.scriptKit)
             | _ => None
             }
@@ -1278,6 +1396,7 @@ module Nothing = {
           <option value={"form"}> {"Copy link to form"->React.string} </option>
           <option value={"fetch"}> {"Copy fetch call"->React.string} </option>
           <option value={"curl"}> {"Copy cURL call"->React.string} </option>
+          <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
           <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
         </select>
       })
@@ -1285,14 +1404,14 @@ module Nothing = {
       {requests->Belt.Array.length > 0
         ? <> <Comps.Header> {"Chain Requests"->React.string} </Comps.Header> {requests->array} </>
         : React.null}
-      <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
-      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-        {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
-      </pre>
-      <Comps.Header> {"Compiled Executable Chain"->React.string} </Comps.Header>
-      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-        {chain->transformChain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
-      </pre>
+      // <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
+      // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
+      //   {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+      // </pre>
+      // <Comps.Header> {"Compiled Executable Chain"->React.string} </Comps.Header>
+      // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
+      //   {chain->transformChain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+      // </pre>
     </>
   }
 }

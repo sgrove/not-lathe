@@ -136,6 +136,7 @@ function ChainEditor$BlockSearch(Props) {
                                     }))), React.createElement("input", {
                               className: "w-full rounded-md bg-gray-200 text-gray-700 leading-tight focus:outline-none py-2 px-2 border-0",
                               id: "search",
+                              spellCheck: false,
                               placeholder: "Search for GraphQL blocks",
                               type: "text",
                               onChange: (function ($$event) {

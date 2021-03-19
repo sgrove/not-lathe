@@ -641,6 +641,10 @@ export function GraphQLPreview({
   );
 }
 export function gatherFragmentDefinitions({ operationDoc }) {
+  if (!operationDoc || operationDoc === "") {
+    return [];
+  }
+
   const parsed = parse(operationDoc);
   const fragmentDefs = parsed.definitions.filter(
     (def) => def.kind === "FragmentDefinition"
@@ -1157,120 +1161,4 @@ export function gatherAllReferencedServices(schema, query) {
   });
 
   return [...referencedServices];
-}
-
-if (typeof window !== "undefined") {
-  window.mockOperationVariables = mockOperationVariables;
-  window.typeScriptForOperation = typeScriptForOperation;
-  window.gatherAllReferencedServices = gatherAllReferencedServices;
-  window.gatherAllReferencedTypes = gatherAllReferencedTypes;
-
-  window.o = parse(`mutation ExecuteChainMutation(
-    $webhookUrl: JSON!
-    $chain: OneGraphQueryChainInput!
-    $sheetId: JSON!
-  ) {
-    oneGraph {
-      executeChain(
-        input: {
-          requests: [
-            {
-              id: "SlackReactionSubscription"
-              operationName: "SlackReactionSubscription"
-              variables: [
-                { name: "webhookUrl", value: $webhookUrl }
-              ]
-            }
-            {
-              id: "AddToDocMutation"
-              operationName: "AddToDocMutation"
-              argumentDependencies: {
-                name: "row"
-                ifList: ALL
-                fromRequestIds: ["SlackReactionSubscription"]
-                functionFromScript: "getRow"
-                ifMissing: SKIP
-              }
-              variables: { name: "sheetId", value: $sheetId }
-            }
-          ]
-          script: "const a = true;"
-        }
-      ) {
-        results {
-          request {
-            id
-          }
-          result
-          argumentDependencies {
-            name
-            returnValues
-            logs {
-              level
-              body
-            }
-            name
-          }
-        }
-      }
-    }
-  }
-  
-  mutation AddToDocMutation(
-    $sheetId: String!
-    $row: [String!]!
-  ) {
-    google {
-      sheets {
-        appendValues(
-          id: $sheetId
-          valueInputOption: "USER_ENTERED"
-          majorDimenson: "ROWS"
-          range: "'Raw Data'!A1"
-          values: [$row]
-        ) {
-          updates {
-            spreadsheetId
-            updatedRange
-            updatedCells
-            updatedData {
-              values
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  subscription SlackReactionSubscription(
-    $webhookUrl: String!
-  ) {
-    slack(webhookUrl: $webhookUrl) {
-      reactionAddedEvent {
-        eventTime
-        event {
-          user {
-            id
-            name
-          }
-          eventTs
-          reaction
-          item {
-            channel {
-              name
-            }
-            message {
-              permaLink
-              user {
-                id
-                name
-              }
-              text
-              ts
-            }
-          }
-        }
-      }
-    }
-  }`);
 }

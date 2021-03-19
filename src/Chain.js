@@ -381,7 +381,7 @@ var emptyChain_requests = [];
 var emptyChain_blocks = [];
 
 var emptyChain = {
-  name: "main",
+  name: "hello_onegraph_its_netlify",
   script: emptyChain_script,
   scriptDependencies: emptyChain_scriptDependencies,
   requests: emptyChain_requests,

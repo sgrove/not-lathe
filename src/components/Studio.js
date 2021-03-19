@@ -26,7 +26,9 @@ function Studio(Props) {
                         
                       }), "OneGraph"), navButton((function (param) {
                         
-                      }), "> Workspace")), React.createElement(ChainEditor.make, {
+                      }), "> Workspace"), navButton((function (param) {
+                        
+                      }), React.createElement("strong", undefined, "> hello_onegraph_its_netlify"))), React.createElement(ChainEditor.make, {
                   schema: schema,
                   initialChain: Chain.emptyChain,
                   config: config
