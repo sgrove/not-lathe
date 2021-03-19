@@ -932,7 +932,7 @@ module Request = {
         chain.requests->Belt.Array.getBy(existingRequest => existingRequest.id == upstreamRequestId)
 
       upstreamRequest->Belt.Option.map(upstreamRequest => {
-        <article key={request.id} className="m-2">
+        <article key={request.id ++ upstreamRequest.id} className="m-2">
           <div
             className={"flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " ++ "rounded-sm"}>
             <span className="text-green-500 font-semibold text-sm font-mono">
@@ -951,6 +951,8 @@ module Request = {
         </article>
       })
     })
+
+    Js.log3("Upstream Requests: ", upstreamRequests->Belt.Array.length, upstreamRequests)
 
     let editor = React.useRef(None)
 
@@ -985,7 +987,18 @@ module Request = {
           formInputOptions(~labelClassname="underline pl-2 m-2 mt-0 mb-0", ()),
         )
       })
-      ->React.array
+
+    let form =
+      inputs->Belt.Array.length > 0
+        ? <form
+            onSubmit={event => {
+              event->ReactEvent.Form.preventDefault
+              event->ReactEvent.Form.stopPropagation
+              onExecuteRequest(~request, ~variables=formVariables)
+            }}>
+            {inputs->React.array} <button type_="submit"> {"Execute"->React.string} </button>
+          </form>
+        : React.null
 
     let missingAuthServices = cachedResult->Belt.Option.mapWithDefault([], results => {
       let services = OneGraphAuth.findMissingAuthServices(Some(results))
@@ -1062,7 +1075,7 @@ module Request = {
           }}>
           {"Execute block"->string} <Icons.Play className="inline-block ml-2" />
         </Comps.Header>
-        {inputs}
+        {form}
         {authButtons->array}
         <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
           {cachedResult
@@ -1210,6 +1223,9 @@ module Nothing = {
     <>
       {form}
       {authButtons->React.array}
+      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
+        {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+      </pre>
       {isChainViable
         ? <>
             <button
@@ -1325,37 +1341,39 @@ let make = (
         }}
       </nav>
     </div>
-    {switch inspected {
-    | Nothing(chain) =>
-      <Nothing
-        chain
-        schema
-        chainExecutionResults
-        onLogin
-        transformAndExecuteChain
-        onPersistChain
-        savedChainId
-        onDeleteRequest
-        onRequestInspected
-        oneGraphAuth
-      />
-    | Block(block) => <Block schema block onAddBlock />
-    | Request({request})
-    | RequestArgument({request}) =>
-      let cachedResult = requestValueCache->Js.Dict.get(request.id)
-      <Request
-        inspected
-        onRequestCodeInspected
-        chain
-        request
-        onChainUpdated
-        schema
-        cachedResult
-        onLogin
-        onExecuteRequest
-        requestValueCache
-        onDeleteEdge
-      />
-    }}
+    <div className="max-h-screen overflow-y-scroll">
+      {switch inspected {
+      | Nothing(chain) =>
+        <Nothing
+          chain
+          schema
+          chainExecutionResults
+          onLogin
+          transformAndExecuteChain
+          onPersistChain
+          savedChainId
+          onDeleteRequest
+          onRequestInspected
+          oneGraphAuth
+        />
+      | Block(block) => <Block schema block onAddBlock />
+      | Request({request})
+      | RequestArgument({request}) =>
+        let cachedResult = requestValueCache->Js.Dict.get(request.id)
+        <Request
+          inspected
+          onRequestCodeInspected
+          chain
+          request
+          onChainUpdated
+          schema
+          cachedResult
+          onLogin
+          onExecuteRequest
+          requestValueCache
+          onDeleteEdge
+        />
+      }}
+    </div>
   </div>
 }

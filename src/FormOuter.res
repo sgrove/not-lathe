@@ -14,9 +14,7 @@ module Inner = {
     })
 
     React.useEffect0(() => {
-      let oneGraphAuth = OneGraphAuth.create(
-        OneGraphAuth.createOptions(~appId=config.oneGraphAppId, ()),
-      )
+      let oneGraphAuth = OneGraphAuth.create(OneGraphAuth.createOptions(~appId=oneGraphAppId, ()))
 
       oneGraphAuth->Belt.Option.forEach(oneGraphAuth => {
         let promise = OneGraphRe.fetchOneGraph(

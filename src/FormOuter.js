@@ -10,6 +10,7 @@ import * as GraphQLJs from "./bindings/GraphQLJs.js";
 import Head from "next/head";
 import * as OneGraphRe from "./OneGraphRe.js";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
+import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as Router from "next/router";
 import * as OneGraphAuth from "./bindings/OneGraphAuth.js";
 import * as Mock from "@graphql-tools/mock";
@@ -23,15 +24,15 @@ function FormOuter$Inner(Props) {
                   _0: "Loading schema...",
                   [Symbol.for("name")]: "Loading"
                 },
-                oneGraphAuth: OneGraphAuth.create({
-                      appId: oneGraphAppId
-                    })
+                oneGraphAuth: undefined
               };
       });
   var setState = match[1];
-  var state = match[0];
   React.useEffect((function () {
-          Belt_Option.forEach(state.oneGraphAuth, (function (oneGraphAuth) {
+          var oneGraphAuth = OneGraphAuth.create({
+                appId: oneGraphAppId
+              });
+          Belt_Option.forEach(oneGraphAuth, (function (oneGraphAuth) {
                   var promise = OneGraphRe.fetchOneGraph(oneGraphAuth, Graphql.getIntrospectionQuery(), undefined, undefined);
                   GraphQLJs.install(undefined);
                   var __x = promise.then(function (result) {
@@ -57,8 +58,8 @@ function FormOuter$Inner(Props) {
                                         })));
                       });
                   __x.catch(function (error) {
-                        var msg = "Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/" + oneGraphAppId;
-                        return Promise.resolve(Curry._1(setState, (function (oldState) {
+                        var msg = "Error loading schema, check that CORS is allowed on https://onegraph.com/dashboard/app/" + oneGraphAuth.appId;
+                        return Promise.resolve(Curry._1(setState, (function (_oldState) {
                                           return {
                                                   schema: {
                                                     TAG: 1,
@@ -66,7 +67,7 @@ function FormOuter$Inner(Props) {
                                                     error: error,
                                                     [Symbol.for("name")]: "Dead"
                                                   },
-                                                  oneGraphAuth: oldState.oneGraphAuth
+                                                  oneGraphAuth: Caml_option.some(oneGraphAuth)
                                                 };
                                         })));
                       });
@@ -76,7 +77,7 @@ function FormOuter$Inner(Props) {
         }), []);
   var router = Router.useRouter();
   var chainId = Js_dict.get(router.query, "form_id");
-  var msg = state.schema;
+  var msg = match[0].schema;
   var tmp;
   switch (msg.TAG | 0) {
     case /* Loading */0 :

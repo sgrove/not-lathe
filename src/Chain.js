@@ -328,6 +328,8 @@ var req6 = {
   dependencyRequestIds: req6_dependencyRequestIds
 };
 
+var chain2_scriptDependencies = [];
+
 var chain2_requests = [
   req1,
   req2,
@@ -343,11 +345,14 @@ var chain2_blocks = [
 var chain2 = {
   name: "chain2",
   script: "export function getRow(result) {\n          const event = result.SlackReactionSubscription[0].data.slack.reactionAddedEvent.event;\n          const reaction = event.reaction;\n          if (reaction !== 'eyes' && reaction !== 'white_check_mark') {\n            return null;\n          }\n          return [\n            event.item.message.permaLink, // message_permalink\n            event.item.message.text || '', // message_text\n            `=DATEOFTIMESTAMP(${event.item.message.ts} * 1000)`, // message_ts\n            event.item.message.user.id || '', // message_user_id (we don't have this yet :/)\n            event.item.message.user.name || '', // message_user_name\n            reaction === 'eyes' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', // eyes_reaction_ts\n            reaction === 'eyes' ? event.user.id : '', // eyes_reaction_user_id\n            reaction === 'eyes' ? event.user.name : '', // eyes_reaction_user_name\n            reaction === 'white_check_mark' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', //completed_reaction_ts\n            reaction === 'white_check_mark' ? event.user.id : '', // completed_reaction_user_id\n            reaction === 'white_check_mark' ? event.user.name : '', // completed_reaction_user_name\n            event.item.channel.name // channel_name\n          ]\n        }",
+  scriptDependencies: chain2_scriptDependencies,
   requests: chain2_requests,
   blocks: chain2_blocks
 };
 
 var _chain_script = "import {\n  GitHubStatusInput,\n  GitHubStatusVariables,\n  SetSlackStatusInput,\n  SetSlackStatusVariables,\n} from 'oneGraphStudio';\n\nexport function makeVariablesForSetSlackStatus(\n  payload: SetSlackStatusInput\n): SetSlackStatusVariables {\n  let status = payload.GitHubStatus?.data?.gitHub?.user?.status?.message;\n\n  if (!status) {\n    return null;\n  }\n\n  return {\n    jsonBody: {\n      profile: {\n        status_text: status,\n      },\n    },\n  };\n}";
+
+var _chain_scriptDependencies = [];
 
 var _chain_requests = [
   req5,
@@ -362,11 +367,14 @@ var _chain_blocks = [
 var _chain = {
   name: "main",
   script: _chain_script,
+  scriptDependencies: _chain_scriptDependencies,
   requests: _chain_requests,
   blocks: _chain_blocks
 };
 
 var emptyChain_script = "";
+
+var emptyChain_scriptDependencies = [];
 
 var emptyChain_requests = [];
 
@@ -375,6 +383,7 @@ var emptyChain_blocks = [];
 var emptyChain = {
   name: "main",
   script: emptyChain_script,
+  scriptDependencies: emptyChain_scriptDependencies,
   requests: emptyChain_requests,
   blocks: emptyChain_blocks
 };
@@ -551,7 +560,10 @@ function compileOperationDoc(chain) {
             return makeRequest(request);
           }
         }));
-  var compiledString = "requests: [" + requests.join(",") + "],\n    script: \"\"\"\n" + chain.script + "\n\"\"\",\n  ";
+  var scriptDependencies = Belt_Array.map(chain.scriptDependencies, (function (param) {
+          return "{name: \"" + param.name + "\", version: \"" + param.version + "\"}";
+        }));
+  var compiledString = "requests: [" + requests.join(",") + "],\n    scriptDependencies: [" + scriptDependencies.join(",") + "],\n    script: \"\"\"\n" + chain.script + "\n\"\"\",\n  ";
   var operationVariables;
   if (exposedVariableNamesAndTypes.length !== 0) {
     var variableNames = Belt_Array.map(exposedVariableNamesAndTypes, (function (param) {
@@ -679,486 +691,6 @@ function toposortRequests(requests) {
   }
 }
 
-function devJsonChain(param) {
-  return {
-  "name": "main",
-  "script": "import {\n  CreateTreeInput,\n  CreateTreeVariables,\n  DefaultBranchRefInput,\n  DefaultBranchRefVariables,\n  FilesOnRefInput,\n  FilesOnRefVariables,\n  CreateCommitInput,\n  CreateCommitVariables,\n  CreateRefInput,\n  CreateRefVariables,\n  UpdateRefInput,\n  UpdateRefVariables,\n  UserInputInput,\n  UserInputVariables,\n} from 'oneGraphStudio';\n\nconst encoder = new TextEncoder();\n\nconst sha1 = (input) => {\n  return input;\n};\n\nconst computeGitHash = (source) =>\n  sha1('blob ' + encoder.encode(source).length + '\0' + source);\n\nexport function makeVariablesForCreateTree(\n  payload: CreateTreeInput\n): CreateTreeVariables {\n  let headRefTreeSha =\n    payload.DefaultBranchRef?.data?.gitHub?.repository?.defaultBranchRef?.target\n      ?.tree?.oid;\n\n  const treeJson = {\n    base_tree: headRefTreeSha,\n    tree: treeFiles,\n  };\n\n  return {};\n}\n\nexport function makeVariablesForDefaultBranchRef(\n  payload: DefaultBranchRefInput\n): DefaultBranchRefVariables {\n  return {};\n}\n\nexport function makeVariablesForFilesOnRef(\n  payload: FilesOnRefInput\n): FilesOnRefVariables {\n  return {};\n}\n\nexport function makeVariablesForCreateRepo(\n  payload: CreateRepoInput\n): CreateRepoVariables {\n  return {};\n}\n\nexport function makeVariablesForCreateCommit(\n  payload: CreateCommitInput\n): CreateCommitVariables {\n  const message = payload.UserInput?.data?.oneGraph?.message;\n  const newTreeSha = '1';\n  const headRefCommitSha = '1';\n\n  const commitJson = {\n    message: message,\n    tree: newTreeSha,\n    parents: [headRefCommitSha],\n  };\n\n  return { commitJson: commitJson };\n}\n\nexport function makeVariablesForCreateRef(\n  payload: CreateRefInput\n): CreateRefVariables {\n  return {};\n}\n\nexport function makeVariablesForUpdateRef(\n  payload: UpdateRefInput\n): UpdateRefVariables {\n  const jsonBody =\n    payload.CreateCommit?.data?.gitHub?.makeRestCall?.post?.jsonBody;\n  const commitRefId = jsonBody?.node_id;\n  const commitSha = jsonBody?.sha;\n  return {\n    refId: commitRefId,\n    sha: commitSha,\n  };\n}\n\nexport function makeVariablesForUserInput(\n  payload: UserInputInput\n): UserInputVariables {\n  return {};\n}\n\nexport function makeVariablesForAboutMe(\n  payload: AboutMeInput\n): AboutMeVariables {\n  return {};\n}\n",
-  "requests": [
-    {
-      "id": "CreateTree",
-      "variableDependencies": [
-        {
-          "name": "path",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "path",
-              "value": {
-                "TAG": 1,
-                "_0": "path"
-              }
-            }
-          }
-        },
-        {
-          "name": "treeJson",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "treeJson",
-              "value": {
-                "TAG": 1,
-                "_0": "treeJson"
-              }
-            }
-          }
-        }
-      ],
-      "operation": {
-        "id": "7dca56ce-7ea5-44c7-a7e1-c3a185f53e0e",
-        "title": "CreateTree",
-        "description": "TODO",
-        "body": "mutation CreateTree($path: String!, $treeJson: JSON!) {\n  gitHub {\n    makeRestCall {\n      post(\n        path: $path\n        jsonBody: $treeJson\n        contentType: \"application/json\"\n        accept: \"application/json\"\n      ) {\n        response {\n          statusCode\n        }\n        jsonBody\n      }\n    }\n  }\n}",
-        "kind": 1,
-        "services": [
-          "github"
-        ]
-      },
-      "dependencyRequestIds": [
-        "DefaultBranchRef"
-      ]
-    },
-    {
-      "id": "DefaultBranchRef",
-      "variableDependencies": [
-        {
-          "name": "owner",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "owner",
-              "value": {
-                "TAG": 1,
-                "_0": "owner"
-              }
-            }
-          }
-        },
-        {
-          "name": "name",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "name",
-              "value": {
-                "TAG": 1,
-                "_0": "name"
-              }
-            }
-          }
-        }
-      ],
-      "operation": {
-        "id": "4bac04c8-f918-4868-9a69-cded5a9a85d8",
-        "title": "DefaultBranchRef",
-        "description": "TODO",
-        "body": "query DefaultBranchRef($owner: String!, $name: String!) {\n  gitHub {\n    repository(name: $name, owner: $owner) {\n      id\n      defaultBranchRef {\n        ...GitHubRefFragment\n      }\n    }\n  }\n}",
-        "kind": 0,
-        "services": [
-          "github"
-        ]
-      },
-      "dependencyRequestIds": []
-    },
-    {
-      "id": "FilesOnRef",
-      "variableDependencies": [
-        {
-          "name": "owner",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "owner",
-              "value": {
-                "TAG": 1,
-                "_0": "owner"
-              }
-            }
-          }
-        },
-        {
-          "name": "name",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "name",
-              "value": {
-                "TAG": 1,
-                "_0": "name"
-              }
-            }
-          }
-        },
-        {
-          "name": "fullyQualifiedRefName",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "fullyQualifiedRefName",
-              "value": {
-                "TAG": 1,
-                "_0": "fullyQualifiedRefName"
-              }
-            }
-          }
-        }
-      ],
-      "operation": {
-        "id": "c0e9e88d-f6ac-4872-8687-ac9baa7f2110",
-        "title": "FilesOnRef",
-        "description": "TODO",
-        "body": "query FilesOnRef($owner: String!, $name: String!, $fullyQualifiedRefName: String!) {\n  gitHub {\n    repository(name: $name, owner: $owner) {\n      id\n      ref(qualifiedName: $fullyQualifiedRefName) {\n        ...GitHubRefFragment\n      }\n    }\n  }\n}",
-        "kind": 0,
-        "services": [
-          "github"
-        ]
-      },
-      "dependencyRequestIds": [
-        "DefaultBranchRef"
-      ]
-    },
-    {
-      "id": "CreateCommit",
-      "variableDependencies": [
-        {
-          "name": "path",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "path",
-              "value": {
-                "TAG": 1,
-                "_0": "path"
-              }
-            }
-          }
-        },
-        {
-          "name": "commitJson",
-          "dependency": {
-            "TAG": 0,
-            "_0": {
-              "functionFromScript": "INITIAL_UNKNOWN",
-              "ifMissing": "SKIP",
-              "ifList": "FIRST",
-              "fromRequestIds": [
-                "UserInput",
-                "CreateTree"
-              ],
-              "name": "commitJson"
-            }
-          }
-        }
-      ],
-      "operation": {
-        "id": "6bd45c77-3d51-47ad-91e1-12347f000567",
-        "title": "CreateCommit",
-        "description": "TODO",
-        "body": "mutation CreateCommit($path: String!, $commitJson: JSON!) {\n  gitHub {\n    makeRestCall {\n      post(path: $path, jsonBody: $commitJson) {\n        response {\n          statusCode\n        }\n        jsonBody\n      }\n    }\n  }\n}",
-        "kind": 1,
-        "services": [
-          "github"
-        ]
-      },
-      "dependencyRequestIds": [
-        "UserInput",
-        "CreateTree"
-      ]
-    },
-    {
-      "id": "CreateRef",
-      "variableDependencies": [
-        {
-          "name": "repositoryId",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "repositoryId",
-              "value": {
-                "TAG": 1,
-                "_0": "repositoryId"
-              }
-            }
-          }
-        },
-        {
-          "name": "name",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "name",
-              "value": {
-                "TAG": 1,
-                "_0": "name"
-              }
-            }
-          }
-        },
-        {
-          "name": "oid",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "oid",
-              "value": {
-                "TAG": 1,
-                "_0": "oid"
-              }
-            }
-          }
-        }
-      ],
-      "operation": {
-        "id": "632ff2a2-bc7b-49ea-b1cf-40c8431921e0",
-        "title": "CreateRef",
-        "description": "TODO",
-        "body": "mutation CreateRef($repositoryId: ID!, $name: String!, $oid: GitHubGitObjectID!) {\n  gitHub {\n    createRef(input: {repositoryId: $repositoryId, name: $name, oid: $oid}) {\n      ref {\n        ...GitHubRefFragment\n      }\n    }\n  }\n}",
-        "kind": 1,
-        "services": [
-          "github"
-        ]
-      },
-      "dependencyRequestIds": [
-        "FilesOnRef",
-        "DefaultBranchRef"
-      ]
-    },
-    {
-      "id": "UpdateRef",
-      "variableDependencies": [
-        {
-          "name": "refId",
-          "dependency": {
-            "TAG": 0,
-            "_0": {
-              "functionFromScript": "INITIAL_UNKNOWN",
-              "ifMissing": "ERROR",
-              "ifList": "FIRST",
-              "fromRequestIds": [],
-              "name": "refId"
-            }
-          }
-        },
-        {
-          "name": "sha",
-          "dependency": {
-            "TAG": 0,
-            "_0": {
-              "functionFromScript": "INITIAL_UNKNOWN",
-              "ifMissing": "ERROR",
-              "ifList": "FIRST",
-              "fromRequestIds": [],
-              "name": "sha"
-            }
-          }
-        }
-      ],
-      "operation": {
-        "id": "2f4d4266-db84-435b-bdf6-43e33224f4ed",
-        "title": "UpdateRef",
-        "description": "TODO",
-        "body": "mutation UpdateRef($refId: ID!, $sha: GitHubGitObjectID!) {\n  gitHub {\n    updateRef(input: {refId: $refId, oid: $sha}) {\n      clientMutationId\n      ref {\n        name\n        id\n        target {\n          oid\n          id\n        }\n      }\n    }\n  }\n}",
-        "kind": 1,
-        "services": [
-          "github"
-        ]
-      },
-      "dependencyRequestIds": [
-        "CreateRef",
-        "DefaultBranchRef",
-        "CreateCommit"
-      ]
-    },
-    {
-      "id": "UserInput",
-      "variableDependencies": [
-        {
-          "name": "owner",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "owner",
-              "value": {
-                "TAG": 1,
-                "_0": "owner"
-              }
-            }
-          }
-        },
-        {
-          "name": "name",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "name",
-              "value": {
-                "TAG": 1,
-                "_0": "name"
-              }
-            }
-          }
-        },
-        {
-          "name": "branch",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "branch",
-              "value": {
-                "TAG": 1,
-                "_0": "branch"
-              }
-            }
-          }
-        },
-        {
-          "name": "message",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "message",
-              "value": {
-                "TAG": 1,
-                "_0": "message"
-              }
-            }
-          }
-        },
-        {
-          "name": "treeFiles",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "treeFiles",
-              "value": {
-                "TAG": 1,
-                "_0": "treeFiles"
-              }
-            }
-          }
-        },
-        {
-          "name": "acceptOverrides",
-          "dependency": {
-            "TAG": 1,
-            "_0": {
-              "name": "acceptOverrides",
-              "value": {
-                "TAG": 1,
-                "_0": "acceptOverrides"
-              }
-            }
-          }
-        }
-      ],
-      "operation": {
-        "id": "9ea3b1ac-ebdd-4401-853c-29bb9607a1b8",
-        "title": "UserInput",
-        "description": "TODO",
-        "body": "query UserInput($owner: String!, $name: String!, $branch: String!, $message: String!, $treeFiles: JSON!, $acceptOverrides: Boolean!) {\n  oneGraph {\n    owner: identity(input: $owner)\n    name: identity(input: $name)\n    branch: identity(input: $branch)\n    message: identity(input: $message)\n    treeFiles: identity(input: $treeFiles)\n    treeFiles: identity(input: $acceptOverrides)\n  }\n}",
-        "kind": 0,
-        "services": [
-          "onegraph"
-        ]
-      },
-      "dependencyRequestIds": []
-    }
-  ],
-  "blocks": [
-    {
-      "id": "7dca56ce-7ea5-44c7-a7e1-c3a185f53e0e",
-      "title": "CreateTree",
-      "description": "TODO",
-      "body": "mutation CreateTree($path: String!, $treeJson: JSON!) {\n  gitHub {\n    makeRestCall {\n      post(\n        path: $path\n        jsonBody: $treeJson\n        contentType: \"application/json\"\n        accept: \"application/json\"\n      ) {\n        response {\n          statusCode\n        }\n        jsonBody\n      }\n    }\n  }\n}",
-      "kind": 1,
-      "services": [
-        "github"
-      ]
-    },
-    {
-      "id": "f19222f6-90e8-4650-882b-1de94a6d4a21",
-      "title": "GitHubRefFragment",
-      "description": "TODO",
-      "body": "fragment GitHubRefFragment on GitHubRef {\n  id\n  name\n  target {\n    id\n    oid\n    ... on GitHubCommit {\n      history(first: 1) {\n        edges {\n          node {\n            tree {\n              entries {\n                name\n                path\n                oid\n                object {\n                  ... on GitHubTree {\n                    id\n                    entries {\n                      name\n                      path\n                      oid\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n      tree {\n        id\n        oid\n      }\n    }\n  }\n}",
-      "kind": 3,
-      "services": [
-        "github"
-      ]
-    },
-    {
-      "id": "4bac04c8-f918-4868-9a69-cded5a9a85d8",
-      "title": "DefaultBranchRef",
-      "description": "TODO",
-      "body": "query DefaultBranchRef($owner: String!, $name: String!) {\n  gitHub {\n    repository(name: $name, owner: $owner) {\n      id\n      defaultBranchRef {\n        ...GitHubRefFragment\n      }\n    }\n  }\n}",
-      "kind": 0,
-      "services": [
-        "github"
-      ]
-    },
-    {
-      "id": "c0e9e88d-f6ac-4872-8687-ac9baa7f2110",
-      "title": "FilesOnRef",
-      "description": "TODO",
-      "body": "query FilesOnRef($owner: String!, $name: String!, $fullyQualifiedRefName: String!) {\n  gitHub {\n    repository(name: $name, owner: $owner) {\n      id\n      ref(qualifiedName: $fullyQualifiedRefName) {\n        ...GitHubRefFragment\n      }\n    }\n  }\n}",
-      "kind": 0,
-      "services": [
-        "github"
-      ]
-    },
-    {
-      "id": "6bd45c77-3d51-47ad-91e1-12347f000567",
-      "title": "CreateCommit",
-      "description": "TODO",
-      "body": "mutation CreateCommit($path: String!, $commitJson: JSON!) {\n  gitHub {\n    makeRestCall {\n      post(path: $path, jsonBody: $commitJson) {\n        response {\n          statusCode\n        }\n        jsonBody\n      }\n    }\n  }\n}",
-      "kind": 1,
-      "services": [
-        "github"
-      ]
-    },
-    {
-      "id": "632ff2a2-bc7b-49ea-b1cf-40c8431921e0",
-      "title": "CreateRef",
-      "description": "TODO",
-      "body": "mutation CreateRef($repositoryId: ID!, $name: String!, $oid: GitHubGitObjectID!) {\n  gitHub {\n    createRef(input: {repositoryId: $repositoryId, name: $name, oid: $oid}) {\n      ref {\n        ...GitHubRefFragment\n      }\n    }\n  }\n}",
-      "kind": 1,
-      "services": [
-        "github"
-      ]
-    },
-    {
-      "id": "2f4d4266-db84-435b-bdf6-43e33224f4ed",
-      "title": "UpdateRef",
-      "description": "TODO",
-      "body": "mutation UpdateRef($refId: ID!, $sha: GitHubGitObjectID!) {\n  gitHub {\n    updateRef(input: {refId: $refId, oid: $sha}) {\n      clientMutationId\n      ref {\n        name\n        id\n        target {\n          oid\n          id\n        }\n      }\n    }\n  }\n}",
-      "kind": 1,
-      "services": [
-        "github"
-      ]
-    },
-    {
-      "id": "9ea3b1ac-ebdd-4401-853c-29bb9607a1b8",
-      "title": "UserInput",
-      "description": "TODO",
-      "body": "query UserInput($owner: String!, $name: String!, $branch: String!, $message: String!, $treeFiles: JSON!, $acceptOverrides: Boolean!) {\n  oneGraph {\n    owner: identity(input: $owner)\n    name: identity(input: $name)\n    branch: identity(input: $branch)\n    message: identity(input: $message)\n    treeFiles: identity(input: $treeFiles)\n    treeFiles: identity(input: $acceptOverrides)\n  }\n}",
-      "kind": 0,
-      "services": [
-        "onegraph"
-      ]
-    }
-  ]
-};
-}
-
 var target = "mutation ExecuteChainMutation(\n  $webhookUrl: JSON!\n  $chain: OneGraphQueryChainInput!\n  $sheetId: JSON!\n) {\n  oneGraph {\n    executeChain(\n      input: {\n        requests: [\n          {\n            id: \"SlackReactionSubscription\"\n            operationName: \"SlackReactionSubscription\"\n            variables: [\n              { name: \"webhookUrl\", value: $webhookUrl }\n            ]\n          }\n          {\n            id: \"AddToDocMutation\"\n            operationName: \"AddToDocMutation\"\n            argumentDependencies: {\n              name: \"row\"\n              ifList: ALL\n              fromRequestIds: [\"SlackReactionSubscription\"]\n              functionFromScript: \"getRow\"\n              ifMissing: SKIP\n            }\n            variables: { name: \"sheetId\", value: $sheetId }\n          }\n        ]\n        script: \"const a = true;\"\n      }\n    ) {\n      results {\n        request {\n          id\n        }\n        result\n        argumentDependencies {\n          name\n          returnValues\n          logs {\n            level\n            body\n          }\n          name\n        }\n      }\n    }\n  }\n}\n\nmutation AddToDocMutation(\n  $sheetId: String!\n  $row: [String!]!\n) {\n  google {\n    sheets {\n      appendValues(\n        id: $sheetId\n        valueInputOption: \"USER_ENTERED\"\n        majorDimenson: \"ROWS\"\n        range: \"'Raw Data'!A1\"\n        values: [$row]\n      ) {\n        updates {\n          spreadsheetId\n          updatedRange\n          updatedCells\n          updatedData {\n            values\n          }\n        }\n      }\n    }\n  }\n}\n\nsubscription SlackReactionSubscription(\n  $webhookUrl: String!\n) {\n  slack(webhookUrl: $webhookUrl) {\n    reactionAddedEvent {\n      eventTime\n      event {\n        user {\n          id\n          name\n        }\n        eventTs\n        reaction\n        item {\n          channel {\n            name\n          }\n          message {\n            permaLink\n            user {\n              id\n              name\n            }\n            text\n            ts\n          }\n        }\n      }\n    }\n  }\n}";
 
 var chain = emptyChain;
@@ -1194,7 +726,6 @@ export {
   servicesRequired ,
   CircularDependencyDetected ,
   toposortRequests ,
-  devJsonChain ,
   
 }
 /* addToDocMutation Not a pure module */

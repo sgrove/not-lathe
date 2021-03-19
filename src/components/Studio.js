@@ -3,6 +3,13 @@
 import * as Chain from "../Chain.js";
 import * as React from "react";
 import * as ChainEditor from "./ChainEditor.js";
+import * as DevTime_JsonJs from "../DevTime_Json.js";
+
+var devJsonChain = DevTime_JsonJs.devJsonChain;
+
+var DevTimeJson = {
+  devJsonChain: devJsonChain
+};
 
 function Studio(Props) {
   var schema = Props.schema;
@@ -29,7 +36,8 @@ function Studio(Props) {
 var make = Studio;
 
 export {
+  DevTimeJson ,
   make ,
   
 }
-/* Chain Not a pure module */
+/* devJsonChain Not a pure module */

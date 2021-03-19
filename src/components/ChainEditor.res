@@ -1152,6 +1152,7 @@ export function ${names.functionName} (payload : ${names.inputTypeName}) : ${nam
 }`
           let newChain: Chain.t = {
             name: newChain.name,
+            scriptDependencies: newChain.scriptDependencies,
             blocks: newChain.blocks->Belt.Array.concat([block]),
             requests: newChain.requests->Belt.Array.concat([newReq]),
             script: newScript,
@@ -1587,6 +1588,7 @@ ${newScript}`
                 }
 
                 inspected->Belt.Option.forEach(inspected => {
+                  Js.log2("New inspected: ", inspected)
                   setState(oldState => {...oldState, inspected: inspected})
                 })
               }}
@@ -1634,7 +1636,7 @@ ${newScript}`
                       })
                     }}
                     title="Format code">
-                    <Icons.PureScript />
+                    <Icons.Prettier.Dark height="16px" width="16px" />
                   </button>
                 </Comps.Header>
               </nav>
@@ -1862,6 +1864,7 @@ export function ${names.functionName} (payload : ${names.inputTypeName}) : ${nam
 
                       let newChain: Chain.t = {
                         name: newChain.name,
+                        scriptDependencies: newChain.scriptDependencies,
                         blocks: newChain.blocks
                         ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
                         ->Belt.Array.concat([block]),

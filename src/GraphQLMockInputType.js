@@ -202,7 +202,7 @@ export function typeScriptDefinitionObjectForOperation(
     Float: "number",
     Boolean: "boolean",
     GitHubGitObjectID: "string",
-    JSON: "JSON",
+    // JSON: "JSON",
   };
 
   var typeMap = {};
@@ -218,8 +218,6 @@ export function typeScriptDefinitionObjectForOperation(
           const parentName = parent?.alias?.value || parent?.name?.value;
 
           let namedPath = namedPathOfAncestors(ancestors);
-
-          console.log("namedPath: ", namedPath, parent, node);
 
           if (!fragmentDefinition) {
             console.warn("No fragDef for ", fragmentName, fragmentDefinitions);
@@ -241,7 +239,6 @@ export function typeScriptDefinitionObjectForOperation(
                 const property = object[path[0]] || {};
                 property[key] = value;
                 object[path[0]] = property;
-                console.log("Mofify: ", namedPath, path, property, key, value);
               });
               return object;
             });
@@ -298,7 +295,6 @@ export function typeScriptDefinitionObjectForOperation(
                 name
               );
             }
-            console.log("Leaving: ", namedPath.join("."));
           }
           let gqlType = typeInfo.getType();
           let namedType = getNamedType(gqlType);
@@ -312,12 +308,12 @@ export function typeScriptDefinitionObjectForOperation(
             let basicType = scalarMap[namedType.name];
 
             if (!basicType) {
-              console.warn(
-                "Couldn't find scalar for ",
-                namedType.name,
-                "on",
-                namedPath.join(".")
-              );
+              // console.warn(
+              //   "Couldn't find scalar for ",
+              //   namedType.name,
+              //   "on",
+              //   namedPath.join(".")
+              // );
               basicType = "any";
             }
 
@@ -327,11 +323,6 @@ export function typeScriptDefinitionObjectForOperation(
               if (typeof object[path[0]] === "undefined") {
                 object[path[0]] = tsType;
               } else {
-                console.log(
-                  "Found existing value in updateIn for field, wanted to set to: ",
-                  object[path[0]],
-                  tsType
-                );
               }
               return object;
             });
@@ -354,8 +345,6 @@ export function typeScriptForOperation(
     operationDefinition,
     fragmentDefinitions
   );
-
-  console.log("Final typemap for ", operationDefinition?.name?.value, typeMap);
 
   let valueHelper = (value) => {
     if (typeof value === "string") {
@@ -530,13 +519,6 @@ function PreviewForAst({
 
     let name = selection.name.value;
     let displayedName = alias || name;
-    console.log(
-      "displayedName: ",
-      displayedName,
-      selection.name.value,
-      selection.alias,
-      selection
-    );
 
     let field = parentNamedType.getFields()[name];
     let gqlType = field?.type;

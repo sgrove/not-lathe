@@ -209,6 +209,7 @@ function internallyPatchChain(chain) {
   return {
           name: chain.name,
           script: transpiled,
+          scriptDependencies: chain.scriptDependencies,
           requests: requestsWithLockedVariables,
           blocks: chain.blocks
         };
@@ -617,10 +618,12 @@ function Inspector$Request(Props) {
           var requestsWithLockedVariables = patchChainRequestsArgDeps(chain);
           var chain_name = chain.name;
           var chain_script = chain.script;
+          var chain_scriptDependencies = chain.scriptDependencies;
           var chain_blocks = chain.blocks;
           var chain$1 = {
             name: chain_name,
             script: chain_script,
+            scriptDependencies: chain_scriptDependencies,
             requests: requestsWithLockedVariables,
             blocks: chain_blocks
           };
@@ -780,10 +783,12 @@ function Inspector$Request(Props) {
                                         }));
                                   var newChain_name = chain.name;
                                   var newChain_script = chain.script;
+                                  var newChain_scriptDependencies = chain.scriptDependencies;
                                   var newChain_blocks = chain.blocks;
                                   var newChain = {
                                     name: newChain_name,
                                     script: newChain_script,
+                                    scriptDependencies: newChain_scriptDependencies,
                                     requests: requests,
                                     blocks: newChain_blocks
                                   };
@@ -808,6 +813,7 @@ function Inspector$Request(Props) {
                                   return Curry._1(onChainUpdated, {
                                               name: chain.name,
                                               script: chain.script,
+                                              scriptDependencies: chain.scriptDependencies,
                                               requests: Belt_Array.keepMap(chain.requests, (function (existingRequest) {
                                                       return Caml_obj.caml_equal(existingRequest, request) ? newRequest : existingRequest;
                                                     })),
@@ -823,7 +829,7 @@ function Inspector$Request(Props) {
                 }));
           return Belt_Option.map(upstreamRequest, (function (upstreamRequest) {
                         return React.createElement("article", {
-                                    key: request.id,
+                                    key: request.id + upstreamRequest.id,
                                     className: "m-2"
                                   }, React.createElement("div", {
                                         className: "flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl rounded-sm"
@@ -839,6 +845,7 @@ function Inspector$Request(Props) {
                                           }, "Remove Dependency")));
                       }));
         }));
+  console.log("Upstream Requests: ", upstreamRequests.length, upstreamRequests);
   var editor = React.useRef(undefined);
   var compiledDoc = Chain.compileOperationDoc(chain);
   var content = compiledDoc.operationDoc;
@@ -866,6 +873,15 @@ function Inspector$Request(Props) {
                       labelClassname: "underline pl-2 m-2 mt-0 mb-0"
                     });
         }));
+  var form = inputs.length !== 0 ? React.createElement("form", {
+          onSubmit: (function ($$event) {
+              $$event.preventDefault();
+              $$event.stopPropagation();
+              return Curry._2(onExecuteRequest, request, formVariables);
+            })
+        }, inputs, React.createElement("button", {
+              type: "submit"
+            }, "Execute")) : null;
   var missingAuthServices = Belt_Option.mapWithDefault(cachedResult, [], (function (results) {
           return OnegraphAuth.findMissingAuthServices(Caml_option.some(results));
         }));
@@ -924,7 +940,7 @@ function Inspector$Request(Props) {
                       children: null
                     }, "Execute block", React.createElement(Icons.Play.make, {
                           className: "inline-block ml-2"
-                        })), inputs, authButtons, React.createElement("pre", {
+                        })), form, authButtons, React.createElement("pre", {
                       className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
                     }, Belt_Option.mapWithDefault(cachedResult, "Nothing", (function (json) {
                             return JSON.stringify(json, null, 2);
@@ -1045,7 +1061,9 @@ function Inspector$Nothing(Props) {
                                 })
                             }, "Delete")));
         }));
-  return React.createElement(React.Fragment, undefined, form, authButtons, isChainViable ? React.createElement(React.Fragment, undefined, React.createElement("button", {
+  return React.createElement(React.Fragment, undefined, form, authButtons, React.createElement("pre", {
+                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
+                }, JSON.stringify(formVariables, null, 2)), isChainViable ? React.createElement(React.Fragment, undefined, React.createElement("button", {
                         className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
                         type: "button",
                         onClick: (function (param) {
@@ -1216,7 +1234,9 @@ function Inspector(Props) {
                       className: "flex flex-row py-1 px-2 mb-2"
                     }, React.createElement("button", {
                           className: "text-left text-gray-600 hover:text-blue-500 focus:outline-none text-blue-500 flex-grow"
-                        }, tmp), tmp$1)), tmp$2);
+                        }, tmp), tmp$1)), React.createElement("div", {
+                  className: "max-h-screen overflow-y-scroll"
+                }, tmp$2));
 }
 
 var special_token = "XlMpa0MEz1ZMIYtebUGttQpV9I8CCwL5VejNbfStd2c";

@@ -216,6 +216,362 @@ var Trash = {
   make: Icons$Trash
 };
 
+function Icons$Prettier$Dark(Props) {
+  var className = Props.className;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    viewBox: "0 0 210 210",
+    xmlns: "http://www.w3.org/2000/svg"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("g", {
+                  fill: "none",
+                  fillRule: "evenodd",
+                  stroke: "none",
+                  strokeWidth: "1"
+                }, React.createElement("g", undefined, React.createElement("g", undefined, React.createElement("g", {
+                              transform: "translate(0 200)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "60",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "150",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "70",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "70",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "60",
+                                  fill: "#EA5E5E",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 180)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "50",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "160",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "130",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "50",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "70",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#F7B93E",
+                                  rx: "5",
+                                  x: "40",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "30",
+                                  fill: "#56B3B4",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 160)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "100",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "110",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "30",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "70",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "60",
+                                  fill: "#BF85BF",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 140)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "30",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "180",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "30",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "140",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "100",
+                                  fill: "#F7B93E",
+                                  rx: "5",
+                                  x: "30",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#BF85BF",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 120)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "40",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "170",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "40",
+                                  fill: "#BF85BF",
+                                  rx: "5",
+                                  x: "120",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "50",
+                                  fill: "#EA5E5E",
+                                  rx: "5",
+                                  x: "60",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "50",
+                                  fill: "#56B3B4",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 100)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "30",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "180",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "90",
+                                  fill: "#56B3B4",
+                                  rx: "5",
+                                  x: "80",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "40",
+                                  fill: "#F7B93E",
+                                  rx: "5",
+                                  x: "30",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#EA5E5E",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 80)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "190",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "60",
+                                  fill: "#F7B93E",
+                                  rx: "5",
+                                  x: "120",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "40",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "70",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "60",
+                                  fill: "#BF85BF",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 60)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "190",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "60",
+                                  fill: "#EA5E5E",
+                                  rx: "5",
+                                  x: "120",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "40",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "70",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#56B3B4",
+                                  rx: "5",
+                                  x: "40",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "30",
+                                  fill: "#F7B93E",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 40)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "30",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "180",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "20",
+                                  fill: "#56B3B4",
+                                  rx: "5",
+                                  x: "150",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "50",
+                                  fill: "#BF85BF",
+                                  rx: "5",
+                                  x: "90",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "80",
+                                  fill: "#56B3B4",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", {
+                              transform: "translate(0 20)"
+                            }, React.createElement("rect", {
+                                  height: "10",
+                                  width: "40",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "170",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "110",
+                                  fill: "#F7B93E",
+                                  rx: "5",
+                                  x: "50",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "40",
+                                  fill: "#EA5E5E",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                })), React.createElement("g", undefined, React.createElement("rect", {
+                                  height: "10",
+                                  width: "70",
+                                  fill: "#4D616E",
+                                  opacity: "0.5",
+                                  rx: "5",
+                                  x: "140",
+                                  y: "0"
+                                }), React.createElement("rect", {
+                                  height: "10",
+                                  width: "130",
+                                  fill: "#56B3B4",
+                                  rx: "5",
+                                  x: "0",
+                                  y: "0"
+                                }))))));
+}
+
+var Dark = {
+  make: Icons$Prettier$Dark
+};
+
+var Prettier = {
+  Dark: Dark
+};
+
 export {
   Play ,
   Inspect ,
@@ -224,6 +580,7 @@ export {
   TypeScript ,
   Export ,
   Trash ,
+  Prettier ,
   
 }
 /* react Not a pure module */
