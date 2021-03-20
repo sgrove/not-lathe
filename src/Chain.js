@@ -381,7 +381,7 @@ var emptyChain_requests = [];
 var emptyChain_blocks = [];
 
 var emptyChain = {
-  name: "hello_onegraph_its_netlify",
+  name: "look_ma_connections",
   script: emptyChain_script,
   scriptDependencies: emptyChain_scriptDependencies,
   requests: emptyChain_requests,
@@ -395,32 +395,49 @@ function compileAsObj(chain) {
   var makeRequest = function (request) {
     var variables = Belt_Array.keepMap(request.variableDependencies, (function (dep) {
             var variable = dep.dependency;
-            if (variable.TAG === /* ArgumentDependency */0) {
-              return ;
+            switch (variable.TAG | 0) {
+              case /* Direct */1 :
+                  var variable$1 = variable._0;
+                  var json = variable$1.value;
+                  var tmp;
+                  tmp = json._0;
+                  return {
+                          name: variable$1.name,
+                          value: tmp
+                        };
+              case /* ArgumentDependency */0 :
+              case /* GraphQLProbe */2 :
+                  return ;
+              
             }
-            var variable$1 = variable._0;
-            var json = variable$1.value;
-            var tmp;
-            tmp = json._0;
-            return {
-                    name: variable$1.name,
-                    value: tmp
-                  };
           }));
     var argumentDependencies = Belt_Array.keepMap(request.variableDependencies, (function (dep) {
             var dep$1 = dep.dependency;
-            if (dep$1.TAG !== /* ArgumentDependency */0) {
-              return ;
+            switch (dep$1.TAG | 0) {
+              case /* ArgumentDependency */0 :
+                  var dep$2 = dep$1._0;
+                  return {
+                          name: dep$2.name,
+                          ifList: dep$2.ifList,
+                          ifMissing: dep$2.ifMissing,
+                          fromRequestIds: dep$2.fromRequestIds,
+                          maxRecur: dep$2.maxRecur,
+                          functionFromScript: dep$2.functionFromScript
+                        };
+              case /* Direct */1 :
+                  return ;
+              case /* GraphQLProbe */2 :
+                  var probe = dep$1._0;
+                  return {
+                          name: probe.name,
+                          ifList: probe.ifList,
+                          ifMissing: probe.ifMissing,
+                          fromRequestIds: [probe.fromRequestId],
+                          maxRecur: undefined,
+                          functionFromScript: "TODO"
+                        };
+              
             }
-            var dep$2 = dep$1._0;
-            return {
-                    name: dep$2.name,
-                    ifList: dep$2.ifList,
-                    ifMissing: dep$2.ifMissing,
-                    fromRequestIds: dep$2.fromRequestIds,
-                    maxRecur: dep$2.maxRecur,
-                    functionFromScript: dep$2.functionFromScript
-                  };
           }));
     return {
             id: request.id,
@@ -459,6 +476,13 @@ function callForVariable(request, variableName) {
   return "export function " + requestScriptName + "_" + variableName + " (payload) {\n  return " + requestScriptName + "(payload)?.[\"" + variableName + "\"]\n}";
 }
 
+function callForProbe(request, variableName, probe) {
+  var requestScriptName = requestScriptNames(request).functionName;
+  var other = probe.path;
+  var path = other.length !== 0 ? other.join("?.") : "null";
+  return "export function " + requestScriptName + "_" + variableName + " (payload) {\n  return " + path + "\n}";
+}
+
 function compileOperationDoc(chain) {
   var blockOperations = Belt_Array.joinWith(chain.blocks, "\n", (function (x) {
           return x.body;
@@ -466,24 +490,28 @@ function compileOperationDoc(chain) {
   var exposedVariables = Belt_Array.concatMany(Belt_Array.map(chain.requests, (function (request) {
               return Belt_Array.keepMap(request.variableDependencies, (function (dep) {
                             var variable = dep.dependency;
-                            if (variable.TAG === /* ArgumentDependency */0) {
-                              return ;
+                            switch (variable.TAG | 0) {
+                              case /* Direct */1 :
+                                  var variable$1 = variable._0;
+                                  var name = variable$1.value;
+                                  if (name.TAG === /* JSON */0) {
+                                    return ;
+                                  }
+                                  var name$1 = name._0;
+                                  return Belt_Option.map(Belt_Array.getBy(Card.getFirstVariables(request.operation), (function (param) {
+                                                    return param[0] === variable$1.name;
+                                                  })), (function (param) {
+                                                return {
+                                                        upstreamName: param[0],
+                                                        upstreamType: param[1],
+                                                        exposedName: name$1
+                                                      };
+                                              }));
+                              case /* ArgumentDependency */0 :
+                              case /* GraphQLProbe */2 :
+                                  return ;
+                              
                             }
-                            var variable$1 = variable._0;
-                            var name = variable$1.value;
-                            if (name.TAG === /* JSON */0) {
-                              return ;
-                            }
-                            var name$1 = name._0;
-                            return Belt_Option.map(Belt_Array.getBy(Card.getFirstVariables(request.operation), (function (param) {
-                                              return param[0] === variable$1.name;
-                                            })), (function (param) {
-                                          return {
-                                                  upstreamName: param[0],
-                                                  upstreamType: param[1],
-                                                  exposedName: name$1
-                                                };
-                                        }));
                           }));
             })));
   var match = Belt_Array.reduce(exposedVariables, [
@@ -508,35 +536,54 @@ function compileOperationDoc(chain) {
   var makeRequest = function (request) {
     var variables = Belt_Array.keepMap(request.variableDependencies, (function (dep) {
             var variable = dep.dependency;
-            if (variable.TAG === /* ArgumentDependency */0) {
-              return ;
-            }
-            var variable$1 = variable._0;
-            var json = variable$1.value;
-            if (json.TAG === /* JSON */0) {
-              return "{name: \"" + variable$1.name + "\", value: " + JSON.stringify(json._0) + "}";
-            } else {
-              return "{name: \"" + variable$1.name + "\", value: \$" + json._0 + "}";
+            switch (variable.TAG | 0) {
+              case /* Direct */1 :
+                  var variable$1 = variable._0;
+                  var json = variable$1.value;
+                  if (json.TAG === /* JSON */0) {
+                    return "{name: \"" + variable$1.name + "\", value: " + JSON.stringify(json._0) + "}";
+                  } else {
+                    return "{name: \"" + variable$1.name + "\", value: \$" + json._0 + "}";
+                  }
+              case /* ArgumentDependency */0 :
+              case /* GraphQLProbe */2 :
+                  return ;
+              
             }
           }));
     var argumentDependencies = Belt_Array.keepMap(request.variableDependencies, (function (dep) {
             var dep$1 = dep.dependency;
-            if (dep$1.TAG !== /* ArgumentDependency */0) {
-              return ;
+            switch (dep$1.TAG | 0) {
+              case /* ArgumentDependency */0 :
+                  var dep$2 = dep$1._0;
+                  var ids = Belt_Array.map(dep$2.fromRequestIds, (function (reqId) {
+                            return "\"" + reqId + "\"";
+                          })).join(", ");
+                  var reqIds = "[" + ids + "]";
+                  var fields = [
+                      "name: \"" + dep$2.name + "\"",
+                      "ifList: " + dep$2.ifList,
+                      "ifMissing: " + dep$2.ifMissing,
+                      "fromRequestIds: " + reqIds,
+                      "functionFromScript: \"" + dep$2.functionFromScript + "\""
+                    ].join(",\n                  ");
+                  return "\n                {\n                  " + fields + "\n                }\n";
+              case /* Direct */1 :
+                  return ;
+              case /* GraphQLProbe */2 :
+                  var probe = dep$1._0;
+                  var ids$1 = "\"" + probe.fromRequestId + "\"";
+                  var reqIds$1 = "[" + ids$1 + "]";
+                  var fields$1 = [
+                      "name: \"" + probe.name + "\"",
+                      "ifList: " + probe.ifList,
+                      "ifMissing: " + probe.ifMissing,
+                      "fromRequestIds: " + reqIds$1,
+                      "functionFromScript: \"" + probe.functionFromScript + "\""
+                    ].join(",\n                  ");
+                  return "\n                {\n                  " + fields$1 + "\n                }\n";
+              
             }
-            var dep$2 = dep$1._0;
-            var ids = Belt_Array.map(dep$2.fromRequestIds, (function (reqId) {
-                      return "\"" + reqId + "\"";
-                    })).join(", ");
-            var reqIds = "[" + ids + "]";
-            var fields = [
-                "name: \"" + dep$2.name + "\"",
-                "ifList: " + dep$2.ifList,
-                "ifMissing: " + dep$2.ifMissing,
-                "fromRequestIds: " + reqIds,
-                "functionFromScript: \"" + dep$2.functionFromScript + "\""
-              ].join(",\n                  ");
-            return "\n                {\n                  " + fields + "\n                }\n";
           }));
     return "\n          {\n            id: \"" + request.id + "\",\n            operationName: \"" + request.operation.title + "\",\n            variables: [" + variables.join(",\n  ") + "],\n            argumentDependencies: [" + argumentDependencies.join(",") + "],\n          }";
   };
@@ -720,6 +767,7 @@ export {
   compileAsObj ,
   requestScriptNames ,
   callForVariable ,
+  callForProbe ,
   compileOperationDoc ,
   saveToLocalStorage ,
   loadFromLocalStorage ,

@@ -7,8 +7,11 @@ import * as DevTime_JsonJs from "../DevTime_Json.js";
 
 var devJsonChain = DevTime_JsonJs.devJsonChain;
 
+var simpleChain = DevTime_JsonJs.simpleChain;
+
 var DevTimeJson = {
-  devJsonChain: devJsonChain
+  devJsonChain: devJsonChain,
+  simpleChain: simpleChain
 };
 
 function Studio(Props) {
@@ -24,11 +27,11 @@ function Studio(Props) {
                   className: "p-2 bg-black text-white"
                 }, navButton((function (param) {
                         
-                      }), "OneGraph"), navButton((function (param) {
+                      }), "OneGraph >"), navButton((function (param) {
                         
-                      }), "> Workspace"), navButton((function (param) {
+                      }), "Workspace >"), navButton((function (param) {
                         
-                      }), React.createElement("strong", undefined, "> hello_onegraph_its_netlify"))), React.createElement(ChainEditor.make, {
+                      }), React.createElement("strong", undefined, Chain.emptyChain.name))), React.createElement(ChainEditor.make, {
                   schema: schema,
                   initialChain: Chain.emptyChain,
                   config: config

@@ -58,6 +58,15 @@ type variableValue =
   | JSON(Js.Json.t)
   | Variable(string)
 
+type graphQLProbe = {
+  name: string,
+  ifMissing: ifMissing,
+  ifList: ifList,
+  fromRequestId: string,
+  path: array<string>,
+  functionFromScript: string,
+}
+
 type variableInputs = {
   name: string,
   value: variableValue,
@@ -66,6 +75,7 @@ type variableInputs = {
 type variableDependencyKind =
   | ArgumentDependency(argumentDependency)
   | Direct(variableInputs)
+  | GraphQLProbe(graphQLProbe)
 
 type variableDependency = {name: string, dependency: variableDependencyKind}
 
@@ -567,7 +577,7 @@ export function makeVariablesForSetSlackStatus(
 }
 
 let emptyChain = {
-  name: "hello_onegraph_its_netlify",
+  name: "look_ma_connections",
   script: ``,
   scriptDependencies: [],
   requests: [],
@@ -592,7 +602,10 @@ let compileAsObj = (chain: t): compiled => {
   let makeRequest = request => {
     let variables = request.variableDependencies->Belt.Array.keepMap(dep => {
       switch dep.dependency {
-      | ArgumentDependency(_) => None
+      | ArgumentDependency(_)
+      | GraphQLProbe(_) =>
+        None
+
       | Direct(variable) =>
         Some({
           "name": variable.name,
@@ -615,6 +628,16 @@ let compileAsObj = (chain: t): compiled => {
           "maxRecur": dep.maxRecur,
           "functionFromScript": dep.functionFromScript,
         })
+      | GraphQLProbe(probe) =>
+        Some({
+          "name": probe.name,
+          "ifList": probe.ifList,
+          "ifMissing": probe.ifMissing,
+          "fromRequestIds": [probe.fromRequestId],
+          "maxRecur": None,
+          "functionFromScript": "TODO",
+        })
+
       | Direct(_) => None
       }
     })
@@ -669,6 +692,19 @@ let callForVariable = (request: request, variableName) => {
 }`
 }
 
+let callForProbe = (request: request, variableName, probe: graphQLProbe) => {
+  let requestScriptName = requestScriptNames(request).functionName
+
+  let path = switch probe.path {
+  | [] => "null"
+  | other => other->Js.Array2.joinWith("?.")
+  }
+
+  j`export function ${requestScriptName}_${variableName} (payload) {
+  return ${path}
+}`
+}
+
 type variableToVariableDependency = {
   upstreamName: string,
   upstreamType: string,
@@ -694,7 +730,10 @@ let compileOperationDoc = (chain: t): compiledChainWithMeta => {
     ->Belt.Array.map(request =>
       request.variableDependencies->Belt.Array.keepMap(dep => {
         switch dep.dependency {
-        | ArgumentDependency(_) => None
+        | ArgumentDependency(_)
+        | GraphQLProbe(_) =>
+          None
+
         | Direct(variable) =>
           switch variable.value {
           | JSON(_) => None
@@ -733,7 +772,9 @@ let compileOperationDoc = (chain: t): compiledChainWithMeta => {
   let makeRequest = request => {
     let variables = request.variableDependencies->Belt.Array.keepMap(dep => {
       switch dep.dependency {
-      | ArgumentDependency(_) => None
+      | ArgumentDependency(_)
+      | GraphQLProbe(_) =>
+        None
       | Direct(variable) =>
         switch variable.value {
         | JSON(json) => Some(j`{name: "${variable.name}", value: ${json->Js.Json.stringify}}`)
@@ -766,6 +807,29 @@ let compileOperationDoc = (chain: t): compiledChainWithMeta => {
 `
 
         Some(argDep)
+      | GraphQLProbe(probe) =>
+        let reqIds = {
+          let ids = j`"${probe.fromRequestId}"`
+          j`[${ids}]`
+        }
+
+        let fields =
+          [
+            j`name: "${probe.name}"`,
+            j`ifList: ${probe.ifList->Obj.magic}`,
+            j`ifMissing: ${probe.ifMissing->Obj.magic}`,
+            j`fromRequestIds: ${reqIds}`,
+            j`functionFromScript: "${probe.functionFromScript}"`,
+          ]->Js.Array2.joinWith(",\n                  ")
+
+        let argDep = j`
+                {
+                  ${fields}
+                }
+`
+
+        Some(argDep)
+
       | Direct(_) => None
       }
     })

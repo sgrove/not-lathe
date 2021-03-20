@@ -44,7 +44,7 @@ type debuggable =
   | CompiledChain
 
 type state = {
-  diagram: diagram,
+  diagram: option<diagram>,
   card: option<Card.block>,
   schema: GraphQLJs.schema,
   chain: Chain.t,
@@ -59,6 +59,7 @@ type state = {
   savedChainId: option<string>,
   requestValueCache: Js.Dict.t<Js.Json.t>,
   debugUIItems: array<debuggable>,
+  connectionDrag: ConnectionContext.connectionDrag,
 }
 
 let makeBlankBlock = (): Card.block => {
@@ -247,7 +248,14 @@ module NodeLabel = {
   type state = {isOpen: bool}
 
   @react.component
-  let make = (~onInspectBlock, ~block: Card.block, ~onEditBlock, ~schema as _) => {
+  let make = (
+    ~request: option<Chain.request>,
+    ~block: Card.block,
+    ~onEditBlock,
+    ~onDragStart,
+    ~onDragEnd,
+    ~schema as _,
+  ) => {
     let services =
       block.services
       ->Belt.Array.keepMap(service =>
@@ -267,13 +275,36 @@ module NodeLabel = {
       ->React.array
 
     open React
+    let connectionDrag = useContext(ConnectionContext.context)
+
+    let domRef = React.useRef(Js.Nullable.null)
+
+    let className = switch connectionDrag {
+    | ConnectionContext.Started({sourceRequest})
+    | Completed({sourceRequest}) if Some(sourceRequest) == request => "bg-green-100"
+    | _ => ""
+    }
 
     <div
-      onContextMenu={event => {
-        ReactEvent.Mouse.preventDefault(event)
-        onInspectBlock->Belt.Option.forEach(fn => fn(block))
+      ref={ReactDOM.Ref.domRef(domRef)}
+      className={"flex align-middle items-center min-w-max flex-col " ++ className}
+      onMouseDown={event => {
+        switch event->ReactEvent.Mouse.altKey {
+        | false => ()
+        | true =>
+          event->ReactEvent.Mouse.preventDefault
+          event->ReactEvent.Mouse.stopPropagation
+          request->Belt.Option.forEach(request =>
+            onDragStart(~event, ~request, ~domRef=domRef.current)
+          )
+        }
       }}
-      className="flex align-middle items-center min-w-max flex-col">
+      onMouseUp={event => {
+        onDragEnd(~event, ~block, domRef.current)
+      }}
+      onContextMenu={event => {
+        ()
+      }}>
       <div className="flex flex-row items-center justify-end font-mono">
         <div className="m-2"> {services} </div>
         <div className="flex-1 inline-block "> {block.title->string} </div>
@@ -310,7 +341,14 @@ let emptyGraphLevel = level => {
   level: level,
 }
 
-let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema, ()): diagram => {
+let diagramFromChain = (
+  chain: Chain.t,
+  ~onEditBlock,
+  ~onDragStart,
+  ~onDragEnd,
+  ~schema,
+  (),
+): diagram => {
   let nodeHeight = 100.
   let nodeGap = 10.
 
@@ -330,7 +368,7 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
         ~typ=#fragment,
         ~id=block.id->Uuid.toString,
         ~data={
-          label: <NodeLabel onEditBlock onInspectBlock block schema />,
+          label: <NodeLabel onEditBlock request=None block schema onDragStart onDragEnd />,
         },
         ~position={x: -250., y: nodeHeight *. idx->float_of_int},
         ~draggable=false,
@@ -465,17 +503,19 @@ let diagramFromChain = (chain: Chain.t, ~onEditBlock, ~onInspectBlock=?, ~schema
 
         let furthestLeft = halfWidth -. graphLevel.width /. 2.
 
-        let x = furthestLeft +. node.left
+        let x = 250. +. furthestLeft +. node.left
 
         let node = ReactFlow.Node.t(
           ~typ,
           ~id=block.id->Uuid.toString,
           ~data={
-            label: <NodeLabel onEditBlock onInspectBlock block schema />,
+            label: <NodeLabel
+              onEditBlock request=Some(node.request) block schema onDragStart onDragEnd
+            />,
           },
           ~position={
             x: x,
-            y: nodeHeight *. level->float_of_int +. 50.,
+            y: 250. +. (nodeHeight *. level->float_of_int +. 50.),
           },
           ~draggable=true,
           ~connectable=true,
@@ -881,6 +921,263 @@ module Modal = {
   }
 }
 
+module ConnectorLine = {
+  type state = {mousePosition: (int, int)}
+
+  @send external getBoundingClientRect: Dom.element => Dom.domRect = "getBoundingClientRect"
+
+  @react.component
+  let make = (~source, ~onDragEnd) => {
+    open React
+
+    let (state, setState) = useState(() => {
+      let rect = Obj.magic(getBoundingClientRect(source))
+
+      {
+        mousePosition: (rect["x"] + rect["width"] / 2, rect["y"] + rect["height"] / 2),
+      }
+    })
+
+    let onMouseMove = event => {
+      let x = event["clientX"]
+      let y = event["clientY"]
+      setState(_oldState => {mousePosition: (x, y)})
+    }
+
+    let onMouseUp = event => {
+      Debug.assignToWindowForDeveloperDebug(~name="mouseupevent", event)
+      onDragEnd()
+    }
+
+    useEffect0(() => {
+      %external(window)->Belt.Option.forEach(window => {
+        window["document"]["addEventListener"]("mousemove", onMouseMove)
+        window["document"]["addEventListener"]("mouseup", onMouseUp)
+      })
+
+      let cleanup = %external(window)->Belt.Option.map(window => {
+        () => {
+          window["document"]["removeEventListener"]("mousemove", onMouseMove)
+          window["document"]["removeEventListener"]("mouseup", onMouseUp)
+        }
+      })
+
+      cleanup
+    })
+    let (mouseX, mouseY) = state.mousePosition
+    let (startX, startY) = {
+      let rect = Obj.magic(getBoundingClientRect(source))
+
+      (rect["x"] + rect["width"] / 2, rect["y"] + rect["height"] / 2)
+    }
+
+    <div
+      className="absolute w-full h-full pointer-events-none"
+      style={ReactDOMRe.Style.make(~top="0px", ~left="0px", ~zIndex="9999", ())}
+      onMouseMove={event => {
+        let x = event->ReactEvent.Mouse.clientX
+        let y = event->ReactEvent.Mouse.clientY
+        setState(_oldState => {mousePosition: (x, y)})
+      }}>
+      <svg
+        className="relative w-full h-full pointer-events-none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={ReactDOMRe.Style.make(~top="0px", ~left="0px", ~zIndex="9999", ())}>
+        <marker
+          id="connectMarker" markerHeight="4" markerWidth="2" orient="auto" refX="0.1" refY="2">
+          <path fill="green" d="M0 0v4l2-2z" />
+        </marker>
+        <line
+          stroke="green"
+          strokeWidth="3"
+          markerEnd="url(#connectMarker)"
+          x1={startX->string_of_int}
+          y1={startY->string_of_int}
+          x2={mouseX->string_of_int}
+          y2={mouseY->string_of_int}
+        />
+      </svg>
+    </div>
+  }
+}
+
+module Diagram = {
+  @react.component
+  let make = (
+    ~setState,
+    ~diagram,
+    ~chain: Chain.t,
+    ~removeEdge,
+    ~removeRequest,
+    ~diagramFromChain,
+  ) => {
+    <ReactFlow
+      nodeTypes={
+        "fragment": FragmentNodeComponent.make,
+      }
+      onElementsRemove={elements => {
+        setState(oldState => {
+          let newChain = elements->Belt.Array.reduce(oldState.chain, (accChain, element) => {
+            let typ = switch (
+              Obj.magic(element)["source"]->Js.Undefined.toOption,
+              Obj.magic(element)["target"]->Js.Undefined.toOption,
+            ) {
+            | (Some(source), Some(target)) => #edge(source, target)
+            | _ => #node(Obj.magic(element)["id"])
+            }
+
+            let newChain = switch typ {
+            | #edge(source, targetRequestId) =>
+              let newChain = removeEdge(accChain, ~dependencyId=source, ~targetRequestId)
+              newChain
+            | #node(source) =>
+              let targetRequest = accChain.requests->Belt.Array.getBy(request => {
+                request.operation.id == source
+              })
+
+              let newChain =
+                targetRequest
+                ->Belt.Option.map(targetRequest => removeRequest(accChain, targetRequest))
+                ->Belt.Option.getWithDefault(accChain)
+              newChain
+            }
+
+            newChain
+          })
+
+          let diagram = diagramFromChain(newChain)
+
+          {...oldState, chain: newChain, diagram: diagram}
+        })
+      }}
+      elements=diagram.elements
+      zoomOnScroll=false
+      onPaneClick={_ => {
+        setState(oldState => {...oldState, inspected: Nothing(oldState.chain)})
+      }}
+      onPaneContextMenu={event => {
+        // ReactEvent.Mouse.preventDefault(event)
+        ()
+      }}
+      onNodeContextMenu={(_event, _node) => {
+        ()
+      }}
+      panOnScroll=true
+      onConnect={info => {
+        let source = info["source"]
+        let target = info["target"]
+
+        let sourceRequest = chain.requests->Belt.Array.getBy(request => {
+          request.operation.id->Uuid.toString == source
+        })
+
+        let targetRequest = chain.requests->Belt.Array.getBy(request => {
+          request.operation.id->Uuid.toString == target
+        })
+
+        Js.log3("Connected source/target: ", sourceRequest, targetRequest)
+
+        switch (sourceRequest, targetRequest) {
+        | (None, _)
+        | (_, None) =>
+          Js.log("Couldn't find source or target request to connect")
+        | (Some(source), Some(target)) =>
+          setState(oldState => {
+            let newRequests = oldState.chain.requests->Belt.Array.map(request => {
+              switch target.id == request.id {
+              | false => request
+              | true =>
+                let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+                  let dependency = switch varDep.dependency {
+                  | ArgumentDependency(argDep) =>
+                    let newArgDep = {
+                      ...argDep,
+                      fromRequestIds: argDep.fromRequestIds
+                      ->Belt.Array.concat([source.id])
+                      ->Utils.distinctStrings,
+                    }
+
+                    Chain.ArgumentDependency(newArgDep)
+                  | other => other
+                  }
+                  let varDep = {...varDep, dependency: dependency}
+
+                  varDep
+                })
+
+                {
+                  ...request,
+                  variableDependencies: varDeps,
+                  dependencyRequestIds: request.dependencyRequestIds
+                  ->Belt.Array.concat([source.id])
+                  ->Utils.distinctStrings,
+                }
+              }
+            })
+
+            let sortedRequests = Chain.toposortRequests(newRequests)
+
+            switch sortedRequests {
+            | Error(#circularDependencyDetected) => oldState
+            | Ok(sortedRequests) =>
+              Js.log3("New/Sorted requests: ", newRequests, sortedRequests)
+              Js.log4(
+                "New/Sorted lengths & diff (exp: 0): ",
+                newRequests->Belt.Array.length,
+                sortedRequests->Belt.Array.length,
+                sortedRequests->Belt.Array.length - newRequests->Belt.Array.length,
+              )
+
+              let newChain = {...oldState.chain, requests: sortedRequests}
+
+              let diagram = diagramFromChain(newChain)
+
+              {...oldState, chain: newChain, diagram: diagram}
+            }
+          })
+        }
+      }}
+      onElementClick={(_, node) => {
+        let id = node->ReactFlow.Node.idGet
+
+        let request: option<Inspector.inspectable> =
+          chain.requests
+          ->Belt.Array.getBy(req => {
+            req.operation.id->Uuid.toString == id
+          })
+          ->Belt.Option.map(req => {
+            let inspected: Inspector.inspectable = Request({
+              chain: chain,
+              request: req,
+            })
+            inspected
+          })
+
+        let inspected = switch request {
+        | Some(inspected) => Some(inspected)
+        | None =>
+          let block = chain.blocks->Belt.Array.getBy(block => block.id->Uuid.toString == id)
+          block->Belt.Option.map((block): Inspector.inspectable => Block(block))
+        }
+
+        inspected->Belt.Option.forEach(inspected => {
+          Js.log2("New inspected: ", inspected)
+          setState(oldState => {...oldState, inspected: inspected})
+        })
+      }}
+      connectionLineType=#smoothstep>
+      <ReactFlow.Controls showZoom=false showFitView=true showInteractive=false />
+      <ReactFlow.Background
+        variant=#lines
+        gap={20}
+        size={1}
+        color="#666666"
+        style={ReactDOMStyle.make(~backgroundColor="rgb(60, 60, 60)", ())}
+      />
+    </ReactFlow>
+  }
+}
+
 module Main = {
   @react.component
   let make = (
@@ -904,18 +1201,6 @@ module Main = {
       | _ => []
       }
 
-      let diagram = diagramFromChain(
-        initialChain,
-        ~schema,
-        ~onEditBlock=_block => {
-          ()
-        },
-        ~onInspectBlock=_block => {
-          ()
-        },
-        (),
-      )
-
       let inspected: Inspector.inspectable = Nothing(initialChain)
       // Request({
       //   chain: initialChain,
@@ -924,7 +1209,7 @@ module Main = {
       // Block(Card.blocks[0])
 
       {
-        diagram: diagram,
+        diagram: None,
         chain: initialChain,
         card: Some(Card.watchTwitterFollower),
         schema: schema,
@@ -943,7 +1228,45 @@ module Main = {
         savedChainId: None,
         requestValueCache: Js.Dict.empty(),
         debugUIItems: [],
+        connectionDrag: Empty,
       }
+    })
+
+    React.useEffect0(() => {
+      let diagramFromChain = chain =>
+        diagramFromChain(
+          chain,
+          ~schema,
+          ~onEditBlock=block => {
+            setState(oldState => {...oldState, blockEdit: Edit(block)})
+          },
+          ~onDragStart=(
+            ~event as _: ReactEvent.Mouse.t,
+            ~request: Chain.request,
+            ~domRef: Js.Nullable.t<Dom.element>,
+          ) => {
+            let connectionDrag =
+              domRef
+              ->Js.Nullable.toOption
+              ->Belt.Option.mapWithDefault(ConnectionContext.Empty, domRef => Started({
+                sourceRequest: request,
+                sourceDom: domRef,
+              }))
+
+            setState(oldState => {...oldState, connectionDrag: connectionDrag})
+          },
+          ~onDragEnd=(~event as _, ~block as _, _domRef) => {
+            setState(oldState => {
+              {...oldState, connectionDrag: Empty}
+            })
+          },
+          (),
+        )
+
+      let diagram = state.chain->diagramFromChain
+
+      setState(oldState => {...oldState, diagram: Some(diagram)})
+      None
     })
 
     let selectRequestFunctionScript = (request: Chain.request) => {
@@ -973,15 +1296,35 @@ module Main = {
       })
     }
 
-    let diagramFromChain = chain =>
+    let diagramFromChain = chain => Some(
       diagramFromChain(
         chain,
         ~schema,
         ~onEditBlock=block => {
           setState(oldState => {...oldState, blockEdit: Edit(block)})
         },
+        ~onDragStart=(
+          ~event as _: ReactEvent.Mouse.t,
+          ~request: Chain.request,
+          ~domRef: Js.Nullable.t<Dom.element>,
+        ) => {
+          let connectionDrag =
+            domRef
+            ->Js.Nullable.toOption
+            ->Belt.Option.mapWithDefault(ConnectionContext.Empty, domRef => Started({
+              sourceRequest: request,
+              sourceDom: domRef,
+            }))
+          setState(oldState => {...oldState, connectionDrag: connectionDrag})
+        },
+        ~onDragEnd=(~event as _, ~block as _, _domRef) => {
+          setState(oldState => {
+            {...oldState, connectionDrag: Empty}
+          })
+        },
         (),
-      )
+      ),
+    )
 
     let {fitView} = ReactFlow.useZoomPanHelper()
 
@@ -1326,6 +1669,33 @@ ${newScript}`
             }
           })
         }}
+        onPotentialVariableSourceConnect={(
+          ~targetRequest: Chain.request,
+          ~variableDependency: Chain.variableDependency,
+          ~mouseClientPosition: (int, int),
+        ) => {
+          switch state.connectionDrag {
+          | Empty
+          | Completed(_) => ()
+          | Started(dragInfo) =>
+            Js.log("onPotentialVariableSourceConnect COMPLETED")
+            setState(oldState => {
+              let connectionDrag = ConnectionContext.Completed({
+                sourceRequest: dragInfo.sourceRequest,
+                sourceDom: dragInfo.sourceDom,
+                targetRequest: targetRequest,
+                windowPosition: mouseClientPosition,
+                variableDependency: variableDependency,
+              })
+              Js.log2("onPotentialVariableSourceConnect COMPLETED", connectionDrag)
+
+              {
+                ...oldState,
+                connectionDrag: connectionDrag,
+              }
+            })
+          }
+        }}
         requestValueCache={state.requestValueCache}
         onReset={() => {
           setState(oldState => {...oldState, inspected: Nothing(state.chain)})
@@ -1420,546 +1790,496 @@ ${newScript}`
     }
 
     <div>
-      <div className="flex">
-        <div className="w-1/6 h-screen 2xl:w-1/6 bg-gray-800"> {blockSearch} </div>
-        <div className="w-1/2">
-          <div className="h-1/2">
-            <ReactFlow
-              nodeTypes={
-                "fragment": FragmentNodeComponent.make,
-              }
-              onElementsRemove={elements => {
-                setState(oldState => {
-                  let newChain = elements->Belt.Array.reduce(oldState.chain, (
-                    accChain,
-                    element,
-                  ) => {
-                    let typ = switch (
-                      Obj.magic(element)["source"]->Js.Undefined.toOption,
-                      Obj.magic(element)["target"]->Js.Undefined.toOption,
-                    ) {
-                    | (Some(source), Some(target)) => #edge(source, target)
-                    | _ => #node(Obj.magic(element)["id"])
-                    }
-
-                    let newChain = switch typ {
-                    | #edge(source, targetRequestId) =>
-                      let newChain = removeEdge(accChain, ~dependencyId=source, ~targetRequestId)
-                      newChain
-                    | #node(source) =>
-                      let targetRequest = accChain.requests->Belt.Array.getBy(request => {
-                        request.operation.id == source
-                      })
-
-                      let newChain =
-                        targetRequest
-                        ->Belt.Option.map(targetRequest => removeRequest(accChain, targetRequest))
-                        ->Belt.Option.getWithDefault(accChain)
-                      newChain
-                    }
-
-                    newChain
-                  })
-
-                  let diagram = diagramFromChain(newChain)
-
-                  {...oldState, chain: newChain, diagram: diagram}
-                })
-              }}
-              elements=state.diagram.elements
-              zoomOnScroll=false
-              onPaneClick={_ => {
-                setState(oldState => {...oldState, inspected: Nothing(oldState.chain)})
-              }}
-              onPaneContextMenu={event => {
-                ReactEvent.Mouse.preventDefault(event)
-              }}
-              onNodeContextMenu={(event, node) => {
-                ReactEvent.Mouse.preventDefault(event)
-
-                let block =
-                  state.blocks->Belt.Array.getBy(block =>
-                    block.id == node->ReactFlow.Node.idGet->Uuid.parseExn
-                  )
-
-                block->Belt.Option.forEach(block => {
-                  let request = state.chain.requests->Belt.Array.getBy(req => {
-                    req.id == block.title
-                  })
-                  request->Belt.Option.forEach(selectRequestFunctionScript)
-                })
-              }}
-              panOnScroll=true
-              onConnect={info => {
-                let source = info["source"]
-                let target = info["target"]
-
-                let sourceRequest = state.chain.requests->Belt.Array.getBy(request => {
-                  request.operation.id->Uuid.toString == source
-                })
-
-                let targetRequest = state.chain.requests->Belt.Array.getBy(request => {
-                  request.operation.id->Uuid.toString == target
-                })
-
-                Js.log3("Connected source/target: ", sourceRequest, targetRequest)
-
-                switch (sourceRequest, targetRequest) {
-                | (None, _)
-                | (_, None) =>
-                  Js.log("Couldn't find source or target request to connect")
-                | (Some(source), Some(target)) =>
+      <ConnectionContext.Provider value={state.connectionDrag}>
+        <div className="flex">
+          <div className="w-1/6 h-screen 2xl:w-1/6 bg-gray-800"> {blockSearch} </div>
+          <div className="w-1/2">
+            <div className="h-1/2">
+              {state.diagram->Belt.Option.mapWithDefault(React.null, diagram =>
+                <Diagram
+                  setState diagram chain=state.chain removeEdge removeRequest diagramFromChain
+                />
+              )}
+            </div>
+            <div className="h-1/2">
+              <div
+                className="border-t border-gray-500 bg-gray-900"
+                onClick={_ => {
                   setState(oldState => {
+                    ...oldState,
+                    scriptEditor: {
+                      ...oldState.scriptEditor,
+                      isOpen: !oldState.scriptEditor.isOpen,
+                    },
+                  })
+                }}>
+                <nav>
+                  <Comps.Header>
+                    {"Chain JavaScript"->React.string}
+                    <button
+                      className="ml-2 mr-2"
+                      onClick={_ => {
+                        state.scriptEditor.editor->Belt.Option.forEach(editor => {
+                          let script = editor->BsReactMonaco.getValue
+                          let newScript = script->Prettier.format({
+                            "parser": "babel",
+                            "plugins": [Prettier.babel],
+                            "singleQuote": true,
+                          })
+
+                          setState(oldState => {
+                            ...oldState,
+                            chain: {...oldState.chain, script: newScript},
+                          })
+                        })
+                      }}
+                      title="Format code">
+                      <Icons.Prettier.Dark height="16px" width="16px" />
+                    </button>
+                  </Comps.Header>
+                </nav>
+              </div>
+              <Script
+                schema={state.schema}
+                chain={state.chain}
+                className=?{switch state.scriptEditor.isOpen {
+                | false => Some("none")
+                | true => None
+                }}
+                onMount={(~editor, ~monaco) => {
+                  setState(oldState => {
+                    ...oldState,
+                    scriptEditor: {
+                      ...oldState.scriptEditor,
+                      editor: Some(editor),
+                      monaco: Some(monaco),
+                    },
+                  })
+                }}
+                onChange={newScript => {
+                  try {
+                    let newChain = {
+                      ...state.chain,
+                      script: newScript,
+                    }
+
+                    // let parsedScript = Acorn.parse(
+                    //   newChain.script,
+                    //   Acorn.parseOptions(~ecmaVersion=2020, ~sourceType=#"module", ()),
+                    // )
+
+                    let functionNames = []
+
+                    let inspected: Inspector.inspectable = switch state.inspected {
+                    | Nothing(_) => Nothing(newChain)
+                    | Block(block) => Block(block)
+                    | Request(v) =>
+                      let request =
+                        newChain.requests
+                        ->Belt.Array.getBy(existingRequest => existingRequest.id == v.request.id)
+                        ->Belt.Option.getWithDefault(v.request)
+                      Request({request: request, chain: newChain})
+                    | RequestArgument({request, variableName}) =>
+                      let request =
+                        newChain.requests
+                        ->Belt.Array.getBy(existingRequest => existingRequest.id == request.id)
+                        ->Belt.Option.getWithDefault(request)
+                      RequestArgument({
+                        variableName: variableName,
+                        chain: newChain,
+                        request: request,
+                      })
+                    }
+
+                    setState(oldState => {
+                      {
+                        ...oldState,
+                        scriptFunctions: functionNames,
+                        chain: newChain,
+                        inspected: inspected,
+                      }
+                    })
+                  } catch {
+                  | err => Js.log2("Error updating script from editor: ", err)
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <div className="w-1/3"> {sidebar} </div>
+        </div>
+        {switch state.blockEdit {
+        | Nothing => React.null
+        | Create(block) | Edit(block) =>
+          let editor =
+            <BlockEditor
+              schema={state.schema}
+              block
+              onClose={() => {
+                setState(oldState => {...oldState, blockEdit: Nothing})
+              }}
+              onSave={(~initial: Card.block, ~modified as superBlock: Card.block) => {
+                let ast = superBlock.body->GraphQLJs.parse
+                let initialAst = (initial.body->GraphQLJs.parse).definitions[0]
+
+                let newOperationDefinitionCount =
+                  ast.definitions
+                  ->Belt.Array.keep(definition => {
+                    switch Obj.magic(definition)["kind"] {
+                    | "FragmentDefinition" => false
+                    | _ => true
+                    }
+                  })
+                  ->Belt.Array.length
+
+                let guessedInitialBlock = ref(None)
+
+                let blocks = ast.definitions->Belt.Array.mapWithIndex((_idx, definition) => {
+                  let kind = switch Obj.magic(definition)["kind"] {
+                  | "FragmentDefinition" => #fragment
+                  | _ => definition.operation
+                  }
+                  let sameNameAsInitial = initialAst.name.value == definition.name.value
+                  let sameOperationKindChanged = switch (
+                    newOperationDefinitionCount,
+                    initial.kind,
+                    kind,
+                  ) {
+                  | (0, Fragment, #fragment) => true
+                  | (1, _, #fragment) => false
+                  | (1, _, _) => true
+                  | _ => false
+                  }
+
+                  let sameOperationAsInitial = switch (
+                    sameNameAsInitial,
+                    sameOperationKindChanged,
+                  ) {
+                  | (false, false) => false
+                  | (true, _)
+                  | (_, true) => true
+                  }
+
+                  let services =
+                    definition
+                    ->Obj.magic
+                    ->GraphQLUtils.gatherAllReferencedServices(~schema)
+                    ->Belt.Array.map(service => service.slug)
+
+                  let blank = makeBlankBlock()
+
+                  let title =
+                    definition.name.value->Obj.magic->Belt.Option.getWithDefault("Untitled")
+
+                  let block = {
+                    ...blank,
+                    id: sameOperationAsInitial ? initial.id : Uuid.v4(),
+                    title: title,
+                    services: services,
+                    body: GraphQLJs.printAst(definition->Obj.magic),
+                    kind: switch kind {
+                    | #fragment => Fragment
+                    | #query => Query
+                    | #mutation => Mutation
+                    | #subscription => Subscription
+                    },
+                  }
+
+                  switch (sameNameAsInitial, sameOperationKindChanged) {
+                  | (true, _) | (_, true) => guessedInitialBlock := Some(block)
+                  | _ => ()
+                  }
+
+                  block
+                })
+
+                try {
+                  setState(oldState => {
+                    let newChain = blocks->Belt.Array.reduce(oldState.chain, (newChain, block) => {
+                      switch block.kind {
+                      | Fragment => {
+                          ...newChain,
+                          blocks: newChain.blocks
+                          ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
+                          ->Belt.Array.concat([block]),
+                        }
+                      | _ =>
+                        let isLikelyInitialBlock = Some(block) == guessedInitialBlock.contents
+
+                        let initialReq = isLikelyInitialBlock
+                          ? newChain.requests->Belt.Array.getBy(request => {
+                              request.operation.id == initial.id
+                            })
+                          : None
+
+                        let doc = block.body->GraphQLJs.parse
+                        let definition = doc.definitions[0]
+                        let variableNames = definition->GraphQLUtils.getOperationVariables
+
+                        let variableDependencies = variableNames->Belt.Array.map(((
+                          variableName,
+                          _variableType,
+                        )) => {
+                          let existingVarDep = initialReq->Belt.Option.flatMap(request =>
+                            request.variableDependencies->Belt.Array.getBy(
+                              existingVariableDependency => {
+                                existingVariableDependency.name == variableName
+                              },
+                            )
+                          )
+
+                          let variableDep: Chain.variableDependencyKind = Direct({
+                            {name: variableName, value: Variable(variableName)}
+                          })
+
+                          let varDep: Chain.variableDependency =
+                            existingVarDep->Belt.Option.getWithDefault({
+                              name: variableName,
+                              dependency: variableDep,
+                            })
+
+                          varDep
+                        })
+
+                        let newReq: Chain.request = {
+                          id: block.title,
+                          operation: block,
+                          variableDependencies: variableDependencies,
+                          dependencyRequestIds: initialReq->Belt.Option.mapWithDefault([], req =>
+                            req.dependencyRequestIds
+                          ),
+                        }
+
+                        let names = newReq->Chain.requestScriptNames
+
+                        let nameExistsInScript =
+                          newChain.script
+                          ->Js.String2.match_(
+                            Js.Re.fromString(j`export function ${names.functionName}`),
+                          )
+                          ->Belt.Option.isSome
+
+                        let newScript: string = nameExistsInScript
+                          ? newChain.script
+                          : newChain.script ++
+                            j`
+
+export function ${names.functionName} (payload : ${names.inputTypeName}) : ${names.returnTypeName} {
+  return {}
+}`
+
+                        let newChain: Chain.t = {
+                          name: newChain.name,
+                          scriptDependencies: newChain.scriptDependencies,
+                          blocks: newChain.blocks
+                          ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
+                          ->Belt.Array.concat([block]),
+                          requests: newChain.requests
+                          ->Belt.Array.keep(existingRequest => existingRequest.id != newReq.id)
+                          ->Belt.Array.concat([newReq]),
+                          script: newScript,
+                        }
+
+                        let newScript = {
+                          let {dDotTs: _newTypes, importLine} = monacoTypelibForChain(
+                            schema,
+                            newChain,
+                          )
+
+                          let newImports = importLine
+
+                          let hasImport =
+                            newScript
+                            ->Js.String2.match_(
+                              Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
+                            )
+                            ->Belt.Option.isSome
+
+                          switch hasImport {
+                          | false =>
+                            `${newImports}
+
+${newScript}`
+                          | true =>
+                            newScript->Js.String2.replaceByRe(
+                              Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
+                              newImports,
+                            )
+                          }
+                        }
+
+                        let newChain: Chain.t = {
+                          ...newChain,
+                          script: newScript,
+                        }
+
+                        newChain
+                      }
+                    })
+
+                    let newInitialBlock =
+                      newChain.blocks
+                      ->Belt.Array.getBy(block => block.id == initial.id)
+                      ->Belt.Option.getWithDefault(blocks[0])
+
+                    let inspected: Inspector.inspectable = switch oldState.inspected {
+                    | Block(_) => Block(newInitialBlock)
+                    | Nothing(_) => Nothing(newChain)
+                    | Request({request}) =>
+                      let newRequest = {...request, operation: newInitialBlock}
+                      Request({request: newRequest, chain: newChain})
+                    | RequestArgument({request, variableName}) =>
+                      let newRequest = {...request, operation: newInitialBlock}
+                      RequestArgument({
+                        variableName: variableName,
+                        chain: newChain,
+                        request: newRequest,
+                      })
+                    }
+
+                    let newBlocks = blocks
+
+                    let allBlocks = switch oldState.blockEdit {
+                    | _ => oldState.blocks->Belt.Array.concat(newBlocks)
+                    // | _ =>
+                    //   oldState.blocks->Belt.Array.keepMap(existingBlock => {
+                    //     Some(existingBlock.id == newBlock.id ? newBlock : existingBlock)
+                    //   })
+                    }
+
+                    let diagram = diagramFromChain(newChain)
+
+                    {
+                      ...oldState,
+                      chain: newChain,
+                      blockEdit: Nothing,
+                      inspected: inspected,
+                      diagram: diagram,
+                      blocks: allBlocks,
+                    }
+                  })
+                } catch {
+                | _ => ()
+                }
+              }}
+            />
+
+          <Modal> {editor} </Modal>
+        }}
+        {switch state.connectionDrag {
+        | Empty => React.null
+        | Completed({
+            sourceRequest,
+            targetRequest,
+            variableDependency: targetVariableDependency,
+            windowPosition: (x, y),
+          }) =>
+          Js.log2("Seetings window position: ", (x, y))
+          let chainFragmentsDoc =
+            state.chain.blocks
+            ->Belt.Array.keepMap(block => {
+              switch block.kind {
+              | Fragment => Some(block.body)
+              | _ => None
+              }
+            })
+            ->Js.Array2.joinWith("\n\n")
+
+          let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
+          let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+          <div
+            className="absolute"
+            style={ReactDOMRe.Style.make(
+              ~width="500px",
+              ~top=j`${y->string_of_int}px`,
+              ~left=j`${x->string_of_int}px`,
+              (),
+            )}>
+            <div className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
+              <Inspector.GraphQLPreview
+                requestId=sourceRequest.id
+                schema
+                definition
+                fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                  "operationDoc": chainFragmentsDoc,
+                })}
+                onCopy={path => {
+                  let dataPath = ["payload"]->Belt.Array.concat(path)
+
+                  setState(oldState => {
+                    let newDependency = Chain.GraphQLProbe({
+                      name: targetVariableDependency.name,
+                      ifMissing: #SKIP,
+                      ifList: #FIRST,
+                      fromRequestId: sourceRequest.id,
+                      functionFromScript: "TBD",
+                      path: dataPath,
+                    })
+
                     let newRequests = oldState.chain.requests->Belt.Array.map(request => {
-                      switch target.id == request.id {
+                      switch targetRequest.id == request.id {
                       | false => request
                       | true =>
                         let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
-                          let dependency = switch varDep.dependency {
-                          | ArgumentDependency(argDep) =>
-                            let newArgDep = {
-                              ...argDep,
-                              fromRequestIds: argDep.fromRequestIds
-                              ->Belt.Array.concat([source.id])
-                              ->Utils.distinctStrings,
+                          switch varDep.name == targetVariableDependency.name {
+                          | true => {...varDep, dependency: newDependency}
+                          | false =>
+                            let dependency = switch varDep.dependency {
+                            | ArgumentDependency(argDep) =>
+                              let newArgDep = {
+                                ...argDep,
+                                fromRequestIds: argDep.fromRequestIds
+                                ->Belt.Array.concat([sourceRequest.id])
+                                ->Utils.distinctStrings,
+                              }
+
+                              Chain.ArgumentDependency(newArgDep)
+                            | other => other
                             }
+                            let varDep = {...varDep, dependency: dependency}
 
-                            Chain.ArgumentDependency(newArgDep)
-                          | other => other
+                            varDep
                           }
-                          let varDep = {...varDep, dependency: dependency}
-
-                          varDep
                         })
 
                         {
                           ...request,
                           variableDependencies: varDeps,
                           dependencyRequestIds: request.dependencyRequestIds
-                          ->Belt.Array.concat([source.id])
+                          ->Belt.Array.concat([sourceRequest.id])
                           ->Utils.distinctStrings,
                         }
                       }
                     })
 
-                    let sortedRequests = Chain.toposortRequests(newRequests)
+                    let newChain = {...oldState.chain, requests: newRequests}
 
-                    switch sortedRequests {
-                    | Error(#circularDependencyDetected) => oldState
-                    | Ok(sortedRequests) =>
-                      Js.log3("New/Sorted requests: ", newRequests, sortedRequests)
-                      Js.log4(
-                        "New/Sorted lengths & diff (exp: 0): ",
-                        newRequests->Belt.Array.length,
-                        sortedRequests->Belt.Array.length,
-                        sortedRequests->Belt.Array.length - newRequests->Belt.Array.length,
-                      )
+                    let diagram = diagramFromChain(newChain)
 
-                      let newChain = {...oldState.chain, requests: sortedRequests}
-
-                      let diagram = diagramFromChain(newChain)
-
-                      {...oldState, chain: newChain, diagram: diagram}
-                    }
-                  })
-                }
-              }}
-              onElementClick={(_, node) => {
-                let id = node->ReactFlow.Node.idGet
-
-                let request: option<Inspector.inspectable> =
-                  state.chain.requests
-                  ->Belt.Array.getBy(req => {
-                    req.operation.id->Uuid.toString == id
-                  })
-                  ->Belt.Option.map(req => {
-                    let inspected: Inspector.inspectable = Request({
-                      chain: state.chain,
-                      request: req,
-                    })
-                    inspected
-                  })
-
-                let inspected = switch request {
-                | Some(inspected) => Some(inspected)
-                | None =>
-                  let block =
-                    state.chain.blocks->Belt.Array.getBy(block => block.id->Uuid.toString == id)
-                  block->Belt.Option.map((block): Inspector.inspectable => Block(block))
-                }
-
-                inspected->Belt.Option.forEach(inspected => {
-                  Js.log2("New inspected: ", inspected)
-                  setState(oldState => {...oldState, inspected: inspected})
-                })
-              }}
-              connectionLineType=#smoothstep>
-              <ReactFlow.Controls showZoom=false showFitView=true showInteractive=false />
-              <ReactFlow.Background
-                variant=#lines
-                gap={20}
-                size={1}
-                color="#666666"
-                style={ReactDOMStyle.make(~backgroundColor="rgb(60, 60, 60)", ())}
-              />
-            </ReactFlow>
-          </div>
-          <div className="h-1/2">
-            <div
-              className="border-t border-gray-500 bg-gray-900"
-              onClick={_ => {
-                setState(oldState => {
-                  ...oldState,
-                  scriptEditor: {
-                    ...oldState.scriptEditor,
-                    isOpen: !oldState.scriptEditor.isOpen,
-                  },
-                })
-              }}>
-              <nav>
-                <Comps.Header>
-                  {"Chain JavaScript"->React.string}
-                  <button
-                    className="ml-2 mr-2"
-                    onClick={_ => {
-                      state.scriptEditor.editor->Belt.Option.forEach(editor => {
-                        let script = editor->BsReactMonaco.getValue
-                        let newScript = script->Prettier.format({
-                          "parser": "babel",
-                          "plugins": [Prettier.babel],
-                          "singleQuote": true,
-                        })
-
-                        setState(oldState => {
-                          ...oldState,
-                          chain: {...oldState.chain, script: newScript},
-                        })
-                      })
-                    }}
-                    title="Format code">
-                    <Icons.Prettier.Dark height="16px" width="16px" />
-                  </button>
-                </Comps.Header>
-              </nav>
-            </div>
-            <Script
-              schema={state.schema}
-              chain={state.chain}
-              className=?{switch state.scriptEditor.isOpen {
-              | false => Some("none")
-              | true => None
-              }}
-              onMount={(~editor, ~monaco) => {
-                setState(oldState => {
-                  ...oldState,
-                  scriptEditor: {
-                    ...oldState.scriptEditor,
-                    editor: Some(editor),
-                    monaco: Some(monaco),
-                  },
-                })
-              }}
-              onChange={newScript => {
-                try {
-                  let newChain = {
-                    ...state.chain,
-                    script: newScript,
-                  }
-
-                  // let parsedScript = Acorn.parse(
-                  //   newChain.script,
-                  //   Acorn.parseOptions(~ecmaVersion=2020, ~sourceType=#"module", ()),
-                  // )
-
-                  let functionNames = []
-
-                  let inspected: Inspector.inspectable = switch state.inspected {
-                  | Nothing(_) => Nothing(newChain)
-                  | Block(block) => Block(block)
-                  | Request(v) =>
-                    let request =
-                      newChain.requests
-                      ->Belt.Array.getBy(existingRequest => existingRequest.id == v.request.id)
-                      ->Belt.Option.getWithDefault(v.request)
-                    Request({request: request, chain: newChain})
-                  | RequestArgument({request, variableName}) =>
-                    let request =
-                      newChain.requests
-                      ->Belt.Array.getBy(existingRequest => existingRequest.id == request.id)
-                      ->Belt.Option.getWithDefault(request)
-                    RequestArgument({variableName: variableName, chain: newChain, request: request})
-                  }
-
-                  setState(oldState => {
                     {
                       ...oldState,
-                      scriptFunctions: functionNames,
+                      diagram: diagram,
                       chain: newChain,
-                      inspected: inspected,
+                      connectionDrag: Empty,
                     }
                   })
-                } catch {
-                | err => Js.log2("Error updating script from editor: ", err)
-                }
-              }}
-            />
+                }}
+              />
+            </div>
           </div>
-        </div>
-        <div className="w-1/3"> {sidebar} </div>
-      </div>
-      {switch state.blockEdit {
-      | Nothing => React.null
-      | Create(block) | Edit(block) =>
-        let editor =
-          <BlockEditor
-            schema={state.schema}
-            block
-            onClose={() => {
-              setState(oldState => {...oldState, blockEdit: Nothing})
-            }}
-            onSave={(~initial: Card.block, ~modified as superBlock: Card.block) => {
-              let ast = superBlock.body->GraphQLJs.parse
-              let initialAst = (initial.body->GraphQLJs.parse).definitions[0]
-
-              let newOperationDefinitionCount =
-                ast.definitions
-                ->Belt.Array.keep(definition => {
-                  switch Obj.magic(definition)["kind"] {
-                  | "FragmentDefinition" => false
-                  | _ => true
-                  }
-                })
-                ->Belt.Array.length
-
-              let guessedInitialBlock = ref(None)
-
-              let blocks = ast.definitions->Belt.Array.mapWithIndex((_idx, definition) => {
-                let kind = switch Obj.magic(definition)["kind"] {
-                | "FragmentDefinition" => #fragment
-                | _ => definition.operation
-                }
-                let sameNameAsInitial = initialAst.name.value == definition.name.value
-                let sameOperationKindChanged = switch (
-                  newOperationDefinitionCount,
-                  initial.kind,
-                  kind,
-                ) {
-                | (0, Fragment, #fragment) => true
-                | (1, _, #fragment) => false
-                | (1, _, _) => true
-                | _ => false
-                }
-
-                let sameOperationAsInitial = switch (sameNameAsInitial, sameOperationKindChanged) {
-                | (false, false) => false
-                | (true, _)
-                | (_, true) => true
-                }
-
-                let services =
-                  definition
-                  ->Obj.magic
-                  ->GraphQLUtils.gatherAllReferencedServices(~schema)
-                  ->Belt.Array.map(service => service.slug)
-
-                let blank = makeBlankBlock()
-
-                let title = definition.name.value->Obj.magic->Belt.Option.getWithDefault("Untitled")
-
-                let block = {
-                  ...blank,
-                  id: sameOperationAsInitial ? initial.id : Uuid.v4(),
-                  title: title,
-                  services: services,
-                  body: GraphQLJs.printAst(definition->Obj.magic),
-                  kind: switch kind {
-                  | #fragment => Fragment
-                  | #query => Query
-                  | #mutation => Mutation
-                  | #subscription => Subscription
-                  },
-                }
-
-                switch (sameNameAsInitial, sameOperationKindChanged) {
-                | (true, _) | (_, true) => guessedInitialBlock := Some(block)
-                | _ => ()
-                }
-
-                block
+        | Started(conDrag) =>
+          <ConnectorLine
+            source=conDrag.sourceDom
+            onDragEnd={() => {
+              setState(oldState => {
+                Js.log("ConnectorLine stop, EMPTY")
+                {...oldState, connectionDrag: Empty}
               })
-
-              try {
-                setState(oldState => {
-                  let newChain = blocks->Belt.Array.reduce(oldState.chain, (newChain, block) => {
-                    switch block.kind {
-                    | Fragment => {
-                        ...newChain,
-                        blocks: newChain.blocks
-                        ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
-                        ->Belt.Array.concat([block]),
-                      }
-                    | _ =>
-                      let isLikelyInitialBlock = Some(block) == guessedInitialBlock.contents
-
-                      let initialReq = isLikelyInitialBlock
-                        ? newChain.requests->Belt.Array.getBy(request => {
-                            request.operation.id == initial.id
-                          })
-                        : None
-
-                      let doc = block.body->GraphQLJs.parse
-                      let definition = doc.definitions[0]
-                      let variableNames = definition->GraphQLUtils.getOperationVariables
-
-                      let variableDependencies = variableNames->Belt.Array.map(((
-                        variableName,
-                        _variableType,
-                      )) => {
-                        let existingVarDep = initialReq->Belt.Option.flatMap(request =>
-                          request.variableDependencies->Belt.Array.getBy(
-                            existingVariableDependency => {
-                              existingVariableDependency.name == variableName
-                            },
-                          )
-                        )
-
-                        let variableDep: Chain.variableDependencyKind = Direct({
-                          {name: variableName, value: Variable(variableName)}
-                        })
-
-                        let varDep: Chain.variableDependency =
-                          existingVarDep->Belt.Option.getWithDefault({
-                            name: variableName,
-                            dependency: variableDep,
-                          })
-
-                        varDep
-                      })
-
-                      let newReq: Chain.request = {
-                        id: block.title,
-                        operation: block,
-                        variableDependencies: variableDependencies,
-                        dependencyRequestIds: initialReq->Belt.Option.mapWithDefault([], req =>
-                          req.dependencyRequestIds
-                        ),
-                      }
-
-                      let names = newReq->Chain.requestScriptNames
-
-                      let nameExistsInScript =
-                        newChain.script
-                        ->Js.String2.match_(
-                          Js.Re.fromString(j`export function ${names.functionName}`),
-                        )
-                        ->Belt.Option.isSome
-
-                      let newScript: string = nameExistsInScript
-                        ? newChain.script
-                        : newChain.script ++
-                          j`
-
-export function ${names.functionName} (payload : ${names.inputTypeName}) : ${names.returnTypeName} {
-  return {}
-}`
-
-                      let newChain: Chain.t = {
-                        name: newChain.name,
-                        scriptDependencies: newChain.scriptDependencies,
-                        blocks: newChain.blocks
-                        ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
-                        ->Belt.Array.concat([block]),
-                        requests: newChain.requests
-                        ->Belt.Array.keep(existingRequest => existingRequest.id != newReq.id)
-                        ->Belt.Array.concat([newReq]),
-                        script: newScript,
-                      }
-
-                      let newScript = {
-                        let {dDotTs: _newTypes, importLine} = monacoTypelibForChain(
-                          schema,
-                          newChain,
-                        )
-
-                        let newImports = importLine
-
-                        let hasImport =
-                          newScript
-                          ->Js.String2.match_(
-                            Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
-                          )
-                          ->Belt.Option.isSome
-
-                        switch hasImport {
-                        | false =>
-                          `${newImports}
-
-${newScript}`
-                        | true =>
-                          newScript->Js.String2.replaceByRe(
-                            Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
-                            newImports,
-                          )
-                        }
-                      }
-
-                      let newChain: Chain.t = {
-                        ...newChain,
-                        script: newScript,
-                      }
-
-                      newChain
-                    }
-                  })
-
-                  let newInitialBlock =
-                    newChain.blocks
-                    ->Belt.Array.getBy(block => block.id == initial.id)
-                    ->Belt.Option.getWithDefault(blocks[0])
-
-                  let inspected: Inspector.inspectable = switch oldState.inspected {
-                  | Block(_) => Block(newInitialBlock)
-                  | Nothing(_) => Nothing(newChain)
-                  | Request({request}) =>
-                    let newRequest = {...request, operation: newInitialBlock}
-                    Request({request: newRequest, chain: newChain})
-                  | RequestArgument({request, variableName}) =>
-                    let newRequest = {...request, operation: newInitialBlock}
-                    RequestArgument({
-                      variableName: variableName,
-                      chain: newChain,
-                      request: newRequest,
-                    })
-                  }
-
-                  let newBlocks = blocks
-
-                  let allBlocks = switch oldState.blockEdit {
-                  | _ => oldState.blocks->Belt.Array.concat(newBlocks)
-                  // | _ =>
-                  //   oldState.blocks->Belt.Array.keepMap(existingBlock => {
-                  //     Some(existingBlock.id == newBlock.id ? newBlock : existingBlock)
-                  //   })
-                  }
-
-                  let diagram = diagramFromChain(newChain)
-
-                  {
-                    ...oldState,
-                    chain: newChain,
-                    blockEdit: Nothing,
-                    inspected: inspected,
-                    diagram: diagram,
-                    blocks: allBlocks,
-                  }
-                })
-              } catch {
-              | _ => ()
-              }
             }}
           />
-        <Modal> {editor} </Modal>
-      }}
+        }}
+      </ConnectionContext.Provider>
     </div>
   }
 }

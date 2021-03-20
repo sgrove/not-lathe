@@ -69,6 +69,10 @@ let transpileFullChainScript = (chain: Chain.t): string => {
         | ArgumentDependency(_argDep) =>
           let call = Chain.callForVariable(request, varDep.name)
           Some(call)
+        | GraphQLProbe(probe) =>
+          let call = Chain.callForProbe(request, varDep.name, probe)
+          Some(call)
+
         | _ => None
         }
       })
@@ -97,6 +101,15 @@ let patchRequestArgDeps = (request: Chain.request) => {
         fromRequestIds: request.dependencyRequestIds,
       }
       Chain.ArgumentDependency(newArgDep)
+    | GraphQLProbe(probe) =>
+      let requestScriptName = Chain.requestScriptNames(request).functionName
+
+      let functionFromScript = j`${requestScriptName}_${varDep.name}`
+      let newProbe = {
+        ...probe,
+        functionFromScript: functionFromScript,
+      }
+      Chain.GraphQLProbe(newProbe)
     | other => other
     }
 
@@ -742,6 +755,84 @@ module ArgumentDependency = {
   }
 }
 
+module GraphQLProbe = {
+  @react.component
+  let make = (
+    ~request as _: Chain.request,
+    ~chain as _: Chain.t,
+    ~probe: Chain.graphQLProbe,
+    ~onArgDepUpdated,
+  ) => {
+    let setArgDep = makeNewArgDep => {
+      onArgDepUpdated(makeNewArgDep(probe))
+    }
+
+    open React
+    <div>
+      <form>
+        <label className="m-0">
+          <div className="flex rounded-md shadow-sm">
+            <span
+              className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+              {"ifMissing:"->string}
+            </span>
+            <select
+              className="block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
+              value={probe.ifMissing->Obj.magic}
+              onChange={event => {
+                let ifMissing = ReactEvent.Form.target(event)["value"]->Chain.ifMissingOfString
+                switch ifMissing {
+                | Error(_) => ()
+                | Ok(ifMissing) =>
+                  setArgDep(oldArgDep => {
+                    let newArgDep = {
+                      ...oldArgDep,
+                      ifMissing: ifMissing,
+                    }
+                    newArgDep
+                  })
+                }
+              }}>
+              <option value={#ERROR->Chain.stringOfIfMissing}> {"Error"->string} </option>
+              <option value={#ALLOW->Chain.stringOfIfMissing}> {"Allow"->string} </option>
+              <option value={#SKIP->Chain.stringOfIfMissing}> {"Skip"->string} </option>
+            </select>
+          </div>
+        </label>
+        {AdvancedMode.enabled
+          ? <label className="m-0">
+              <div className="flex rounded-md shadow-sm">
+                <span
+                  className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                  {"ifList:"->string}
+                </span>
+                <select
+                  className="block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
+                  value={probe.ifList->Obj.magic}
+                  onChange={event => {
+                    let ifList = ReactEvent.Form.target(event)["value"]->Chain.ifListOfString
+                    switch ifList {
+                    | Error(_) => ()
+                    | Ok(ifList) => setArgDep(oldArgDep => {...oldArgDep, ifList: ifList})
+                    }
+                  }}>
+                  <option value={#FIRST->Chain.stringOfIfList}> {"First item"->string} </option>
+                  <option value={#LAST->Chain.stringOfIfList}> {"Last item"->string} </option>
+                  <option value={#ALL->Chain.stringOfIfList}>
+                    {"All items as an array"->string}
+                  </option>
+                  <option value={#EACH->Chain.stringOfIfList}>
+                    {"Run once for each item"->string}
+                  </option>
+                </select>
+              </div>
+            </label>
+          : React.null}
+      </form>
+    </div>
+  }
+}
+
 let emptyArgumentDependency = (variableName): Chain.variableDependency => {
   name: variableName,
   dependency: ArgumentDependency({
@@ -835,6 +926,28 @@ module RequestArgument = {
           onRequestUpdated(newRequest)
         }}
       />
+    | GraphQLProbe(probe) =>
+      <GraphQLProbe
+        request
+        chain
+        probe
+        onArgDepUpdated={newProbe => {
+          let newRequest = {
+            ...request,
+            variableDependencies: request.variableDependencies->Belt.Array.keepMap(
+              variableDependency => {
+                let dependency =
+                  variableDependency.name == variableName
+                    ? Chain.GraphQLProbe(newProbe)
+                    : variableDependency.dependency
+
+                Some({...variableDependency, dependency: dependency})
+              },
+            ),
+          }
+          onRequestUpdated(newRequest)
+        }}
+      />
     }
   }
 }
@@ -889,12 +1002,15 @@ module Request = {
     ~onLogin,
     ~requestValueCache,
     ~onDeleteEdge,
+    ~onPotentialVariableSourceConnect,
   ) => {
     open React
+    let connectionDrag = useContext(ConnectionContext.context)
 
     let (openedTabs, setOpenedTabs) = useState(() => Belt.Set.String.empty)
     let (mockedEvalResults, setMockedEvalResults) = useState(() => None)
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
+    let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
 
     let chainFragmentsDoc =
       chain.blocks
@@ -946,10 +1062,38 @@ module Request = {
 
       let isOpen = openedTabs->Belt.Set.String.has(varDep.name)
 
-      <article key={variableName} className="m-2">
+      <article
+        key={variableName}
+        className="m-2"
+        onMouseEnter={event => {
+          switch connectionDrag {
+          | Started(_) => setPotentialConnection(s => s->Belt.Set.String.add(variableName))
+          | _ => ()
+          }
+        }}
+        onMouseLeave={event => {
+          switch connectionDrag {
+          | Started(_) => setPotentialConnection(s => s->Belt.Set.String.remove(variableName))
+          | _ => ()
+          }
+        }}
+        onMouseUp={event => {
+          let clientX = event->ReactEvent.Mouse.clientX
+          let clientY = event->ReactEvent.Mouse.clientY
+          let mouseClientPosition = (clientX, clientY)
+          setPotentialConnection(s => s->Belt.Set.String.remove(variableName))
+          onPotentialVariableSourceConnect(
+            ~targetRequest=request,
+            ~variableDependency=varDep,
+            ~mouseClientPosition,
+          )
+        }}>
         <div
-          className={"flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " ++ (
-            isOpen ? "rounded-t-sm" : "rounded-sm"
+          className={"flex justify-between items-center cursor-pointer p-1  text-gray-200 border shadow-xl " ++
+          (isOpen ? "rounded-t-sm" : "rounded-sm") ++ (
+            potentialConnection->Belt.Set.String.has(variableName)
+              ? " bg-green-400 border-green-900"
+              : " bg-gray-600 border-green-800"
           )}
           onClick={_ => {
             setOpenedTabs(oldOpenedTabs =>
@@ -967,6 +1111,7 @@ module Request = {
             | ArgumentDependency(_) => "argument"
             | Direct({value: Variable(_)}) => "variable"
             | Direct({value: JSON(_)}) => "json"
+            | GraphQLProbe(_) => "probe"
             }}
             onChange={event => {
               let newDependency: option<
@@ -1016,6 +1161,7 @@ module Request = {
             }}>
             <option value={"variable"}> {"Variable Input"->string} </option>
             <option value={"argument"}> {"Computed Value"->string} </option>
+            <option disabled=true value={"probe"}> {"GraphQL Probe"->string} </option>
           </select>
         </div>
         <div
@@ -1067,8 +1213,6 @@ module Request = {
       })
     })
 
-    Js.log3("Upstream Requests: ", upstreamRequests->Belt.Array.length, upstreamRequests)
-
     let editor = React.useRef(None)
 
     let compiledDoc = chain->Chain.compileOperationDoc
@@ -1111,7 +1255,12 @@ module Request = {
               event->ReactEvent.Form.stopPropagation
               onExecuteRequest(~request, ~variables=formVariables)
             }}>
-            {inputs->React.array} <button type_="submit"> {"Execute"->React.string} </button>
+            {inputs->React.array}
+            <button
+              type_="submit"
+              className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+              {"Execute"->React.string}
+            </button>
           </form>
         : React.null
 
@@ -1221,7 +1370,7 @@ module ChainResultsViewer = {
 
     let compiledChainViewer =
       <BsReactMonaco.Editor
-        height="20%"
+        height="250px"
         className="h-auto"
         theme="vs-dark"
         language="graphql"
@@ -1410,7 +1559,15 @@ module Nothing = {
       // </pre>
       // <Comps.Header> {"Compiled Executable Chain"->React.string} </Comps.Header>
       // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-      //   {chain->transformChain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+      //   {
+      //     let transformed = chain->internallyPatchChain
+      //     let script = transformed.script
+
+      //     // let script = Obj.magic(transformed)["script"]
+
+      //     // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
+      //     script->React.string
+      //   }
       // </pre>
     </>
   }
@@ -1439,6 +1596,7 @@ let make = (
   ~onDeleteEdge,
   ~onRequestInspected,
   ~oneGraphAuth,
+  ~onPotentialVariableSourceConnect,
 ) => {
   open React
 
@@ -1491,6 +1649,7 @@ let make = (
           onExecuteRequest
           requestValueCache
           onDeleteEdge
+          onPotentialVariableSourceConnect
         />
       }}
     </div>

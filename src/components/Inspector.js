@@ -20,6 +20,7 @@ import * as BsReactMonaco from "../bindings/BsReactMonaco.js";
 import * as OnegraphAuth from "onegraph-auth";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as GraphQLFormJs from "../GraphQLForm.js";
+import * as ConnectionContext from "./ConnectionContext.js";
 import CopyToClipboard from "copy-to-clipboard";
 import * as QuickjsEmscripten from "quickjs-emscripten";
 import * as GraphQLMockInputTypeJs from "../GraphQLMockInputType.js";
@@ -47,10 +48,15 @@ function transpileFullChainScript(chain) {
   var allCalls = Belt_Array.map(chain.requests, (function (request) {
             var requestCalls = Belt_Array.keepMap(request.variableDependencies, (function (varDep) {
                     var _argDep = varDep.dependency;
-                    if (_argDep.TAG === /* ArgumentDependency */0) {
-                      return Chain.callForVariable(request, varDep.name);
+                    switch (_argDep.TAG | 0) {
+                      case /* ArgumentDependency */0 :
+                          return Chain.callForVariable(request, varDep.name);
+                      case /* Direct */1 :
+                          return ;
+                      case /* GraphQLProbe */2 :
+                          return Chain.callForProbe(request, varDep.name, _argDep._0);
+                      
                     }
-                    
                   }));
             return requestCalls.join("\n\n");
           })).join("\n\n");
@@ -61,30 +67,57 @@ function patchRequestArgDeps(request) {
   var variableDependencies = Belt_Array.map(request.variableDependencies, (function (varDep) {
           var argDep = varDep.dependency;
           var dependency;
-          if (argDep.TAG === /* ArgumentDependency */0) {
-            var argDep$1 = argDep._0;
-            var requestScriptName = Chain.requestScriptNames(request).functionName;
-            var functionFromScript = requestScriptName + "_" + varDep.name;
-            var newArgDep_maxRecur = argDep$1.maxRecur;
-            var newArgDep_ifMissing = argDep$1.ifMissing;
-            var newArgDep_ifList = argDep$1.ifList;
-            var newArgDep_fromRequestIds = request.dependencyRequestIds;
-            var newArgDep_name = argDep$1.name;
-            var newArgDep = {
-              functionFromScript: functionFromScript,
-              maxRecur: newArgDep_maxRecur,
-              ifMissing: newArgDep_ifMissing,
-              ifList: newArgDep_ifList,
-              fromRequestIds: newArgDep_fromRequestIds,
-              name: newArgDep_name
-            };
-            dependency = {
-              TAG: 0,
-              _0: newArgDep,
-              [Symbol.for("name")]: "ArgumentDependency"
-            };
-          } else {
-            dependency = argDep;
+          switch (argDep.TAG | 0) {
+            case /* ArgumentDependency */0 :
+                var argDep$1 = argDep._0;
+                var requestScriptName = Chain.requestScriptNames(request).functionName;
+                var functionFromScript = requestScriptName + "_" + varDep.name;
+                var newArgDep_maxRecur = argDep$1.maxRecur;
+                var newArgDep_ifMissing = argDep$1.ifMissing;
+                var newArgDep_ifList = argDep$1.ifList;
+                var newArgDep_fromRequestIds = request.dependencyRequestIds;
+                var newArgDep_name = argDep$1.name;
+                var newArgDep = {
+                  functionFromScript: functionFromScript,
+                  maxRecur: newArgDep_maxRecur,
+                  ifMissing: newArgDep_ifMissing,
+                  ifList: newArgDep_ifList,
+                  fromRequestIds: newArgDep_fromRequestIds,
+                  name: newArgDep_name
+                };
+                dependency = {
+                  TAG: 0,
+                  _0: newArgDep,
+                  [Symbol.for("name")]: "ArgumentDependency"
+                };
+                break;
+            case /* Direct */1 :
+                dependency = argDep;
+                break;
+            case /* GraphQLProbe */2 :
+                var probe = argDep._0;
+                var requestScriptName$1 = Chain.requestScriptNames(request).functionName;
+                var functionFromScript$1 = requestScriptName$1 + "_" + varDep.name;
+                var newProbe_name = probe.name;
+                var newProbe_ifMissing = probe.ifMissing;
+                var newProbe_ifList = probe.ifList;
+                var newProbe_fromRequestId = probe.fromRequestId;
+                var newProbe_path = probe.path;
+                var newProbe = {
+                  name: newProbe_name,
+                  ifMissing: newProbe_ifMissing,
+                  ifList: newProbe_ifList,
+                  fromRequestId: newProbe_fromRequestId,
+                  path: newProbe_path,
+                  functionFromScript: functionFromScript$1
+                };
+                dependency = {
+                  TAG: 2,
+                  _0: newProbe,
+                  [Symbol.for("name")]: "GraphQLProbe"
+                };
+                break;
+            
           }
           return {
                   name: varDep.name,
@@ -108,10 +141,14 @@ function evalRequest(schema, chain, request, requestValueCache) {
   var __x$1 = __x.then(function (quickjs) {
         var payload = Belt_Array.reduce(Belt_Array.keepMap(Belt_Array.concatMany(Belt_Array.keepMap(request.variableDependencies, (function (varDep) {
                             var argDep = varDep.dependency;
-                            if (argDep.TAG === /* ArgumentDependency */0) {
-                              return argDep._0.fromRequestIds;
+                            switch (argDep.TAG | 0) {
+                              case /* ArgumentDependency */0 :
+                                  return argDep._0.fromRequestIds;
+                              case /* Direct */1 :
+                              case /* GraphQLProbe */2 :
+                                  return ;
+                              
                             }
-                            
                           }))), (function (upstreamRequestId) {
                     return Belt_Array.getBy(chain.requests, (function (request) {
                                   return request.id === upstreamRequestId;
@@ -152,15 +189,19 @@ function evalRequest(schema, chain, request, requestValueCache) {
         var mockedVariables = GraphQLJs.Mock.mockOperationVariables(schema, definition);
         var variables = Belt_Array.reduce(request.variableDependencies, mockedVariables, (function (acc, nextVarDependency) {
                 var argDep = nextVarDependency.dependency;
-                if (argDep.TAG !== /* ArgumentDependency */0) {
-                  return acc;
+                switch (argDep.TAG | 0) {
+                  case /* ArgumentDependency */0 :
+                      var call = argDep._0.functionFromScript + "(" + payload$1 + ")";
+                      var script = transpiled + "\n\n" + call;
+                      var fullScript = script.replace(new RegExp("export ", "g"), "");
+                      var result = quickjs.evalCode(fullScript);
+                      acc[nextVarDependency.name] = result;
+                      return acc;
+                  case /* Direct */1 :
+                  case /* GraphQLProbe */2 :
+                      return acc;
+                  
                 }
-                var call = argDep._0.functionFromScript + "(" + payload$1 + ")";
-                var script = transpiled + "\n\n" + call;
-                var fullScript = script.replace(new RegExp("export ", "g"), "");
-                var result = quickjs.evalCode(fullScript);
-                acc[nextVarDependency.name] = result;
-                return acc;
               }));
         var graphQLResult = Graphql.graphqlSync(schema, operationDoc, undefined, undefined, Caml_option.some(variables));
         return Promise.resolve({
@@ -492,6 +533,45 @@ var ArgumentDependency = {
   make: Inspector$ArgumentDependency
 };
 
+function Inspector$GraphQLProbe(Props) {
+  var probe = Props.probe;
+  var onArgDepUpdated = Props.onArgDepUpdated;
+  return React.createElement("div", undefined, React.createElement("form", undefined, React.createElement("label", {
+                      className: "m-0"
+                    }, React.createElement("div", {
+                          className: "flex rounded-md shadow-sm"
+                        }, React.createElement("span", {
+                              className: "inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm"
+                            }, "ifMissing:"), React.createElement("select", {
+                              className: "block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8",
+                              value: probe.ifMissing,
+                              onChange: (function ($$event) {
+                                  var ifMissing = Chain.ifMissingOfString($$event.target.value);
+                                  if (ifMissing.TAG === /* Ok */0) {
+                                    return Curry._1(onArgDepUpdated, {
+                                                name: probe.name,
+                                                ifMissing: ifMissing._0,
+                                                ifList: probe.ifList,
+                                                fromRequestId: probe.fromRequestId,
+                                                path: probe.path,
+                                                functionFromScript: probe.functionFromScript
+                                              });
+                                  }
+                                  
+                                })
+                            }, React.createElement("option", {
+                                  value: Chain.stringOfIfMissing("ERROR")
+                                }, "Error"), React.createElement("option", {
+                                  value: Chain.stringOfIfMissing("ALLOW")
+                                }, "Allow"), React.createElement("option", {
+                                  value: Chain.stringOfIfMissing("SKIP")
+                                }, "Skip")))), null));
+}
+
+var GraphQLProbe = {
+  make: Inspector$GraphQLProbe
+};
+
 function emptyArgumentDependency(variableName) {
   return {
           name: variableName,
@@ -520,94 +600,121 @@ function Inspector$RequestArgument(Props) {
               return argDep.name === variableName;
             })), defaultRequestArgument);
   var argDep$1 = argDep.dependency;
-  if (argDep$1.TAG === /* ArgumentDependency */0) {
-    return React.createElement(Inspector$ArgumentDependency, {
-                request: request,
-                chain: chain,
-                argDep: argDep$1._0,
-                onArgDepUpdated: (function (newArgDep) {
-                    return Curry._1(onRequestUpdated, {
-                                id: request.id,
-                                variableDependencies: Belt_Array.keepMap(request.variableDependencies, (function (variableDependency) {
-                                        var dependency = variableDependency.name === variableName ? ({
-                                              TAG: 0,
-                                              _0: newArgDep,
-                                              [Symbol.for("name")]: "ArgumentDependency"
-                                            }) : variableDependency.dependency;
-                                        return {
-                                                name: variableDependency.name,
-                                                dependency: dependency
-                                              };
-                                      })),
-                                operation: request.operation,
-                                dependencyRequestIds: request.dependencyRequestIds
-                              });
-                  })
-              });
-  }
-  var variable = argDep$1._0.value;
-  if (variable.TAG === /* JSON */0) {
-    return React.createElement(Inspector$DirectJSON, {
-                request: request,
-                chain: chain,
-                json: variable._0,
-                onJsonUpdated: (function (newJson) {
-                    return Curry._1(onRequestUpdated, {
-                                id: request.id,
-                                variableDependencies: Belt_Array.keepMap(request.variableDependencies, (function (variableDependency) {
-                                        var dependency = variableDependency.name === variableName ? ({
-                                              TAG: 1,
-                                              _0: {
-                                                name: variableName,
-                                                value: {
+  switch (argDep$1.TAG | 0) {
+    case /* ArgumentDependency */0 :
+        return React.createElement(Inspector$ArgumentDependency, {
+                    request: request,
+                    chain: chain,
+                    argDep: argDep$1._0,
+                    onArgDepUpdated: (function (newArgDep) {
+                        return Curry._1(onRequestUpdated, {
+                                    id: request.id,
+                                    variableDependencies: Belt_Array.keepMap(request.variableDependencies, (function (variableDependency) {
+                                            var dependency = variableDependency.name === variableName ? ({
                                                   TAG: 0,
-                                                  _0: newJson,
-                                                  [Symbol.for("name")]: "JSON"
-                                                }
-                                              },
-                                              [Symbol.for("name")]: "Direct"
-                                            }) : variableDependency.dependency;
-                                        return {
-                                                name: variableDependency.name,
-                                                dependency: dependency
-                                              };
-                                      })),
-                                operation: request.operation,
-                                dependencyRequestIds: request.dependencyRequestIds
-                              });
-                  })
-              });
-  } else {
-    return React.createElement(Inspector$DirectVariable, {
-                request: request,
-                chain: chain,
-                variable: variable._0,
-                onVariableUpdated: (function (newVariable) {
-                    return Curry._1(onRequestUpdated, {
-                                id: request.id,
-                                variableDependencies: Belt_Array.keepMap(request.variableDependencies, (function (variableDependency) {
-                                        var dependency = variableDependency.name === variableName ? ({
-                                              TAG: 1,
-                                              _0: {
-                                                name: variableName,
-                                                value: {
-                                                  TAG: 1,
-                                                  _0: newVariable,
-                                                  [Symbol.for("name")]: "Variable"
-                                                }
-                                              },
-                                              [Symbol.for("name")]: "Direct"
-                                            }) : variableDependency.dependency;
-                                        return {
-                                                name: variableDependency.name,
-                                                dependency: dependency
-                                              };
-                                      })),
-                                operation: request.operation,
-                                dependencyRequestIds: request.dependencyRequestIds
-                              });
-                  })
-              });
+                                                  _0: newArgDep,
+                                                  [Symbol.for("name")]: "ArgumentDependency"
+                                                }) : variableDependency.dependency;
+                                            return {
+                                                    name: variableDependency.name,
+                                                    dependency: dependency
+                                                  };
+                                          })),
+                                    operation: request.operation,
+                                    dependencyRequestIds: request.dependencyRequestIds
+                                  });
+                      })
+                  });
+    case /* Direct */1 :
+        var variable = argDep$1._0.value;
+        if (variable.TAG === /* JSON */0) {
+          return React.createElement(Inspector$DirectJSON, {
+                      request: request,
+                      chain: chain,
+                      json: variable._0,
+                      onJsonUpdated: (function (newJson) {
+                          return Curry._1(onRequestUpdated, {
+                                      id: request.id,
+                                      variableDependencies: Belt_Array.keepMap(request.variableDependencies, (function (variableDependency) {
+                                              var dependency = variableDependency.name === variableName ? ({
+                                                    TAG: 1,
+                                                    _0: {
+                                                      name: variableName,
+                                                      value: {
+                                                        TAG: 0,
+                                                        _0: newJson,
+                                                        [Symbol.for("name")]: "JSON"
+                                                      }
+                                                    },
+                                                    [Symbol.for("name")]: "Direct"
+                                                  }) : variableDependency.dependency;
+                                              return {
+                                                      name: variableDependency.name,
+                                                      dependency: dependency
+                                                    };
+                                            })),
+                                      operation: request.operation,
+                                      dependencyRequestIds: request.dependencyRequestIds
+                                    });
+                        })
+                    });
+        } else {
+          return React.createElement(Inspector$DirectVariable, {
+                      request: request,
+                      chain: chain,
+                      variable: variable._0,
+                      onVariableUpdated: (function (newVariable) {
+                          return Curry._1(onRequestUpdated, {
+                                      id: request.id,
+                                      variableDependencies: Belt_Array.keepMap(request.variableDependencies, (function (variableDependency) {
+                                              var dependency = variableDependency.name === variableName ? ({
+                                                    TAG: 1,
+                                                    _0: {
+                                                      name: variableName,
+                                                      value: {
+                                                        TAG: 1,
+                                                        _0: newVariable,
+                                                        [Symbol.for("name")]: "Variable"
+                                                      }
+                                                    },
+                                                    [Symbol.for("name")]: "Direct"
+                                                  }) : variableDependency.dependency;
+                                              return {
+                                                      name: variableDependency.name,
+                                                      dependency: dependency
+                                                    };
+                                            })),
+                                      operation: request.operation,
+                                      dependencyRequestIds: request.dependencyRequestIds
+                                    });
+                        })
+                    });
+        }
+    case /* GraphQLProbe */2 :
+        return React.createElement(Inspector$GraphQLProbe, {
+                    request: request,
+                    chain: chain,
+                    probe: argDep$1._0,
+                    onArgDepUpdated: (function (newProbe) {
+                        return Curry._1(onRequestUpdated, {
+                                    id: request.id,
+                                    variableDependencies: Belt_Array.keepMap(request.variableDependencies, (function (variableDependency) {
+                                            var dependency = variableDependency.name === variableName ? ({
+                                                  TAG: 2,
+                                                  _0: newProbe,
+                                                  [Symbol.for("name")]: "GraphQLProbe"
+                                                }) : variableDependency.dependency;
+                                            return {
+                                                    name: variableDependency.name,
+                                                    dependency: dependency
+                                                  };
+                                          })),
+                                    operation: request.operation,
+                                    dependencyRequestIds: request.dependencyRequestIds
+                                  });
+                      })
+                  });
+    
   }
 }
 
@@ -661,6 +768,8 @@ function Inspector$Request(Props) {
   var onLogin = Props.onLogin;
   var requestValueCache = Props.requestValueCache;
   var onDeleteEdge = Props.onDeleteEdge;
+  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
+  var connectionDrag = React.useContext(ConnectionContext.context);
   var match = React.useState(function () {
         
       });
@@ -675,6 +784,11 @@ function Inspector$Request(Props) {
       });
   var setFormVariables = match$2[1];
   var formVariables = match$2[0];
+  var match$3 = React.useState(function () {
+        
+      });
+  var setPotentialConnection = match$3[1];
+  var potentialConnection = match$3[0];
   var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
             var match = block.kind;
             if (match >= 3) {
@@ -742,15 +856,56 @@ function Inspector$Request(Props) {
           var isOpen = Belt_SetString.has(openedTabs, varDep.name);
           var match = varDep.dependency;
           var tmp;
-          tmp = match.TAG === /* ArgumentDependency */0 ? "argument" : (
-              match._0.value.TAG === /* JSON */0 ? "json" : "variable"
-            );
+          switch (match.TAG | 0) {
+            case /* ArgumentDependency */0 :
+                tmp = "argument";
+                break;
+            case /* Direct */1 :
+                tmp = match._0.value.TAG === /* JSON */0 ? "json" : "variable";
+                break;
+            case /* GraphQLProbe */2 :
+                tmp = "probe";
+                break;
+            
+          }
           return React.createElement("article", {
                       key: variableName,
-                      className: "m-2"
+                      className: "m-2",
+                      onMouseEnter: (function ($$event) {
+                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* Started */0) {
+                            return ;
+                          } else {
+                            return Curry._1(setPotentialConnection, (function (s) {
+                                          return Belt_SetString.add(s, variableName);
+                                        }));
+                          }
+                        }),
+                      onMouseLeave: (function ($$event) {
+                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* Started */0) {
+                            return ;
+                          } else {
+                            return Curry._1(setPotentialConnection, (function (s) {
+                                          return Belt_SetString.remove(s, variableName);
+                                        }));
+                          }
+                        }),
+                      onMouseUp: (function ($$event) {
+                          var clientX = $$event.clientX;
+                          var clientY = $$event.clientY;
+                          var mouseClientPosition = [
+                            clientX,
+                            clientY
+                          ];
+                          Curry._1(setPotentialConnection, (function (s) {
+                                  return Belt_SetString.remove(s, variableName);
+                                }));
+                          return Curry._3(onPotentialVariableSourceConnect, request, varDep, mouseClientPosition);
+                        })
                     }, React.createElement("div", {
-                          className: "flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " + (
+                          className: "flex justify-between items-center cursor-pointer p-1  text-gray-200 border shadow-xl " + (
                             isOpen ? "rounded-t-sm" : "rounded-sm"
+                          ) + (
+                            Belt_SetString.has(potentialConnection, variableName) ? " bg-green-400 border-green-900" : " bg-gray-600 border-green-800"
                           ),
                           onClick: (function (param) {
                               return Curry._1(setOpenedTabs, (function (oldOpenedTabs) {
@@ -869,7 +1024,10 @@ function Inspector$Request(Props) {
                                   value: "variable"
                                 }, "Variable Input"), React.createElement("option", {
                                   value: "argument"
-                                }, "Computed Value"))), React.createElement("div", {
+                                }, "Computed Value"), React.createElement("option", {
+                                  disabled: true,
+                                  value: "probe"
+                                }, "GraphQL Probe"))), React.createElement("div", {
                           className: "text-grey-darkest p-2 bg-gray-600 text-gray-200 overflow-scroll rounded-b-sm " + (
                             isOpen ? "" : "hidden"
                           )
@@ -913,7 +1071,6 @@ function Inspector$Request(Props) {
                                           }, "Remove Dependency")));
                       }));
         }));
-  console.log("Upstream Requests: ", upstreamRequests.length, upstreamRequests);
   var editor = React.useRef(undefined);
   var compiledDoc = Chain.compileOperationDoc(chain);
   var content = compiledDoc.operationDoc;
@@ -948,6 +1105,7 @@ function Inspector$Request(Props) {
               return Curry._2(onExecuteRequest, request, formVariables);
             })
         }, inputs, React.createElement("button", {
+              className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
               type: "submit"
             }, "Execute")) : null;
   var missingAuthServices = Belt_Option.mapWithDefault(cachedResult, [], (function (results) {
@@ -1033,7 +1191,7 @@ function Inspector$ChainResultsViewer(Props) {
           
         }), [content]);
   return React.createElement(BsReactMonaco.Editor.make, {
-              height: "20%",
+              height: "250px",
               className: "h-auto",
               defaultValue: content,
               language: "graphql",
@@ -1221,6 +1379,7 @@ function Inspector(Props) {
   var onDeleteEdge = Props.onDeleteEdge;
   var onRequestInspected = Props.onRequestInspected;
   var oneGraphAuth = Props.oneGraphAuth;
+  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
   var tmp;
   switch (inspected.TAG | 0) {
     case /* Nothing */0 :
@@ -1288,7 +1447,8 @@ function Inspector(Props) {
           onExecuteRequest: onExecuteRequest,
           onLogin: onLogin,
           requestValueCache: requestValueCache,
-          onDeleteEdge: onDeleteEdge
+          onDeleteEdge: onDeleteEdge,
+          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect
         });
   }
   return React.createElement("div", {
@@ -1329,6 +1489,7 @@ export {
   DirectVariable ,
   DirectJSON ,
   ArgumentDependency ,
+  GraphQLProbe ,
   emptyArgumentDependency ,
   RequestArgument ,
   openedArrow ,

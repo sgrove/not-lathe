@@ -555,3 +555,97 @@ export const devJsonChain = {
     },
   ],
 };
+
+export const simpleChain = {
+  name: "hello_onegraph_its_netlify",
+  script:
+    "import { SearchInput, SearchVariables, SpotifyPlayTrackInput, SpotifyPlayTrackVariables } from 'oneGraphStudio';\n\nexport function makeVariablesForSearch (payload : SearchInput) : SearchVariables {\n  return {}\n}\n\nexport function makeVariablesForSpotifyPlayTrack (payload : SpotifyPlayTrackInput) : SpotifyPlayTrackVariables {\n  return {}\n}",
+  scriptDependencies: [],
+  requests: [
+    {
+      id: "Search",
+      variableDependencies: [
+        {
+          name: "query",
+          dependency: {
+            TAG: 1,
+            _0: {
+              name: "query",
+              value: {
+                TAG: 1,
+                _0: "query",
+              },
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "bee3f623-21ca-4f1a-a7e3-8fa0ddbda295",
+        title: "Search",
+        description: "TODO",
+        body:
+          "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+        kind: 0,
+        services: ["spotify"],
+      },
+      dependencyRequestIds: [],
+    },
+    {
+      id: "SpotifyPlayTrack",
+      variableDependencies: [
+        {
+          name: "trackId",
+          dependency: {
+            TAG: 2,
+            _0: {
+              name: "trackId",
+              ifMissing: "SKIP",
+              ifList: "FIRST",
+              fromRequestId: "Search",
+              path: [
+                "payload",
+                "Search",
+                "data",
+                "spotify",
+                "search",
+                "tracks[0]",
+                "id",
+              ],
+              functionFromScript: "TBD",
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "2cfd3e9c-da4a-4cd4-81e3-20cfa4a77a79",
+        title: "SpotifyPlayTrack",
+        description: "TODO",
+        body:
+          'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: 69500}) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}',
+        kind: 1,
+        services: ["spotify"],
+      },
+      dependencyRequestIds: ["SpotifyPlayTrack", "Search"],
+    },
+  ],
+  blocks: [
+    {
+      id: "bee3f623-21ca-4f1a-a7e3-8fa0ddbda295",
+      title: "Search",
+      description: "TODO",
+      body:
+        "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+      kind: 0,
+      services: ["spotify"],
+    },
+    {
+      id: "2cfd3e9c-da4a-4cd4-81e3-20cfa4a77a79",
+      title: "SpotifyPlayTrack",
+      description: "TODO",
+      body:
+        'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: 69500}) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}',
+      kind: 1,
+      services: ["spotify"],
+    },
+  ],
+};
