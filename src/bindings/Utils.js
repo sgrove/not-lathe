@@ -12,6 +12,10 @@ var distinctStrings = (function(arr) {
 return [...(new Set(arr))]
 });
 
+var replaceRange = (function replaceRange(s, start, end, substitute) {
+    return s.substring(0, start) + substitute + s.substring(end);
+});
+
 var services = Js_dict.fromArray([
       [
         "adroll",
@@ -458,6 +462,7 @@ function windowLocationOrigin(param) {
 export {
   capitalizeFirstLetter ,
   distinctStrings ,
+  replaceRange ,
   services ,
   serviceImageUrl ,
   windowLocationOrigin ,

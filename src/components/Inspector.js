@@ -425,13 +425,12 @@ function Inspector$Block(Props) {
         }), [match[0] === block.body]);
   return React.createElement(React.Fragment, undefined, React.createElement("pre", {
                   className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
-                }, block.body), React.createElement("button", {
-                  className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
-                  type: "button",
+                }, block.body), React.createElement(Comps.Button.make, {
                   onClick: (function (param) {
                       return Curry._1(onAddBlock, block);
-                    })
-                }, "Add block to chain"));
+                    }),
+                  children: "Add block to chain"
+                }));
 }
 
 var Block = {
@@ -504,7 +503,7 @@ function Inspector$ArgumentDependency(Props) {
                         }, React.createElement("span", {
                               className: "inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm"
                             }, "ifMissing:"), React.createElement("select", {
-                              className: "block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8",
+                              className: "px-4 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8",
                               value: argDep.ifMissing,
                               onChange: (function ($$event) {
                                   var ifMissing = Chain.ifMissingOfString($$event.target.value);
@@ -769,6 +768,7 @@ function Inspector$Request(Props) {
   var requestValueCache = Props.requestValueCache;
   var onDeleteEdge = Props.onDeleteEdge;
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
+  var onDragStart = Props.onDragStart;
   var connectionDrag = React.useContext(ConnectionContext.context);
   var match = React.useState(function () {
         
@@ -789,6 +789,7 @@ function Inspector$Request(Props) {
       });
   var setPotentialConnection = match$3[1];
   var potentialConnection = match$3[0];
+  var domRef = React.useRef(null);
   var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
             var match = block.kind;
             if (match >= 3) {
@@ -871,8 +872,36 @@ function Inspector$Request(Props) {
           return React.createElement("article", {
                       key: variableName,
                       className: "m-2",
+                      id: "inspector-variable-" + variableName,
+                      onMouseDown: (function ($$event) {
+                          if (!$$event.altKey) {
+                            return ;
+                          }
+                          $$event.preventDefault();
+                          $$event.stopPropagation();
+                          if (typeof connectionDrag !== "number") {
+                            return ;
+                          }
+                          var sourceDom = $$event.target;
+                          var connectionDrag_0 = {
+                            TAG: 0,
+                            targetRequest: request,
+                            variableDependency: varDep,
+                            [Symbol.for("name")]: "Variable"
+                          };
+                          var connectionDrag$1 = {
+                            TAG: 1,
+                            target: connectionDrag_0,
+                            sourceDom: sourceDom,
+                            [Symbol.for("name")]: "StartedTarget"
+                          };
+                          Curry._1(onDragStart, connectionDrag$1);
+                          return Curry._1(setPotentialConnection, (function (s) {
+                                        return Belt_SetString.add(s, variableName);
+                                      }));
+                        }),
                       onMouseEnter: (function ($$event) {
-                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* Started */0) {
+                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
                             return ;
                           } else {
                             return Curry._1(setPotentialConnection, (function (s) {
@@ -881,13 +910,20 @@ function Inspector$Request(Props) {
                           }
                         }),
                       onMouseLeave: (function ($$event) {
-                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* Started */0) {
+                          if (typeof connectionDrag === "number") {
                             return ;
-                          } else {
-                            return Curry._1(setPotentialConnection, (function (s) {
-                                          return Belt_SetString.remove(s, variableName);
-                                        }));
                           }
+                          switch (connectionDrag.TAG | 0) {
+                            case /* StartedSource */0 :
+                            case /* StartedTarget */1 :
+                                break;
+                            case /* Completed */2 :
+                                return ;
+                            
+                          }
+                          return Curry._1(setPotentialConnection, (function (s) {
+                                        return Belt_SetString.remove(s, variableName);
+                                      }));
                         }),
                       onMouseUp: (function ($$event) {
                           var clientX = $$event.clientX;
@@ -899,13 +935,29 @@ function Inspector$Request(Props) {
                           Curry._1(setPotentialConnection, (function (s) {
                                   return Belt_SetString.remove(s, variableName);
                                 }));
-                          return Curry._3(onPotentialVariableSourceConnect, request, varDep, mouseClientPosition);
+                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                            return ;
+                          } else {
+                            return Curry._1(onPotentialVariableSourceConnect, {
+                                        TAG: 2,
+                                        sourceRequest: connectionDrag.sourceRequest,
+                                        sourceDom: connectionDrag.sourceDom,
+                                        target: {
+                                          TAG: 0,
+                                          targetRequest: request,
+                                          variableDependency: varDep,
+                                          [Symbol.for("name")]: "Variable"
+                                        },
+                                        windowPosition: mouseClientPosition,
+                                        [Symbol.for("name")]: "Completed"
+                                      });
+                          }
                         })
                     }, React.createElement("div", {
-                          className: "flex justify-between items-center cursor-pointer p-1  text-gray-200 border shadow-xl " + (
+                          className: "flex justify-between items-center cursor-pointer p-1  text-gray-200 " + (
                             isOpen ? "rounded-t-sm" : "rounded-sm"
                           ) + (
-                            Belt_SetString.has(potentialConnection, variableName) ? " bg-green-400 border-green-900" : " bg-gray-600 border-green-800"
+                            Belt_SetString.has(potentialConnection, variableName) ? " bg-blue-600 border-blue-900" : ""
                           ),
                           onClick: (function (param) {
                               return Curry._1(setOpenedTabs, (function (oldOpenedTabs) {
@@ -916,10 +968,20 @@ function Inspector$Request(Props) {
                                             }
                                           }));
                             })
-                        }, React.createElement("span", {
-                              className: "text-green-500 font-semibold text-sm font-mono"
+                        }, React.createElement("div", {
+                              className: " font-semibold text-sm font-mono inline-block flex-grow",
+                              style: {
+                                color: Comps.colors["green-4"]
+                              }
                             }, "\$" + varDep.name), React.createElement("select", {
-                              className: "block text-gray-500 w-min px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8",
+                              style: {
+                                backgroundColor: Comps.colors["gray-7"],
+                                color: Comps.colors["gray-4"],
+                                padding: "6px",
+                                paddingRight: "40px",
+                                width: "unset",
+                                borderRadius: "6px"
+                              },
                               value: tmp,
                               onChange: (function ($$event) {
                                   var match = $$event.target.value;
@@ -1058,17 +1120,27 @@ function Inspector$Request(Props) {
                                     key: request.id + upstreamRequest.id,
                                     className: "m-2"
                                   }, React.createElement("div", {
-                                        className: "flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl rounded-sm"
+                                        className: "flex justify-between items-center cursor-pointer p-1 rounded-sm"
                                       }, React.createElement("span", {
-                                            className: "text-green-500 font-semibold text-sm font-mono"
-                                          }, upstreamRequest.id), React.createElement("button", {
-                                            className: "border-2 border-green-800 p-2 hover:bg-red-900",
+                                            className: "font-semibold text-sm font-mono pl-2",
+                                            style: {
+                                              color: Comps.colors["green-4"]
+                                            }
+                                          }, upstreamRequest.id), React.createElement(Comps.Button.make, {
                                             onClick: (function ($$event) {
                                                 $$event.stopPropagation();
                                                 $$event.preventDefault();
                                                 return Curry._2(onDeleteEdge, request.id, upstreamRequestId);
-                                              })
-                                          }, "Remove Dependency")));
+                                              }),
+                                            style: {
+                                              backgroundColor: Comps.colors["gray-7"],
+                                              color: Comps.colors["gray-4"]
+                                            },
+                                            children: null
+                                          }, React.createElement(Icons.Trash.make, {
+                                                className: "inline mr-2",
+                                                color: Comps.colors["gray-4"]
+                                              }), "Remove Dependency")));
                       }));
         }));
   var editor = React.useRef(undefined);
@@ -1104,48 +1176,62 @@ function Inspector$Request(Props) {
               $$event.stopPropagation();
               return Curry._2(onExecuteRequest, request, formVariables);
             })
-        }, inputs, React.createElement("button", {
-              className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
-              type: "submit"
-            }, "Execute")) : null;
+        }, inputs, React.createElement(Comps.Button.make, {
+              type_: "submit",
+              children: "Execute"
+            })) : null;
   var missingAuthServices = Belt_Option.mapWithDefault(cachedResult, [], (function (results) {
           return OnegraphAuth.findMissingAuthServices(Caml_option.some(results));
         }));
   var authButtons = Belt_Array.map(missingAuthServices, (function (service) {
-          return React.createElement("button", {
-                      key: service,
-                      className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
+          return React.createElement(Comps.Button.make, {
                       onClick: (function (param) {
                           return Curry._1(onLogin, service);
-                        })
-                    }, "Log into " + service);
+                        }),
+                      children: "Log into " + service,
+                      key: service
+                    });
         }));
   return React.createElement("div", {
-              className: "max-h-full overflow-y-scroll bg-gray-900"
+              ref: domRef,
+              className: "max-h-full overflow-y-scroll"
             }, variables.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                        children: "Variable Settings"
-                      }), variables) : null, variables.length !== 0 ? React.createElement("div", undefined, React.createElement(Comps.Header.make, {
+                        children: null
+                      }, React.createElement(Icons.Caret.make, {
+                            className: "inline mr-2",
+                            color: Comps.colors["gray-6"]
+                          }), "Variable Settings"), variables) : null, variables.length !== 0 ? React.createElement("div", undefined, React.createElement(Comps.Header.make, {
                         onClick: (function (param) {
                             return Curry._1(onRequestCodeInspected, request);
                           }),
                         children: null
-                      }, "Computed Variable Preview", React.createElement(Icons.Export.make, {
+                      }, React.createElement(Icons.Caret.make, {
+                            className: "inline mr-2",
+                            color: Comps.colors["gray-6"]
+                          }), "Computed Variable Preview", React.createElement(Icons.Export.make, {
                             className: "inline-block ml-2"
-                          })), React.createElement("pre", {
-                        className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll",
-                        style: {
-                          maxHeight: "150px"
-                        }
-                      }, Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
-                                  var tmp;
-                                  tmp = r._0;
-                                  return JSON.stringify(tmp, null, 2);
-                                })), "Nothing"))) : null, request.dependencyRequestIds.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                        children: "Upstream Requests"
-                      }), upstreamRequests) : null, React.createElement(Comps.Header.make, {
-                  children: "GraphQL Structure"
-                }), React.createElement("div", {
-                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
+                          })), React.createElement(Comps.Pre.make, {
+                        children: Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
+                                    var tmp;
+                                    tmp = r._0;
+                                    return JSON.stringify(tmp, null, 2);
+                                  })), "Nothing")
+                      })) : null, request.dependencyRequestIds.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+                        children: null
+                      }, React.createElement(Icons.Caret.make, {
+                            className: "inline mr-2",
+                            color: Comps.colors["gray-6"]
+                          }), "Upstream Requests"), upstreamRequests) : null, React.createElement(Comps.Header.make, {
+                  children: null
+                }, React.createElement(Icons.Caret.make, {
+                      className: "inline mr-2",
+                      color: Comps.colors["gray-6"]
+                    }), "GraphQL Structure"), React.createElement("div", {
+                  className: "my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
+                  style: {
+                    backgroundColor: Comps.colors["gray-8"],
+                    maxHeight: "150px"
+                  }
                 }, React.createElement(make, {
                       requestId: request.id,
                       schema: schema,
@@ -1164,13 +1250,16 @@ function Inspector$Request(Props) {
                           return Curry._2(onExecuteRequest, request, formVariables);
                         }),
                       children: null
-                    }, "Execute block", React.createElement(Icons.Play.make, {
+                    }, React.createElement(Icons.Caret.make, {
+                          className: "inline mr-2",
+                          color: Comps.colors["gray-6"]
+                        }), "Execute block", React.createElement(Icons.Play.make, {
                           className: "inline-block ml-2"
-                        })), form, authButtons, React.createElement("pre", {
-                      className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
-                    }, Belt_Option.mapWithDefault(cachedResult, "Nothing", (function (json) {
-                            return JSON.stringify(json, null, 2);
-                          })))));
+                        })), form, authButtons, React.createElement(Comps.Pre.make, {
+                      children: Belt_Option.mapWithDefault(cachedResult, "Nothing", (function (json) {
+                              return JSON.stringify(json, null, 2);
+                            }))
+                    })));
 }
 
 var $$Request = {
@@ -1230,12 +1319,13 @@ function Inspector$Nothing(Props) {
   var compiledOperation = Chain.compileOperationDoc(chain);
   var missingAuthServices = Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, findMissingAuthServicesFromChainResult), []);
   var authButtons = Belt_Array.map(missingAuthServices, (function (service) {
-          return React.createElement("button", {
-                      key: service,
+          return React.createElement(Comps.Button.make, {
                       onClick: (function (param) {
                           return Curry._1(onLogin, service);
-                        })
-                    }, "Log into " + service);
+                        }),
+                      children: "Log into " + service,
+                      key: service
+                    });
         }));
   var targetChain = Belt_Array.get(compiledOperation.chains, 0);
   var match = React.useState(function () {
@@ -1266,16 +1356,18 @@ function Inspector$Nothing(Props) {
   var requests = Belt_Array.map(chain.requests, (function (request) {
           return React.createElement("article", {
                       key: request.id,
-                      className: "m-2"
+                      className: "mx-2"
                     }, React.createElement("div", {
-                          className: "flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl rounded-sm"
+                          className: "flex justify-between items-center cursor-pointer p-1 rounded-sm"
                         }, React.createElement("span", {
-                              className: "text-green-500 font-semibold text-sm font-mono",
+                              className: "font-semibold text-sm font-mono pl-2",
+                              style: {
+                                color: Comps.colors["green-4"]
+                              },
                               onClick: (function (param) {
                                   return Curry._1(onRequestInspected, request);
                                 })
-                            }, request.id), React.createElement("button", {
-                              className: "border-2 border-green-800 p-2 hover:bg-red-900",
+                            }, request.id), React.createElement(Comps.Button.make, {
                               onClick: (function ($$event) {
                                   $$event.stopPropagation();
                                   $$event.preventDefault();
@@ -1284,27 +1376,33 @@ function Inspector$Nothing(Props) {
                                     return Curry._1(onDeleteRequest, request);
                                   }
                                   
-                                })
-                            }, "Delete")));
+                                }),
+                              style: {
+                                backgroundColor: Comps.colors["gray-7"],
+                                color: Comps.colors["gray-4"]
+                              },
+                              children: null
+                            }, React.createElement(Icons.Trash.make, {
+                                  className: "inline mr-2",
+                                  color: Comps.colors["gray-4"]
+                                }), "Delete Request")));
         }));
-  return React.createElement(React.Fragment, undefined, form, authButtons, isChainViable ? React.createElement(React.Fragment, undefined, React.createElement("button", {
-                        className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
-                        type: "button",
+  return React.createElement(React.Fragment, undefined, form, authButtons, isChainViable ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Button.make, {
                         onClick: (function (param) {
                             return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
-                          })
-                      }, "Run chain"), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
+                          }),
+                        children: "Run chain"
+                      }), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
                               return React.createElement(Inspector$ChainResultsViewer, {
                                           chain: chain,
                                           chainExecutionResults: Caml_option.some(chainExecutionResults)
                                         });
-                            })), null), React.createElement("button", {
-                        className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
-                        type: "button",
+                            })), null), React.createElement(Comps.Button.make, {
                         onClick: (function (param) {
                             return Curry._1(onPersistChain, undefined);
-                          })
-                      }, "Save Chain")) : "Add some blocks to get started", Belt_Option.getWithDefault(Belt_Option.map(savedChainId, (function (chainId) {
+                          }),
+                        children: "Save Chain"
+                      })) : "Add some blocks to get started", Belt_Option.getWithDefault(Belt_Option.map(savedChainId, (function (chainId) {
                         return React.createElement("select", {
                                     className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
                                     value: "",
@@ -1380,6 +1478,7 @@ function Inspector(Props) {
   var onRequestInspected = Props.onRequestInspected;
   var oneGraphAuth = Props.oneGraphAuth;
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
+  var onDragStart = Props.onDragStart;
   var tmp;
   switch (inspected.TAG | 0) {
     case /* Nothing */0 :
@@ -1448,11 +1547,15 @@ function Inspector(Props) {
           onLogin: onLogin,
           requestValueCache: requestValueCache,
           onDeleteEdge: onDeleteEdge,
-          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect
+          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+          onDragStart: onDragStart
         });
   }
   return React.createElement("div", {
-              className: "h-screen text-white border-l border-gray-800 bg-gray-900"
+              className: "h-screen text-white border-l border-gray-800",
+              style: {
+                backgroundColor: "rgb(27,29,31)"
+              }
             }, React.createElement("div", undefined, React.createElement("nav", {
                       className: "flex flex-row py-1 px-2 mb-2"
                     }, React.createElement("button", {

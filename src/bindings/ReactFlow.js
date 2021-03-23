@@ -9,6 +9,8 @@ var Provider = {};
 
 var Controls = {};
 
+var Handle = {};
+
 var Background = {};
 
 export {
@@ -16,6 +18,7 @@ export {
   Edge ,
   Provider ,
   Controls ,
+  Handle ,
   Background ,
   
 }

@@ -106,7 +106,33 @@ module Trash = {
       <path
         stroke=color
         fill=color
-        d="M3 6v18h18V6H3zm5 14a1 1 0 01-2 0V10a1 1 0 012 0v10zm5 0a1 1 0 01-2 0V10a1 1 0 012 0v10zm5 0a1 1 0 01-2 0V10a1 1 0 012 0v10zm4-18v2H2V2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2H22z"
+        d="M6 19C6 20.1 6.9 21 8 21H16C17.1 21 18 20.1 18 19V7H6V19ZM8 9H16V19H8V9ZM15.5 4L14.5 3H9.5L8.5 4H5V6H19V4H15.5Z"
+      />
+    </svg>
+  }
+}
+
+module Search = {
+  @react.component
+  let make = (~className=?, ~color="white", ~width="24", ~height="24") => {
+    <svg ?className width height viewBox="0 0 24 24">
+      <path
+        stroke=color
+        fill=color
+        d="M16.32 14.9l5.39 5.4a1 1 0 0 1-1.42 1.4l-5.38-5.38a8 8 0 1 1 1.41-1.41zM10 16a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"
+      />
+    </svg>
+  }
+}
+
+module Caret = {
+  @react.component
+  let make = (~className=?, ~color="white", ~width="24", ~height="24") => {
+    <svg ?className width height viewBox="0 0 20 20">
+      <path
+        stroke=color
+        fill=color
+        d="M13.825 12.8417L10 9.02501L6.175 12.8417L5 11.6667L10 6.66667L15 11.6667L13.825 12.8417Z"
       />
     </svg>
   }

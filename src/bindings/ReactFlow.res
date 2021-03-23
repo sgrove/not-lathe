@@ -1,7 +1,7 @@
 type element
 
 module Node = {
-  type nodeType = [#default | #input | #output | #fragment]
+  type nodeType = [#default | #input | #output | #fragment | #operation]
 
   type position = {
     x: float,
@@ -24,6 +24,8 @@ module Node = {
     @optional
     connectable: bool,
     @optional
+    className: string,
+    @optional
     style: ReactDOMStyle.t,
     @optional
     onClick: ReactEvent.Mouse.t => unit,
@@ -36,6 +38,8 @@ module Edge = {
     id: string,
     source: string,
     target: string,
+    @optional
+    style: ReactDOMStyle.t,
     @optional
     animated: bool,
     @optional @as("type")
@@ -84,6 +88,26 @@ module Controls = {
     // function that gets triggered when the lock button is pressed - passes the new value
     ~onInteractiveChange: bool => unit=?,
   ) => React.element = "Controls"
+}
+
+type connection = {
+  target: string,
+  source: string,
+  sourceHandle: Js.Nullable.t<string>,
+  targetHandle: Js.Nullable.t<string>,
+}
+
+module Handle = {
+  @module("react-flow-renderer") @react.component
+  external make: (
+    ~type_: [#source | #target],
+    ~id: string=?,
+    ~position: [#left | #right | #top | #bottom]=?,
+    ~onConnect: unit => unit=?,
+    ~isValidConnection: connection => bool=?,
+    ~style: ReactDOMStyle.t=?,
+    ~className: string=?,
+  ) => React.element = "Handle"
 }
 
 @module("react-flow-renderer") @react.component

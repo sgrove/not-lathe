@@ -5,9 +5,9 @@ module DevTimeJson = {
 
 @react.component
 let make = (~schema, ~config) => {
-  let initialChain = Chain.emptyChain
+  // let initialChain = Chain.emptyChain
   // To debug with a local JSON chain:
-  // let initialChain = DevTimeJson.simpleChain
+  let initialChain = DevTimeJson.devJsonChain
 
   open React
 
@@ -16,7 +16,13 @@ let make = (~schema, ~config) => {
   }
 
   <div>
-    <nav className="p-2 bg-black text-white">
+    <nav
+      className="p-4 bg-black text-white"
+      style={ReactDOMStyle.make(
+        ~color=Comps.colors["gray-11"],
+        ~backgroundColor=Comps.colors["gray-12"],
+        (),
+      )}>
       {navButton(~onClick=_ => (), "OneGraph >"->string)}
       {navButton(~onClick=_ => (), "Workspace >"->string)}
       {navButton(~onClick=_ => (), <strong> {initialChain.name->string} </strong>)}

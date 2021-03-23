@@ -529,12 +529,9 @@ module Block = {
       <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
         {block.body->React.string}
       </pre>
-      <button
-        type_="button"
-        onClick={_ => onAddBlock(block)}
-        className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+      <Comps.Button onClick={_ => onAddBlock(block)}>
         {"Add block to chain"->React.string}
-      </button>
+      </Comps.Button>
     </>
   }
 }
@@ -630,7 +627,7 @@ module ArgumentDependency = {
               {"ifMissing:"->string}
             </span>
             <select
-              className="block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
+              className="px-4 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
               value={argDep.ifMissing->Obj.magic}
               onChange={event => {
                 let ifMissing = ReactEvent.Form.target(event)["value"]->Chain.ifMissingOfString
@@ -1003,6 +1000,7 @@ module Request = {
     ~requestValueCache,
     ~onDeleteEdge,
     ~onPotentialVariableSourceConnect,
+    ~onDragStart,
   ) => {
     open React
     let connectionDrag = useContext(ConnectionContext.context)
@@ -1011,6 +1009,7 @@ module Request = {
     let (mockedEvalResults, setMockedEvalResults) = useState(() => None)
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
     let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
+    let domRef = React.useRef(Js.Nullable.null)
 
     let chainFragmentsDoc =
       chain.blocks
@@ -1064,17 +1063,45 @@ module Request = {
 
       <article
         key={variableName}
+        id={"inspector-variable-" ++ variableName}
         className="m-2"
         onMouseEnter={event => {
           switch connectionDrag {
-          | Started(_) => setPotentialConnection(s => s->Belt.Set.String.add(variableName))
+          | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.add(variableName))
           | _ => ()
           }
         }}
         onMouseLeave={event => {
           switch connectionDrag {
-          | Started(_) => setPotentialConnection(s => s->Belt.Set.String.remove(variableName))
+          | StartedSource(_)
+          | StartedTarget(_) =>
+            setPotentialConnection(s => s->Belt.Set.String.remove(variableName))
           | _ => ()
+          }
+        }}
+        onMouseDown={event => {
+          switch event->ReactEvent.Mouse.altKey {
+          | false => ()
+          | true =>
+            event->ReactEvent.Mouse.preventDefault
+            event->ReactEvent.Mouse.stopPropagation
+            switch connectionDrag {
+            | Empty =>
+              let sourceDom = event->ReactEvent.Mouse.target
+
+              let connectionDrag: ConnectionContext.connectionDrag = StartedTarget({
+                target: Variable({
+                  targetRequest: request,
+                  variableDependency: varDep,
+                }),
+                sourceDom: sourceDom->Obj.magic,
+              })
+
+              onDragStart(~connectionDrag)
+              setPotentialConnection(s => s->Belt.Set.String.add(variableName))
+
+            | _ => ()
+            }
           }
         }}
         onMouseUp={event => {
@@ -1082,18 +1109,28 @@ module Request = {
           let clientY = event->ReactEvent.Mouse.clientY
           let mouseClientPosition = (clientX, clientY)
           setPotentialConnection(s => s->Belt.Set.String.remove(variableName))
-          onPotentialVariableSourceConnect(
-            ~targetRequest=request,
-            ~variableDependency=varDep,
-            ~mouseClientPosition,
-          )
+          switch connectionDrag {
+          | StartedSource({sourceRequest, sourceDom}) =>
+            let connectionDrag = ConnectionContext.Completed({
+              sourceRequest: sourceRequest,
+              target: Variable({
+                variableDependency: varDep,
+                targetRequest: request,
+              }),
+              windowPosition: mouseClientPosition,
+              sourceDom: sourceDom,
+            })
+
+            onPotentialVariableSourceConnect(~connectionDrag)
+          | _ => ()
+          }
         }}>
         <div
-          className={"flex justify-between items-center cursor-pointer p-1  text-gray-200 border shadow-xl " ++
+          className={"flex justify-between items-center cursor-pointer p-1  text-gray-200 " ++
           (isOpen ? "rounded-t-sm" : "rounded-sm") ++ (
             potentialConnection->Belt.Set.String.has(variableName)
-              ? " bg-green-400 border-green-900"
-              : " bg-gray-600 border-green-800"
+              ? " bg-blue-600 border-blue-900"
+              : ""
           )}
           onClick={_ => {
             setOpenedTabs(oldOpenedTabs =>
@@ -1102,11 +1139,21 @@ module Request = {
                 : oldOpenedTabs->Belt.Set.String.add(varDep.name)
             )
           }}>
-          <span className="text-green-500 font-semibold text-sm font-mono">
+          <div
+            style={ReactDOMStyle.make(~color=Comps.colors["green-4"], ())}
+            className=" font-semibold text-sm font-mono inline-block flex-grow">
             {(j`\\$` ++ varDep.name)->string}
-          </span>
+          </div>
           <select
-            className="block text-gray-500 w-min px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
+            style={ReactDOMStyle.make(
+              ~backgroundColor=Comps.colors["gray-7"],
+              ~padding="6px",
+              ~paddingRight="40px",
+              ~color=Comps.colors["gray-4"],
+              ~width="unset",
+              ~borderRadius="6px",
+              (),
+            )}
             value={switch varDep.dependency {
             | ArgumentDependency(_) => "argument"
             | Direct({value: Variable(_)}) => "variable"
@@ -1194,20 +1241,26 @@ module Request = {
 
       upstreamRequest->Belt.Option.map(upstreamRequest => {
         <article key={request.id ++ upstreamRequest.id} className="m-2">
-          <div
-            className={"flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " ++ "rounded-sm"}>
-            <span className="text-green-500 font-semibold text-sm font-mono">
+          <div className={"flex justify-between items-center cursor-pointer p-1 rounded-sm"}>
+            <span
+              className="font-semibold text-sm font-mono pl-2"
+              style={ReactDOMStyle.make(~color=Comps.colors["green-4"], ())}>
               {upstreamRequest.id->string}
             </span>
-            <button
-              className="border-2 border-green-800 p-2 hover:bg-red-900"
+            <Comps.Button
+              style={ReactDOMStyle.make(
+                ~backgroundColor=Comps.colors["gray-7"],
+                ~color=Comps.colors["gray-4"],
+                (),
+              )}
               onClick={event => {
                 event->ReactEvent.Mouse.stopPropagation
                 event->ReactEvent.Mouse.preventDefault
                 onDeleteEdge(~targetRequestId=request.id, ~dependencyId=upstreamRequestId)
               }}>
+              <Icons.Trash color={Comps.colors["gray-4"]} className="inline mr-2" />
               {"Remove Dependency"->string}
-            </button>
+            </Comps.Button>
           </div>
         </article>
       })
@@ -1256,11 +1309,7 @@ module Request = {
               onExecuteRequest(~request, ~variables=formVariables)
             }}>
             {inputs->React.array}
-            <button
-              type_="submit"
-              className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
-              {"Execute"->React.string}
-            </button>
+            <Comps.Button type_="submit"> {"Execute"->React.string} </Comps.Button>
           </form>
         : React.null
 
@@ -1271,30 +1320,33 @@ module Request = {
     })
 
     let authButtons = missingAuthServices->Belt.Array.map(service => {
-      <button
+      <Comps.Button
         key={service}
         onClick={_ => {
           onLogin(service)
-        }}
-        className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+        }}>
         {("Log into " ++ service)->React.string}
-      </button>
+      </Comps.Button>
     })
 
-    <div className="max-h-full overflow-y-scroll bg-gray-900">
+    <div className="max-h-full overflow-y-scroll" ref={ReactDOM.Ref.domRef(domRef)}>
       {variables->Belt.Array.length > 0
         ? <>
-            <Comps.Header> {"Variable Settings"->React.string} </Comps.Header> {variables->array}
+            <Comps.Header>
+              <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+              {"Variable Settings"->React.string}
+            </Comps.Header>
+            {variables->array}
           </>
         : React.null}
       {variables->Belt.Array.length > 0
         ? <div>
             <Comps.Header onClick={_ => onRequestCodeInspected(~request)}>
-              {"Computed Variable Preview"->string} <Icons.Export className="inline-block ml-2" />
+              <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+              {"Computed Variable Preview"->string}
+              <Icons.Export className="inline-block ml-2" />
             </Comps.Header>
-            <pre
-              className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll"
-              style={ReactDOMStyle.make(~maxHeight="150px", ())}>
+            <Comps.Pre>
               {mockedEvalResults
               ->Belt.Option.map(r =>
                 switch r {
@@ -1306,17 +1358,25 @@ module Request = {
               )
               ->Belt.Option.getWithDefault("Nothing")
               ->string}
-            </pre>
+            </Comps.Pre>
           </div>
         : React.null}
       {request.dependencyRequestIds->Belt.Array.length > 0
         ? <>
-            <Comps.Header> {"Upstream Requests"->React.string} </Comps.Header>
+            <Comps.Header>
+              <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+              {"Upstream Requests"->React.string}
+            </Comps.Header>
             {upstreamRequests->array}
           </>
         : React.null}
-      <Comps.Header> {"GraphQL Structure"->React.string} </Comps.Header>
-      <div className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
+      <Comps.Header>
+        <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+        {"GraphQL Structure"->React.string}
+      </Comps.Header>
+      <div
+        className="my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"
+        style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-8"], ~maxHeight="150px", ())}>
         <GraphQLPreview
           requestId=request.id
           schema
@@ -1337,15 +1397,17 @@ module Request = {
           onClick={_ => {
             onExecuteRequest(~request, ~variables=formVariables)
           }}>
-          {"Execute block"->string} <Icons.Play className="inline-block ml-2" />
+          <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+          {"Execute block"->string}
+          <Icons.Play className="inline-block ml-2" />
         </Comps.Header>
         {form}
         {authButtons->array}
-        <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
+        <Comps.Pre>
           {cachedResult
           ->Belt.Option.mapWithDefault("Nothing", json => json->Js.Json.stringifyWithSpace(2))
           ->string}
-        </pre>
+        </Comps.Pre>
       </div>
     </div>
   }
@@ -1413,13 +1475,13 @@ module Nothing = {
       ->Belt.Option.getWithDefault([])
 
     let authButtons = missingAuthServices->Belt.Array.map(service => {
-      <button
+      <Comps.Button
         key={service}
         onClick={_ => {
           onLogin(service)
         }}>
         {("Log into " ++ service)->React.string}
-      </button>
+      </Comps.Button>
     })
 
     let targetChain = compiledOperation.chains->Belt.Array.get(0)
@@ -1458,16 +1520,20 @@ module Nothing = {
     open React
 
     let requests = chain.requests->Belt.Array.map(request => {
-      <article key={request.id} className="m-2">
-        <div
-          className={"flex justify-between items-center cursor-pointer p-1 bg-gray-600 text-gray-200 border border-green-800 shadow-xl " ++ "rounded-sm"}>
+      <article key={request.id} className="mx-2">
+        <div className={"flex justify-between items-center cursor-pointer p-1 rounded-sm"}>
           <span
-            className="text-green-500 font-semibold text-sm font-mono"
+            className="font-semibold text-sm font-mono pl-2"
+            style={ReactDOMStyle.make(~color=Comps.colors["green-4"], ())}
             onClick={_ => onRequestInspected(request)}>
             {request.id->string}
           </span>
-          <button
-            className="border-2 border-green-800 p-2 hover:bg-red-900"
+          <Comps.Button
+            style={ReactDOMStyle.make(
+              ~backgroundColor=Comps.colors["gray-7"],
+              ~color=Comps.colors["gray-4"],
+              (),
+            )}
             onClick={event => {
               event->ReactEvent.Mouse.stopPropagation
               event->ReactEvent.Mouse.preventDefault
@@ -1478,8 +1544,9 @@ module Nothing = {
               | true => onDeleteRequest(request)
               }
             }}>
-            {"Delete"->string}
-          </button>
+            <Icons.Trash color={Comps.colors["gray-4"]} className="inline mr-2" />
+            {"Delete Request"->string}
+          </Comps.Button>
         </div>
       </article>
     })
@@ -1493,29 +1560,25 @@ module Nothing = {
         // </pre>
         isChainViable
           ? <>
-              <button
-                type_="button"
+              <Comps.Button
                 onClick={_ => {
                   let variables = Some(formVariables->Obj.magic)
 
                   transformAndExecuteChain(~variables)
-                }}
-                className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+                }}>
                 {"Run chain"->React.string}
-              </button>
+              </Comps.Button>
               {chainExecutionResults
               ->Belt.Option.map(chainExecutionResults =>
                 <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
               )
               ->Belt.Option.getWithDefault(React.null)}
-              <button
-                type_="button"
+              <Comps.Button
                 onClick={_ => {
                   onPersistChain()
-                }}
-                className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2">
+                }}>
                 {"Save Chain"->React.string}
-              </button>
+              </Comps.Button>
             </>
           : {"Add some blocks to get started"->React.string}
       }
@@ -1597,10 +1660,13 @@ let make = (
   ~onRequestInspected,
   ~oneGraphAuth,
   ~onPotentialVariableSourceConnect,
+  ~onDragStart,
 ) => {
   open React
 
-  <div className="h-screen text-white border-l border-gray-800 bg-gray-900">
+  <div
+    className="h-screen text-white border-l border-gray-800"
+    style={ReactDOMStyle.make(~backgroundColor="rgb(27,29,31)", ())}>
     <div>
       <nav className="flex flex-row py-1 px-2 mb-2">
         <button
@@ -1650,6 +1716,7 @@ let make = (
           requestValueCache
           onDeleteEdge
           onPotentialVariableSourceConnect
+          onDragStart
         />
       }}
     </div>

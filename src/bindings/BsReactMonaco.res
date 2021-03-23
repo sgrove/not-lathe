@@ -114,6 +114,10 @@ type selection = {
 
 @send external focus: editor => unit = "focus"
 
+type disposable
+
+@send external onMouseUp: (editor, 'mouseEvent => unit) => disposable = "onMouseUp"
+
 @deriving(abstract)
 type editorOptions = {
   @optional

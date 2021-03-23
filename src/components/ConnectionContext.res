@@ -1,13 +1,28 @@
+type scriptPosition = {lineNumber: int, column: int}
+
+type target =
+  | Variable({targetRequest: Chain.request, variableDependency: Chain.variableDependency})
+  | Script({scriptPosition: scriptPosition})
+
 type connectionDrag =
   | Empty
-  | Started({sourceRequest: Chain.request, sourceDom: Dom.element})
+  | StartedSource({sourceRequest: Chain.request, sourceDom: Dom.element})
+  | StartedTarget({target: target, sourceDom: Dom.element})
   | Completed({
       sourceRequest: Chain.request,
       sourceDom: Dom.element,
-      targetRequest: Chain.request,
+      target: target,
       windowPosition: (int, int),
-      variableDependency: Chain.variableDependency,
     })
+
+let toSimpleString = connectionDrag => {
+  switch connectionDrag {
+  | Empty => "Empty"
+  | StartedSource(_) => "StartedSource"
+  | StartedTarget(_) => "StartedTarget"
+  | Completed(_) => "Completed"
+  }
+}
 
 let context = React.createContext(Empty)
 

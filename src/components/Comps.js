@@ -3,11 +3,45 @@
 import * as React from "react";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 
+var colors = {
+  "gray-1": "#333333",
+  "gray-2": "#4F4F4F",
+  "gray-3": "#828282",
+  "gray-4": "#BDBDBD",
+  "gray-5": "#E0E0E0",
+  "gray-6": "#F2F2F2",
+  "gray-7": "#282B30",
+  "gray-8": "#17191C",
+  "gray-9": "#1D1F22",
+  "gray-10": "#26292D",
+  "gray-11": "#DFDFDF",
+  "gray-12": "#171717",
+  red: "#EB5757",
+  orange: "#F2994A",
+  yellow: "#F2C94C",
+  "green-1": "#219653",
+  "green-2": "#27AE60",
+  "green-3": "#6FCF97",
+  "green-4": "#1BBE83",
+  "blue-1": "#2F80ED",
+  "blue-2": "#2D9CDB",
+  "blue-3": "#56CCF2",
+  "purple-1": "#9B51E0",
+  "purple-2": "#BB6BD9"
+};
+
+var defaultStyle = {
+  color: colors["gray-6"]
+};
+
 function Comps$Header(Props) {
   var onClick = Props.onClick;
+  var styleOpt = Props.style;
   var children = Props.children;
+  var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : ({});
   var tmp = {
-    className: "border-l-4 border-blue-500 pl-2 mt-2 ml-2 text-gray-400"
+    className: "font-bold mx-2 p-2",
+    style: Object.assign({}, defaultStyle, style)
   };
   if (onClick !== undefined) {
     tmp.onClick = Caml_option.valFromOption(onClick);
@@ -16,11 +50,60 @@ function Comps$Header(Props) {
 }
 
 var Header = {
+  defaultStyle: defaultStyle,
   make: Comps$Header
 };
 
+var defaultStyle$1 = {
+  backgroundColor: colors["blue-1"],
+  color: colors["gray-6"]
+};
+
+function Comps$Button(Props) {
+  var onClick = Props.onClick;
+  var styleOpt = Props.style;
+  var classNameOpt = Props.className;
+  var type_Opt = Props.type_;
+  var children = Props.children;
+  var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : ({});
+  var className = classNameOpt !== undefined ? classNameOpt : "";
+  var type_ = type_Opt !== undefined ? type_Opt : "button";
+  var tmp = {
+    className: className + " focus:outline-none text-white text-sm py-2.5 px-5 rounded-md m-2",
+    style: Object.assign({}, defaultStyle$1, style),
+    type: type_
+  };
+  if (onClick !== undefined) {
+    tmp.onClick = Caml_option.valFromOption(onClick);
+  }
+  return React.createElement("button", tmp, children);
+}
+
+var Button = {
+  defaultStyle: defaultStyle$1,
+  make: Comps$Button
+};
+
+function Comps$Pre(Props) {
+  var children = Props.children;
+  return React.createElement("pre", {
+              className: "my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
+              style: {
+                backgroundColor: colors["gray-8"],
+                maxHeight: "150px"
+              }
+            }, children);
+}
+
+var Pre = {
+  make: Comps$Pre
+};
+
 export {
+  colors ,
   Header ,
+  Button ,
+  Pre ,
   
 }
-/* react Not a pure module */
+/* defaultStyle Not a pure module */

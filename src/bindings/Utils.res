@@ -6,6 +6,15 @@ let distinctStrings: array<string> => array<string> = %raw("function(arr) {
 return [...(new Set(arr))]
 }")
 
+let replaceRange: (
+  string,
+  ~start: int,
+  ~end: int,
+  ~by: string,
+) => string = %raw(`function replaceRange(s, start, end, substitute) {
+    return s.substring(0, start) + substitute + s.substring(end);
+}`)
+
 let services = Js.Dict.fromArray([
   ("adroll", ("adroll.com", "Adroll")),
   ("box", ("box.com", "Box")),

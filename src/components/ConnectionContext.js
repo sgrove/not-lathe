@@ -2,6 +2,21 @@
 
 import * as React from "react";
 
+function toSimpleString(connectionDrag) {
+  if (typeof connectionDrag === "number") {
+    return "Empty";
+  }
+  switch (connectionDrag.TAG | 0) {
+    case /* StartedSource */0 :
+        return "StartedSource";
+    case /* StartedTarget */1 :
+        return "StartedTarget";
+    case /* Completed */2 :
+        return "Completed";
+    
+  }
+}
+
 var context = React.createContext(/* Empty */0);
 
 var provider = context.Provider;
@@ -21,6 +36,7 @@ var Provider = {
 };
 
 export {
+  toSimpleString ,
   context ,
   Provider ,
   

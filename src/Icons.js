@@ -206,7 +206,7 @@ function Icons$Trash(Props) {
     tmp.className = Caml_option.valFromOption(className);
   }
   return React.createElement("svg", tmp, React.createElement("path", {
-                  d: "M3 6v18h18V6H3zm5 14a1 1 0 01-2 0V10a1 1 0 012 0v10zm5 0a1 1 0 01-2 0V10a1 1 0 012 0v10zm5 0a1 1 0 01-2 0V10a1 1 0 012 0v10zm4-18v2H2V2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2H22z",
+                  d: "M6 19C6 20.1 6.9 21 8 21H16C17.1 21 18 20.1 18 19V7H6V19ZM8 9H16V19H8V9ZM15.5 4L14.5 3H9.5L8.5 4H5V6H19V4H15.5Z",
                   fill: color,
                   stroke: color
                 }));
@@ -214,6 +214,60 @@ function Icons$Trash(Props) {
 
 var Trash = {
   make: Icons$Trash
+};
+
+function Icons$Search(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    viewBox: "0 0 24 24"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("path", {
+                  d: "M16.32 14.9l5.39 5.4a1 1 0 0 1-1.42 1.4l-5.38-5.38a8 8 0 1 1 1.41-1.41zM10 16a6 6 0 1 0 0-12 6 6 0 0 0 0 12z",
+                  fill: color,
+                  stroke: color
+                }));
+}
+
+var Search = {
+  make: Icons$Search
+};
+
+function Icons$Caret(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    viewBox: "0 0 20 20"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("path", {
+                  d: "M13.825 12.8417L10 9.02501L6.175 12.8417L5 11.6667L10 6.66667L15 11.6667L13.825 12.8417Z",
+                  fill: color,
+                  stroke: color
+                }));
+}
+
+var Caret = {
+  make: Icons$Caret
 };
 
 function Icons$Prettier$Dark(Props) {
@@ -580,6 +634,8 @@ export {
   TypeScript ,
   Export ,
   Trash ,
+  Search ,
+  Caret ,
   Prettier ,
   
 }
