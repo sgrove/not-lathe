@@ -4,13 +4,16 @@ import * as Card from "../Card.js";
 import * as Chain from "../Chain.js";
 import * as Comps from "./Comps.js";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
+import * as Debug from "../Debug.js";
 import * as Icons from "../Icons.js";
 import * as React from "react";
 import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
 import * as Graphql from "graphql";
 import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";
+import * as Prettier from "prettier";
 import * as GraphQLJs from "../bindings/GraphQLJs.js";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
+import * as Caml_array from "bs-platform/lib/es6/caml_array.mjs";
 import * as OneGraphRe from "../OneGraphRe.js";
 import * as Typescript from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
@@ -22,7 +25,9 @@ import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as GraphQLFormJs from "../GraphQLForm.js";
 import * as ConnectionContext from "./ConnectionContext.js";
 import CopyToClipboard from "copy-to-clipboard";
+import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 import * as QuickjsEmscripten from "quickjs-emscripten";
+import ParserBabel from "prettier/parser-babel";
 import * as GraphQLMockInputTypeJs from "../GraphQLMockInputType.js";
 
 var AdvancedMode = {
@@ -285,8 +290,11 @@ function remoteChainCalls(appId, chainId, chain) {
             }
             return "\"" + key + "\": " + value;
           })).join(", ");
+  var variableParams = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+            return exposed.exposedName;
+          })).join(", ");
   var curl = "curl -X POST \"https://serve.onegraph.com/graphql?app_id=" + appId + "\" --data '{\"doc_id\": \"" + chainId + "\", \"operationName\": \"" + targetChain.operationName + "\", \"variables\": {" + freeVariables + "}}'";
-  var $$fetch = "await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  {\n    method: \"POST\",\n    \"Content-Type\": \"application/json\",\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + freeVariables + "}\n      }\n    )\n  }\n)";
+  var $$fetch = "async function " + chain.name + " ({" + variableParams + "}) {\n  await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      \"Content-Type\": \"application/json\",\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + freeVariables + "}\n        }\n      )\n    }\n  )\n}";
   var htmlInputs = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
             var key = exposed.exposedName;
             var _other = exposed.upstreamType;
@@ -353,7 +361,12 @@ function remoteChainCalls(appId, chainId, chain) {
             return "\"" + key + "\": " + key;
           })).join(", ");
   var netlifyScript = "// ./functions/" + chain.name + ".js\nconst fetch = require(\"node-fetch\");\nconst querystring = require(\"querystring\");\n\nexports.handler = async (event, context) => {\n  // Only allow POST\n  if (event.httpMethod !== \"POST\") {\n    return { statusCode: 405, body: \"Method Not Allowed\" };\n  }\n\n  // When the method is POST, the name will no longer be in the event’s\n  // queryStringParameters – it’ll be in the event body encoded as a query string\n  const params = querystring.parse(event.body);\n  " + netlifyVariables + "\n\n  // Execute chain\n  await fetch(\n    \"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  {\n    method: \"POST\",\n    \"Content-Type\": \"application/json\",\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + netlifyVariablesObject + "}\n      }\n    )\n  })\n\n  return {\n    statusCode: 200,\n    body: \"Finished executing chain!\",\n  };\n};\n";
-  var netlify = netlifyHtml + "\n\n" + netlifyScript;
+  var netlify_path = "functions/" + chain.name + ".js";
+  var netlify = {
+    path: netlify_path,
+    form: netlifyHtml,
+    code: netlifyScript
+  };
   var scriptKitArgs = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
             var key = exposed.exposedName;
             var _other = exposed.upstreamType;
@@ -385,11 +398,48 @@ function remoteChainCalls(appId, chainId, chain) {
             return "\"" + key + "\": " + key;
           })).join(", ");
   var scriptKit = "\n" + scriptKitArgs + "\n\nlet response = await post(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  JSON.stringify(\n    {\n     \"doc_id\": \"" + chainId + "\",\n     \"operationName\": \"" + targetChain.operationName + "\",\n     \"variables\": {" + scriptKitVariables + "}\n    }\n  ) \n)\n\nconsole.log(\"Response: \", response.data)\n";
+  var nextJsVariableCoerced = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+            var key = exposed.exposedName;
+            var _other = exposed.upstreamType;
+            var coerce;
+            switch (_other) {
+              case "Boolean" :
+              case "Boolean!" :
+                  coerce = key + "?.trim() === \"true\"";
+                  break;
+              case "Float" :
+              case "Float!" :
+                  coerce = "parseFloat(" + key + ") || 0.0";
+                  break;
+              case "Int" :
+              case "Int!" :
+                  coerce = "parseInt(" + key + ") || 0";
+                  break;
+              case "JSON" :
+              case "JSON!" :
+                  coerce = "JSON.parse(" + key + ")";
+                  break;
+              case "String" :
+              case "String!" :
+                  coerce = key;
+                  break;
+              default:
+                coerce = key;
+            }
+            return key + ": " + coerce;
+          })).join(",\n\t");
+  var nextjsScript = "const fetch = require(\"node-fetch\");\n\nasync function " + chain.name + " ({" + variableParams + "}) {\n  const resp = await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      \"Content-Type\": \"application/json\",\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + nextJsVariableCoerced + "}\n        }\n      )\n    }\n  )\n\n  return resp.json()\n}\n\nexport default async function handler(req, res) {\n  /* If not using GET, be sure to set the header \"Content-Type: application/json\"\n     for requests to your Next.js API */\n  const { query, message, name, positionMs } = req.method === 'GET' ? req.query : req.body\n\n  const result = await " + chain.name + "({ " + variableParams + " })\n\n  let errors = result.errors || [];\n\n  // Gather all of the errors from the nodes in the request chain\n  result?.data?.oneGraph?.executeChain?.results?.forEach((call) => {\n    const requestId = call.request.id\n\n    const requestErrors =\n      call?.result?.flatMap((result) => result?.errors)?.filter(Boolean) || []\n\n    const callArgumentDependencyErrors =\n      call?.argumentDependencies\n        ?.filter((argumentDependency) => !!argumentDependency?.error)\n        ?.map((argumentDependency) => {\n          return {\n            name: requestId + '.' + argumentDependency.name,\n            errors: argumentDependency.error,\n          }\n        })\n        ?.filter(Boolean) || []\n\n    if (requestErrors.length > 0 || callArgumentDependencyErrors.length > 0) {\n      console.warn('Error in requestId=', requestId, requestErrors, errors)\n      errors = errors\n        .concat(requestErrors)\n        .concat(callArgumentDependencyErrors)\n        .filter(Boolean)\n    }\n  })\n\n  // No errors present means the chain executed well\n  if ((errors || []).length === 0) {\n    res.status(200).json({\n      success: true\n    })\n  } else {\n    if ((result.errors || []).length > 0) {\n      console.warning(\"Error in executing chain " + chain.name + "\", errors)\n    }\n    res.status(500).json({ message: \"Error executing chain\" })\n  }\n}";
+  var nextjs_path = "pages/api/" + chain.name + ".js";
+  var nextjs = {
+    path: nextjs_path,
+    code: nextjsScript
+  };
   return {
           fetch: $$fetch,
           curl: curl,
           scriptKit: scriptKit,
-          netlify: netlify
+          netlify: netlify,
+          nextjs: nextjs
         };
 }
 
@@ -423,9 +473,9 @@ function Inspector$Block(Props) {
           }
           
         }), [match[0] === block.body]);
-  return React.createElement(React.Fragment, undefined, React.createElement("pre", {
-                  className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all"
-                }, block.body), React.createElement(Comps.Button.make, {
+  return React.createElement(React.Fragment, undefined, React.createElement(Comps.Pre.make, {
+                  children: block.body
+                }), React.createElement(Comps.Button.make, {
                   onClick: (function (param) {
                       return Curry._1(onAddBlock, block);
                     }),
@@ -435,6 +485,207 @@ function Inspector$Block(Props) {
 
 var Block = {
   make: Inspector$Block
+};
+
+function Inspector$GitHub(Props) {
+  var chain = Props.chain;
+  var savedChainId = Props.savedChainId;
+  var oneGraphAuth = Props.oneGraphAuth;
+  var loadedChain = Chain.loadFromLocalStorage(savedChainId);
+  var appId = oneGraphAuth.appId;
+  var remoteChainCalls$1 = remoteChainCalls(appId, savedChainId, Belt_Option.getExn(loadedChain));
+  var match = React.useState(function () {
+        return {
+                repoList: undefined,
+                selectedRepo: undefined,
+                repoProjectGuess: undefined
+              };
+      });
+  var setState = match[1];
+  var state = match[0];
+  React.useEffect((function () {
+          Debug.assignToWindowForDeveloperDebug("guessGitHubProject", OneGraphRe.GitHub.guessProjecType);
+          var __x = OneGraphRe.basicFetchOneGraphPersistedQuery("993a3e2d-de45-44fa-bff4-0c58c6150cbf", undefined, "fc839e0e-982b-43fc-b59b-3c080e17480a", undefined, "ExecuteChainMutation_look_ma_connections");
+          __x.then(function (result) {
+                console.log("Got some repo results: ", result);
+                return Promise.resolve(Belt_Option.forEach(Caml_option.undefined_to_opt(result.data), (function (data) {
+                                  try {
+                                    return Belt_Option.forEach(Belt_Array.getBy(data.oneGraph.executeChain.results, (function (result) {
+                                                      return result.request.id === "ListMyRepositories";
+                                                    })), (function (request) {
+                                                  var repos = Caml_array.get(request.result, 0).data.me.github.repositories.edges;
+                                                  return Curry._1(setState, (function (oldState) {
+                                                                return {
+                                                                        repoList: repos,
+                                                                        selectedRepo: oldState.selectedRepo,
+                                                                        repoProjectGuess: oldState.repoProjectGuess
+                                                                      };
+                                                              }));
+                                                }));
+                                  }
+                                  catch (raw_ex){
+                                    var ex = Caml_js_exceptions.internalToOCamlException(raw_ex);
+                                    console.warn("Exception while fetching GitHub Repo list", ex);
+                                    return ;
+                                  }
+                                })));
+              });
+          
+        }), []);
+  return Belt_Option.mapWithDefault(state.repoList, null, (function (repoList) {
+                var match = state.selectedRepo;
+                var match$1 = state.repoProjectGuess;
+                var tmp;
+                if (match !== undefined) {
+                  if (match$1 !== undefined) {
+                    var target = typeof match$1 === "number" ? (
+                        match$1 !== 0 ? "next.js project" : "repo"
+                      ) : (
+                        match$1._0 === "any" ? "Netlify functions" : "next.js project"
+                      );
+                    tmp = "Push chain to " + target + " on GitHub";
+                  } else {
+                    tmp = "Determining project type...";
+                  }
+                } else {
+                  tmp = "Select a GitHub repository";
+                }
+                return React.createElement(React.Fragment, undefined, React.createElement(Comps.Select.make, {
+                                children: null,
+                                onChange: (function ($$event) {
+                                    var id = $$event.target.value;
+                                    var repo = Belt_Option.flatMap(state.repoList, (function (repoList) {
+                                            return Belt_Array.getBy(repoList, (function (repoEdge) {
+                                                          return repoEdge.node.id === id;
+                                                        }));
+                                          }));
+                                    Curry._1(setState, (function (oldState) {
+                                            return {
+                                                    repoList: oldState.repoList,
+                                                    selectedRepo: repo,
+                                                    repoProjectGuess: undefined
+                                                  };
+                                          }));
+                                    return Belt_Option.forEach(repo, (function (repo) {
+                                                  var match = repo.node.nameWithOwner.split("/");
+                                                  if (match.length !== 2) {
+                                                    return ;
+                                                  }
+                                                  var owner = match[0];
+                                                  var name = match[1];
+                                                  var __x = OneGraphRe.GitHub.guessProjecType(owner, name);
+                                                  __x.then(function (result) {
+                                                        return Promise.resolve(Curry._1(setState, (function (oldState) {
+                                                                          return {
+                                                                                  repoList: oldState.repoList,
+                                                                                  selectedRepo: oldState.selectedRepo,
+                                                                                  repoProjectGuess: result
+                                                                                };
+                                                                        })));
+                                                      });
+                                                  
+                                                }));
+                                  }),
+                                value: Belt_Option.mapWithDefault(state.selectedRepo, "", (function (repo) {
+                                        return repo.node.id;
+                                      }))
+                              }, React.createElement("option", {
+                                    value: ""
+                                  }), Belt_Array.map(repoList, (function (repoEdge) {
+                                      return React.createElement("option", {
+                                                  value: repoEdge.node.id
+                                                }, repoEdge.node.nameWithOwner);
+                                    }))), React.createElement(Comps.Button.make, {
+                                onClick: (function (param) {
+                                    return Belt_Option.forEach(state.repoProjectGuess, (function (repoProjectGuess) {
+                                                  return Belt_Option.forEach(state.selectedRepo, (function (repo) {
+                                                                var match = repo.node.nameWithOwner.split("/");
+                                                                if (match.length !== 2) {
+                                                                  return ;
+                                                                }
+                                                                var owner = match[0];
+                                                                var name = match[1];
+                                                                var content;
+                                                                var exit = 0;
+                                                                if (typeof repoProjectGuess === "number") {
+                                                                  if (repoProjectGuess !== 0) {
+                                                                    exit = 1;
+                                                                  } else {
+                                                                    content = Prettier.format(remoteChainCalls$1.fetch, {
+                                                                          parser: "babel",
+                                                                          plugins: [ParserBabel],
+                                                                          singleQuote: true
+                                                                        });
+                                                                  }
+                                                                } else if (repoProjectGuess._0 === "any") {
+                                                                  var code = remoteChainCalls$1.netlify.code;
+                                                                  var fmt = function (s) {
+                                                                    return Prettier.format(s, {
+                                                                                parser: "babel",
+                                                                                plugins: [ParserBabel],
+                                                                                singleQuote: true
+                                                                              });
+                                                                  };
+                                                                  Debug.assignToWindowForDeveloperDebug("nextjscode", code);
+                                                                  Debug.assignToWindowForDeveloperDebug("pfmt", fmt);
+                                                                  content = Prettier.format(code, {
+                                                                        parser: "babel",
+                                                                        plugins: [ParserBabel],
+                                                                        singleQuote: true
+                                                                      });
+                                                                } else {
+                                                                  exit = 1;
+                                                                }
+                                                                if (exit === 1) {
+                                                                  var code$1 = remoteChainCalls$1.nextjs.code;
+                                                                  var fmt$1 = function (s) {
+                                                                    return Prettier.format(s, {
+                                                                                parser: "babel",
+                                                                                plugins: [ParserBabel],
+                                                                                singleQuote: true
+                                                                              });
+                                                                  };
+                                                                  Debug.assignToWindowForDeveloperDebug("nextjscode", code$1);
+                                                                  Debug.assignToWindowForDeveloperDebug("pfmt", fmt$1);
+                                                                  content = Prettier.format(code$1, {
+                                                                        parser: "babel",
+                                                                        plugins: [ParserBabel],
+                                                                        singleQuote: true
+                                                                      });
+                                                                }
+                                                                var path = typeof repoProjectGuess === "number" ? (
+                                                                    repoProjectGuess !== 0 ? remoteChainCalls$1.nextjs.path : "src/" + chain.name + ".js"
+                                                                  ) : (
+                                                                    repoProjectGuess._0 === "any" ? remoteChainCalls$1.netlify.path : remoteChainCalls$1.nextjs.path
+                                                                  );
+                                                                var file = {
+                                                                  path: path,
+                                                                  content: content,
+                                                                  mode: "100644"
+                                                                };
+                                                                var __x = Curry._1(OneGraphRe.GitHub.pushToRepo, {
+                                                                      owner: owner,
+                                                                      name: name,
+                                                                      branch: "onegraph-studio",
+                                                                      treeFiles: [file],
+                                                                      message: "Automated push for " + chain.name,
+                                                                      acceptOverrides: true
+                                                                    });
+                                                                __x.then(function (result) {
+                                                                      return Promise.resolve((console.log("Got push result: ", result), undefined));
+                                                                    });
+                                                                
+                                                              }));
+                                                }));
+                                  }),
+                                children: tmp,
+                                disabled: Belt_Option.isNone(state.repoProjectGuess)
+                              }));
+              }));
+}
+
+var GitHub = {
+  make: Inspector$GitHub
 };
 
 function Inspector$DirectVariable(Props) {
@@ -792,10 +1043,11 @@ function Inspector$Request(Props) {
   var domRef = React.useRef(null);
   var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
             var match = block.kind;
-            if (match >= 3) {
+            if (match !== 3) {
+              return ;
+            } else {
               return block.body;
             }
-            
           })).join("\n\n");
   React.useEffect((function () {
           var requestsWithLockedVariables = patchChainRequestsArgDeps(chain);
@@ -1167,7 +1419,7 @@ function Inspector$Request(Props) {
             type: def_type
           };
           return formInput(schema, def, setFormVariables, {
-                      labelClassname: "underline pl-2 m-2 mt-0 mb-0"
+                      labelClassname: "underline pl-2 m-2 mt-0 mb-0 font-semibold text-sm font-mono"
                     });
         }));
   var form = inputs.length !== 0 ? React.createElement("form", {
@@ -1239,8 +1491,8 @@ function Inspector$Request(Props) {
                       fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
                             operationDoc: chainFragmentsDoc
                           }),
-                      onCopy: (function (path) {
-                          var dataPath = path.join("?.");
+                      onCopy: (function (param) {
+                          var dataPath = param.path.join("?.");
                           var fullPath = "payload." + dataPath;
                           CopyToClipboard(fullPath);
                           
@@ -1333,6 +1585,11 @@ function Inspector$Nothing(Props) {
       });
   var setFormVariables = match[1];
   var formVariables = match[0];
+  var match$1 = React.useState(function () {
+        return "inspector";
+      });
+  var setOpenedTab = match$1[1];
+  var openedTab = match$1[0];
   var form = Belt_Option.getWithDefault(Belt_Option.map(targetChain, (function (targetChain) {
               return Belt_Array.map(targetChain.exposedVariables, (function (exposedVariable) {
                             var def_variable = {
@@ -1387,71 +1644,148 @@ function Inspector$Nothing(Props) {
                                   color: Comps.colors["gray-4"]
                                 }), "Delete Request")));
         }));
-  return React.createElement(React.Fragment, undefined, form, authButtons, isChainViable ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Button.make, {
-                        onClick: (function (param) {
-                            return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
-                          }),
-                        children: "Run chain"
-                      }), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
-                              return React.createElement(Inspector$ChainResultsViewer, {
-                                          chain: chain,
-                                          chainExecutionResults: Caml_option.some(chainExecutionResults)
-                                        });
-                            })), null), React.createElement(Comps.Button.make, {
-                        onClick: (function (param) {
-                            return Curry._1(onPersistChain, undefined);
-                          }),
-                        children: "Save Chain"
-                      })) : "Add some blocks to get started", Belt_Option.getWithDefault(Belt_Option.map(savedChainId, (function (chainId) {
-                        return React.createElement("select", {
-                                    className: "w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2",
-                                    value: "",
-                                    onChange: (function ($$event) {
-                                        var chain = Chain.loadFromLocalStorage(chainId);
-                                        var appId = oneGraphAuth.appId;
-                                        var remoteChainCalls$1 = remoteChainCalls(appId, chainId, Belt_Option.getExn(chain));
-                                        var match = $$event.target.value;
-                                        var value;
-                                        switch (match) {
-                                          case "curl" :
-                                              value = remoteChainCalls$1.curl;
-                                              break;
-                                          case "fetch" :
-                                              value = remoteChainCalls$1.fetch;
-                                              break;
-                                          case "form" :
-                                              value = "http://localhost:3003/form?form_id=" + chainId;
-                                              break;
-                                          case "netlify" :
-                                              value = remoteChainCalls$1.netlify;
-                                              break;
-                                          case "scriptkit" :
-                                              value = remoteChainCalls$1.scriptKit;
-                                              break;
-                                          default:
-                                            value = undefined;
-                                        }
-                                        return Belt_Option.forEach(value, (function (prim) {
-                                                      CopyToClipboard(prim);
-                                                      
-                                                    }));
-                                      })
-                                  }, React.createElement("option", {
-                                        value: ""
-                                      }, "> Copy usage"), React.createElement("option", {
-                                        value: "form"
-                                      }, "Copy link to form"), React.createElement("option", {
-                                        value: "fetch"
-                                      }, "Copy fetch call"), React.createElement("option", {
-                                        value: "curl"
-                                      }, "Copy cURL call"), React.createElement("option", {
-                                        value: "netlify"
-                                      }, "Copy Netlify function usage"), React.createElement("option", {
-                                        value: "scriptkit"
-                                      }, "Copy ScriptKit usage"));
-                      })), null), requests.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                        children: "Chain Requests"
-                      }), requests) : null);
+  var formTab = React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+            children: null
+          }, React.createElement(Icons.Caret.make, {
+                className: "inline mr-2",
+                color: Comps.colors["gray-6"]
+              }), "Chain Form"), form, authButtons, React.createElement(Comps.Button.make, {
+            onClick: (function (param) {
+                return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
+              }),
+            children: "Run chain"
+          }), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
+                  return React.createElement(Inspector$ChainResultsViewer, {
+                              chain: chain,
+                              chainExecutionResults: Caml_option.some(chainExecutionResults)
+                            });
+                })), null));
+  var saveTab = React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+            children: null
+          }, React.createElement(Icons.Caret.make, {
+                className: "inline mr-2",
+                color: Comps.colors["gray-6"]
+              }), "Export"), React.createElement(Comps.Button.make, {
+            onClick: (function (param) {
+                return Curry._1(onPersistChain, undefined);
+              }),
+            children: "Save Chain"
+          }), Belt_Option.getWithDefault(Belt_Option.map(savedChainId, (function (chainId) {
+                  return React.createElement(Comps.Select.make, {
+                              children: null,
+                              onChange: (function ($$event) {
+                                  var chain = Chain.loadFromLocalStorage(chainId);
+                                  var appId = oneGraphAuth.appId;
+                                  var remoteChainCalls$1 = remoteChainCalls(appId, chainId, Belt_Option.getExn(chain));
+                                  var match = $$event.target.value;
+                                  var value;
+                                  switch (match) {
+                                    case "curl" :
+                                        value = remoteChainCalls$1.curl;
+                                        break;
+                                    case "fetch" :
+                                        value = remoteChainCalls$1.fetch;
+                                        break;
+                                    case "form" :
+                                        value = "http://localhost:3003/form?form_id=" + chainId;
+                                        break;
+                                    case "netlify" :
+                                        value = "/** HTML form for this function\n" + remoteChainCalls$1.netlify.form + "\n**/\n\n" + remoteChainCalls$1.netlify.code + "\n";
+                                        break;
+                                    case "scriptkit" :
+                                        value = remoteChainCalls$1.scriptKit;
+                                        break;
+                                    default:
+                                      value = undefined;
+                                  }
+                                  return Belt_Option.forEach(value, (function (prim) {
+                                                CopyToClipboard(prim);
+                                                
+                                              }));
+                                }),
+                              value: ""
+                            }, React.createElement("option", {
+                                  value: ""
+                                }, "> Copy usage"), React.createElement("option", {
+                                  value: "form"
+                                }, "Copy link to form"), React.createElement("option", {
+                                  value: "fetch"
+                                }, "Copy fetch call"), React.createElement("option", {
+                                  value: "curl"
+                                }, "Copy cURL call"), React.createElement("option", {
+                                  value: "netlify"
+                                }, "Copy Netlify function usage"), React.createElement("option", {
+                                  value: "scriptkit"
+                                }, "Copy ScriptKit usage"));
+                })), null), Belt_Option.mapWithDefault(savedChainId, null, (function (savedChainId) {
+              return React.createElement(Inspector$GitHub, {
+                          chain: chain,
+                          savedChainId: savedChainId,
+                          oneGraphAuth: oneGraphAuth
+                        });
+            })));
+  var inspectorTab = React.createElement(React.Fragment, undefined, isChainViable ? null : React.createElement("div", {
+              className: "m-2",
+              style: {
+                color: Comps.colors["gray-4"]
+              }
+            }, "Add some blocks to get started"), requests.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+                  children: null
+                }, React.createElement(Icons.Caret.make, {
+                      className: "inline mr-2",
+                      color: Comps.colors["gray-6"]
+                    }), "Chain Requests"), requests) : null);
+  return React.createElement(React.Fragment, undefined, React.createElement("div", {
+                  className: "w-full flex ml-2 border-b border-blue-400 justify-around"
+                }, React.createElement("button", {
+                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
+                        openedTab === "inspector" ? " bg-blue-400" : ""
+                      ),
+                      onClick: (function (param) {
+                          return Curry._1(setOpenedTab, (function (param) {
+                                        return "inspector";
+                                      }));
+                        })
+                    }, React.createElement(Icons.Gears.make, {
+                          className: "",
+                          color: "white",
+                          width: "24px",
+                          height: "24px"
+                        }), React.createElement("span", {
+                          className: "mx-2"
+                        }, "Chain")), React.createElement("button", {
+                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
+                        openedTab === "form" ? " bg-blue-400" : ""
+                      ),
+                      onClick: (function (param) {
+                          return Curry._1(setOpenedTab, (function (param) {
+                                        return "form";
+                                      }));
+                        })
+                    }, React.createElement(Icons.Form.make, {
+                          color: "white",
+                          width: "24px",
+                          height: "24px"
+                        }), React.createElement("span", {
+                          className: "mx-2"
+                        }, "Form")), React.createElement("button", {
+                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
+                        openedTab === "save" ? " bg-blue-400" : ""
+                      ),
+                      onClick: (function (param) {
+                          return Curry._1(setOpenedTab, (function (param) {
+                                        return "save";
+                                      }));
+                        })
+                    }, React.createElement(Icons.Save.make, {
+                          color: "white",
+                          width: "24px",
+                          height: "24px"
+                        }), React.createElement("span", {
+                          className: "mx-2"
+                        }, "Export"))), openedTab === "save" ? saveTab : (
+                openedTab === "inspector" ? inspectorTab : formTab
+              ));
 }
 
 var Nothing = {
@@ -1589,6 +1923,7 @@ export {
   remoteChainCalls ,
   transformAndExecuteChain ,
   Block ,
+  GitHub ,
   DirectVariable ,
   DirectJSON ,
   ArgumentDependency ,

@@ -27,7 +27,9 @@ let make = (~schema: GraphQLJs.schema, ~block as initialBlock: Card.block, ~onCl
     setBlock(oldBlock => {...oldBlock, body: newOperationDoc, title: title})
   }
 
-  let explorer =
+  let explorer = switch block.kind {
+  | Compute => React.null
+  | _ =>
     <div className="graphiql-container w-full">
       <GraphiQLExplorer
         schema
@@ -38,6 +40,7 @@ let make = (~schema: GraphQLJs.schema, ~block as initialBlock: Card.block, ~onCl
         onEdit={updateBlock}
       />
     </div>
+  }
 
   let editor =
     <BsReactMonaco.Editor

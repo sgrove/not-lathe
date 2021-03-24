@@ -70,9 +70,11 @@ function Card(Props) {
                   className: "group relative"
                 }, React.createElement("div", {
                       className: "bg-gradient-to-b p-2 " + (
-                        match$1 === "mutation" ? "bg-red-400" : (
-                            match$1 === "fragment" ? "bg-gray-400" : (
-                                match$1 === "subscription" ? "bg-yellow-400" : "bg-green-400"
+                        match$1 === "query" ? "bg-green-400" : (
+                            match$1 === "mutation" ? "bg-red-400" : (
+                                match$1 === "fragment" ? "bg-gray-400" : (
+                                    match$1 === "subscription" ? "bg-yellow-400" : "bg-green-900"
+                                  )
                               )
                           )
                       ),
@@ -677,7 +679,25 @@ var blocks = [
   setSlackStatus,
   gitHubStatus,
   insertFollowersMutation,
-  gitHubUserFragment
+  gitHubUserFragment,
+  {
+    id: Uuid.parseExn("cfeff87d-486a-445d-b388-a620e11810ea"),
+    title: "ListMyRepositories",
+    description: "TODO",
+    body: "query ListMyRepositories {\n  me {\n    github {\n      id\n      login\n      repositories(\n        first: 100\n        orderBy: { field: CREATED_AT, direction: DESC }\n        affiliations: [\n          OWNER\n          COLLABORATOR\n          ORGANIZATION_MEMBER\n        ]\n        ownerAffiliations: [\n          OWNER\n          COLLABORATOR\n          ORGANIZATION_MEMBER\n        ]\n      ) {\n        edges {\n          node {\n            id\n            nameWithOwner\n          }\n        }\n        totalCount\n      }\n    }\n  }\n}",
+    kind: /* Query */0,
+    contributedBy: "@sgrove",
+    services: ["github"]
+  },
+  {
+    id: Uuid.parseExn("cfeff87d-486a-445d-b388-a611e11810ea"),
+    title: "ListFilesOnDefaultBranch",
+    description: "TODO",
+    body: "query ListFilesOnDefaultBranch($owner: String!, $name: String!) {\n  gitHub {\n    repository(name: $name, owner: $owner) {\n      id\n      defaultBranchRef {\n        ... on GitHubRef {\n          id\n          name\n          target {\n            id\n            oid\n            ... on GitHubCommit {\n              history(first: 1) {\n                edges {\n                  node {\n                    tree {\n                      entries {\n                        name\n                        path\n                        oid\n                        object {\n                          ... on GitHubTree {\n                            id\n                            entries {\n                              name\n                              path\n                              oid\n                            }\n                          }\n                        }\n                      }\n                    }\n                  }\n                }\n              }\n              tree {\n                id\n                oid\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}",
+    kind: /* Query */0,
+    contributedBy: "@sgrove",
+    services: ["github"]
+  }
 ];
 
 function blockServices(schema, block) {

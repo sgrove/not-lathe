@@ -1,4 +1,4 @@
-type operationKind = Query | Mutation | Subscription | Fragment
+type operationKind = Query | Mutation | Subscription | Fragment | Compute
 
 type block = {
   id: Uuid.v4,
@@ -106,6 +106,7 @@ let make = (~block, ~schema as _, ~ports=?, ~onVariableInspected, ~onBlockInspec
           | #fragment => "bg-gray-400"
           | #mutation => "bg-red-400"
           | #subscription => "bg-yellow-400"
+          | #objectType => "bg-green-900"
           }}>
           <h3 className="text-white text-sm overflow-x-scroll"> {title->string} </h3>
         </div>
@@ -2006,6 +2007,98 @@ Once you've made a custom GitHub app, set the client id/secret for it in your On
   gitHubStatus,
   insertFollowersMutation,
   gitHubUserFragment,
+  {
+    title: "ListMyRepositories",
+    id: "cfeff87d-486a-445d-b388-a620e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["github"],
+    description: "TODO",
+    body: "query ListMyRepositories {
+  me {
+    github {
+      id
+      login
+      repositories(
+        first: 100
+        orderBy: { field: CREATED_AT, direction: DESC }
+        affiliations: [
+          OWNER
+          COLLABORATOR
+          ORGANIZATION_MEMBER
+        ]
+        ownerAffiliations: [
+          OWNER
+          COLLABORATOR
+          ORGANIZATION_MEMBER
+        ]
+      ) {
+        edges {
+          node {
+            id
+            nameWithOwner
+          }
+        }
+        totalCount
+      }
+    }
+  }
+}",
+    kind: Query,
+  },
+  {
+    title: "ListFilesOnDefaultBranch",
+    id: "cfeff87d-486a-445d-b388-a611e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["github"],
+    description: "TODO",
+    body: "query ListFilesOnDefaultBranch($owner: String!, $name: String!) {
+  gitHub {
+    repository(name: $name, owner: $owner) {
+      id
+      defaultBranchRef {
+        ... on GitHubRef {
+          id
+          name
+          target {
+            id
+            oid
+            ... on GitHubCommit {
+              history(first: 1) {
+                edges {
+                  node {
+                    tree {
+                      entries {
+                        name
+                        path
+                        oid
+                        object {
+                          ... on GitHubTree {
+                            id
+                            entries {
+                              name
+                              path
+                              oid
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              tree {
+                id
+                oid
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}",
+    kind: Query,
+  },
 ]
 
 let blockServices = (~schema, block: block): array<GraphQLUtils.service> => {

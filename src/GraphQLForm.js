@@ -56,12 +56,17 @@ export const formInput = (schema, def, setFormVariables, options) => {
   const name = def.variable.name.value;
 
   function helper(path, type, subfield) {
+    console.log("formInput: ", path, type, subfield);
     const isList = isListType(type);
 
     const namedType = getNamedType(type);
     const isEnum = isEnumType(namedType);
-    const isObject =
-      isInputObjectType(namedType) || GraphQL.isObjectType(namedType);
+    const isObject = isInputObjectType(namedType);
+
+    if (GraphQL.isObjectType(namedType) && !isInputObjectType(namedType)) {
+      return;
+    }
+
     const isScalar = isScalarType(namedType);
 
     const subfieldName = subfield && subfield.name;

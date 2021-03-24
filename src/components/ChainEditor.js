@@ -47,13 +47,30 @@ var FragmentNodeComponent = {
   make: make
 };
 
-function makeBlankBlock(param) {
+function makeBlankBlock(kind) {
+  var match = kind === "mutation" ? [
+      /* Mutation */1,
+      "mutation Untitled { __typename }"
+    ] : (
+      kind === "compute" ? [
+          /* Compute */4,
+          "# Fields on ComputeType will turn into variables for you to compute\n# based on other blocks or user input\ntype ComputeType {\n  name: String!\n}"
+        ] : (
+          kind === "subscription" ? [
+              /* Subscription */2,
+              "subscription Untitled { __typename }"
+            ] : [
+              /* Query */0,
+              "query Untitled { __typename }"
+            ]
+        )
+    );
   return {
           id: Uuid.v4(),
           title: "Untitled",
           description: "TODO",
-          body: "query Untitled { __typename }",
-          kind: /* Query */0,
+          body: match[1],
+          kind: match[0],
           contributedBy: undefined,
           services: []
         };
@@ -139,7 +156,7 @@ function ChainEditor$BlockSearch(Props) {
                             }, React.createElement(Icons.Search.make, {
                                   color: Comps.colors["gray-4"]
                                 })), React.createElement("input", {
-                              className: "w-full rounded-md text-gray-700 leading-tight focus:outline-none py-2 px-2 border-0",
+                              className: "w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white",
                               id: "search",
                               style: {
                                 backgroundColor: "#282B30"
@@ -160,12 +177,44 @@ function ChainEditor$BlockSearch(Props) {
                                 })
                             }), React.createElement("div", {
                               className: "flex items-center rounded-md inline "
-                            }, React.createElement("button", {
-                                  className: "p-2 hover:bg-blue-200 rounded-md",
-                                  onClick: (function (param) {
-                                      return Curry._1(onCreate, undefined);
-                                    })
-                                }, "+"))), React.createElement("div", {
+                            }, React.createElement(Comps.Select.make, {
+                                  children: null,
+                                  onChange: (function ($$event) {
+                                      var match = $$event.target.value;
+                                      var kind;
+                                      switch (match) {
+                                        case "compute" :
+                                            kind = "compute";
+                                            break;
+                                        case "mutation" :
+                                            kind = "mutation";
+                                            break;
+                                        case "query" :
+                                            kind = "query";
+                                            break;
+                                        case "subscription" :
+                                            kind = "subscription";
+                                            break;
+                                        default:
+                                          kind = undefined;
+                                      }
+                                      return Belt_Option.forEach(kind, Curry.__1(onCreate));
+                                    }),
+                                  style: {
+                                    maxWidth: "1ch"
+                                  },
+                                  value: "never"
+                                }, React.createElement("option", {
+                                      value: "+"
+                                    }, ""), React.createElement("option", {
+                                      value: "query"
+                                    }, "+ New Query Block"), React.createElement("option", {
+                                      value: "mutation"
+                                    }, "+ New Mutation Block"), React.createElement("option", {
+                                      value: "subscription"
+                                    }, "+ New Subscription Block"), React.createElement("option", {
+                                      value: "compute"
+                                    }, "+ New Compute Block")))), React.createElement("div", {
                           className: "py-3 text-sm h-full overflow-y-scroll"
                         }, Belt_Array.map((
                                   match$1 !== undefined ? state.results : blocks
@@ -184,6 +233,9 @@ function ChainEditor$BlockSearch(Props) {
                                   case /* Subscription */2 :
                                   case /* Fragment */3 :
                                       color = "F2C94C";
+                                      break;
+                                  case /* Compute */4 :
+                                      color = Comps.colors["gray-10"];
                                       break;
                                   
                                 }
@@ -212,9 +264,9 @@ function ChainEditor$BlockSearch(Props) {
                                                   color: "#F2F2F2"
                                                 }
                                               }, block.title), React.createElement("div", {
-                                                className: "px-2  rounded-r-md py-2",
+                                                className: "px-2 rounded-r-md py-2",
                                                 style: {
-                                                  backgroundColor: "#E0E0E0",
+                                                  backgroundColor: Comps.colors["gray-2"],
                                                   minWidth: "40px"
                                                 }
                                               }, Belt_Array.keepMap(block.services, (function (service) {
@@ -224,6 +276,7 @@ function ChainEditor$BlockSearch(Props) {
                                                                                 key: friendlyServiceName,
                                                                                 className: "rounded-full",
                                                                                 style: {
+                                                                                  opacity: "0.80",
                                                                                   pointerEvents: "none"
                                                                                 },
                                                                                 title: friendlyServiceName,
@@ -264,7 +317,6 @@ function ChainEditor$NodeLabel(Props) {
   var onEditBlock = Props.onEditBlock;
   var onDragStart = Props.onDragStart;
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
-  ((console.log("NL Args: ", arguments)));
   var services = Belt_Array.keepMap(block.services, (function (service) {
           return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
                         var friendlyServiceName = param[1];
@@ -395,7 +447,7 @@ function diagramFromChain(chain, onEditBlock, onDragStart, schema, onPotentialVa
   };
   var fragmentNodes = Belt_Array.mapWithIndex(Belt_SortArray.stableSortBy(Belt_Array.keep(chain.blocks, (function (block) {
                   var match = block.kind;
-                  return match >= 3;
+                  return match === 3;
                 })), (function (a, b) {
               return a.title.localeCompare(b.title) | 0;
             })), (function (idx, block) {
@@ -441,7 +493,7 @@ function diagramFromChain(chain, onEditBlock, onDragStart, schema, onPotentialVa
       }] : [];
   var operationBlocks = Belt_Array.keep(chain.blocks, (function (block) {
           var match = block.kind;
-          return match < 3;
+          return match !== 3;
         }));
   var levels = {};
   var graphLevels = {};
@@ -690,10 +742,11 @@ var backgroundStyle = {
 function requestScriptTypeScriptSignature(request, schema, chain) {
   var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
               var match = block.kind;
-              if (match >= 3) {
+              if (match !== 3) {
+                return ;
+              } else {
                 return block.body;
               }
-              
             })).join("\n\n").concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }");
   var chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
         operationDoc: chainFragmentsDoc
@@ -815,7 +868,13 @@ function ChainEditor$Script(Props) {
   React.useEffect((function () {
           Belt_Option.forEach(editor.current, (function (editor) {
                   var position = editor.getPosition();
-                  editor.setValue(content);
+                  var model = editor.getModel("file:///main.tsx");
+                  var fullRange = model.getFullModelRange();
+                  var edit = {
+                    range: fullRange,
+                    text: content
+                  };
+                  editor.executeEdits("externalContentChange", [edit]);
                   editor.setPosition(position);
                   
                 }));
@@ -1301,8 +1360,7 @@ function ChainEditor$Diagram(Props) {
                 }),
               children: null,
               nodeTypes: {
-                fragment: make,
-                operation: ChainEditor$OperationNodeComponent
+                fragment: make
               }
             }, React.createElement(ReactFlowRenderer.Controls, {
                   showZoom: false,
@@ -1312,7 +1370,7 @@ function ChainEditor$Diagram(Props) {
                   variant: "lines",
                   gap: 20,
                   size: 1,
-                  color: "rgb(34, 37, 40)",
+                  color: Comps.colors["gray-1"],
                   style: {
                     backgroundColor: "rgb(31, 33, 37)"
                   }
@@ -1343,12 +1401,10 @@ function ChainEditor$Main(Props) {
         catch (exn){
           scriptFunctions = [];
         }
-        var inspected_1 = Belt_Option.getExn(Belt_Array.get(initialChain.requests, 1));
         var inspected = {
-          TAG: 2,
-          chain: initialChain,
-          request: inspected_1,
-          [Symbol.for("name")]: "Request"
+          TAG: 0,
+          _0: initialChain,
+          [Symbol.for("name")]: "Nothing"
         };
         return {
                 diagram: undefined,
@@ -1602,6 +1658,36 @@ function ChainEditor$Main(Props) {
           
         }), [state.chain.script]);
   React.useEffect((function () {
+          Curry._1(setState, (function (oldState) {
+                  var init = oldState.chain;
+                  return {
+                          diagram: oldState.diagram,
+                          card: oldState.card,
+                          schema: oldState.schema,
+                          chain: {
+                            name: initialChain.name,
+                            script: init.script,
+                            scriptDependencies: init.scriptDependencies,
+                            requests: init.requests,
+                            blocks: init.blocks
+                          },
+                          compiledChain: oldState.compiledChain,
+                          chainResult: oldState.chainResult,
+                          scriptFunctions: oldState.scriptFunctions,
+                          chainExecutionResults: oldState.chainExecutionResults,
+                          blocks: oldState.blocks,
+                          inspected: oldState.inspected,
+                          blockEdit: oldState.blockEdit,
+                          scriptEditor: oldState.scriptEditor,
+                          savedChainId: oldState.savedChainId,
+                          requestValueCache: oldState.requestValueCache,
+                          debugUIItems: oldState.debugUIItems,
+                          connectionDrag: oldState.connectionDrag
+                        };
+                }));
+          
+        }), [initialChain.name]);
+  React.useEffect((function () {
           if (state.chain.requests.length > 3) {
             Curry._1(fitView, {
                   padding: 0.2,
@@ -1615,10 +1701,11 @@ function ChainEditor$Main(Props) {
     var operationName = Caml_array.get(ast.definitions, 0).name.value;
     var chainFragments = Belt_Array.keepMap(state.chain.blocks, (function (block) {
               var match = block.kind;
-              if (match >= 3) {
+              if (match !== 3) {
+                return ;
+              } else {
                 return block.body;
               }
-              
             })).join("\n\n");
     var fullDoc = (request.operation.body + "\n\n" + chainFragments).trim();
     var promise = OneGraphRe.fetchOneGraph(oneGraphAuth, fullDoc, operationName, Caml_option.some(variables));
@@ -1654,7 +1741,7 @@ function ChainEditor$Main(Props) {
             var services = Belt_Array.map(GraphQLUtils.gatherAllReferencedServices(schema, definition), (function (service) {
                     return service.slug;
                   }));
-            var blank = makeBlankBlock(undefined);
+            var blank = makeBlankBlock("query");
             var match = definition.operation;
             return {
                     id: Uuid.v4(),
@@ -1675,7 +1762,7 @@ function ChainEditor$Main(Props) {
     };
     var newChain = Belt_Array.reduce(blocks, state.chain, (function (newChain, block) {
             var match = block.kind;
-            if (match >= 3) {
+            if (match === 3) {
               return {
                       name: newChain.name,
                       script: newChain.script,
@@ -1909,7 +1996,7 @@ function ChainEditor$Main(Props) {
                         }));
           }),
         blocks: state.blocks,
-        onCreate: (function (param) {
+        onCreate: (function (kind) {
             return Curry._1(setState, (function (oldState) {
                           return {
                                   diagram: oldState.diagram,
@@ -1924,7 +2011,7 @@ function ChainEditor$Main(Props) {
                                   inspected: oldState.inspected,
                                   blockEdit: {
                                     TAG: 0,
-                                    _0: makeBlankBlock(undefined),
+                                    _0: makeBlankBlock(kind),
                                     [Symbol.for("name")]: "Create"
                                   },
                                   scriptEditor: oldState.scriptEditor,
@@ -2417,10 +2504,12 @@ function ChainEditor$Main(Props) {
               var initialAst = Caml_array.get(Graphql.parse(initial.body).definitions, 0);
               var newOperationDefinitionCount = Belt_Array.keep(ast.definitions, (function (definition) {
                       var match = definition.kind;
-                      if (match === "FragmentDefinition") {
-                        return false;
-                      } else {
-                        return true;
+                      switch (match) {
+                        case "FragmentDefinition" :
+                        case "ObjectTypeDefinition" :
+                            return false;
+                        default:
+                          return true;
                       }
                     })).length;
               var guessedInitialBlock = {
@@ -2428,26 +2517,50 @@ function ChainEditor$Main(Props) {
               };
               var blocks = Belt_Array.mapWithIndex(ast.definitions, (function (_idx, definition) {
                       var match = definition.kind;
-                      var kind = match === "FragmentDefinition" ? "fragment" : definition.operation;
-                      var sameNameAsInitial = initialAst.name.value === definition.name.value;
+                      var kind;
+                      switch (match) {
+                        case "FragmentDefinition" :
+                            kind = "fragment";
+                            break;
+                        case "ObjectTypeDefinition" :
+                            kind = "objectType";
+                            break;
+                        default:
+                          kind = definition.operation;
+                      }
+                      var definition$1;
+                      if (kind === "objectType") {
+                        var compiled = GraphQLJs.Mock.compileComputeToIdentityQuery(definition);
+                        Debug.assignToWindowForDeveloperDebug("computedCompiled", [
+                              definition,
+                              compiled
+                            ]);
+                        console.log("Compiled compute: ", Graphql.print(definition));
+                        definition$1 = compiled;
+                      } else {
+                        definition$1 = definition;
+                      }
+                      var sameNameAsInitial = initialAst.name.value === definition$1.name.value;
                       var match$1 = initial.kind;
                       var sameOperationKindChanged = newOperationDefinitionCount !== 0 ? (
                           newOperationDefinitionCount !== 1 ? false : kind !== "fragment"
                         ) : (
-                          match$1 >= 3 ? kind === "fragment" : false
+                          match$1 !== 3 ? false : kind === "fragment"
                         );
                       var sameOperationAsInitial = sameNameAsInitial || sameOperationKindChanged ? true : false;
-                      var services = Belt_Array.map(GraphQLUtils.gatherAllReferencedServices(schema, definition), (function (service) {
+                      var services = Belt_Array.map(GraphQLUtils.gatherAllReferencedServices(schema, definition$1), (function (service) {
                               return service.slug;
                             }));
-                      var blank = makeBlankBlock(undefined);
-                      var title = Belt_Option.getWithDefault(definition.name.value, "Untitled");
+                      var blank = makeBlankBlock("query");
+                      var title = Belt_Option.getWithDefault(definition$1.name.value, "Untitled");
                       var block_id = sameOperationAsInitial ? initial.id : Uuid.v4();
                       var block_description = blank.description;
-                      var block_body = Graphql.print(definition);
-                      var block_kind = kind === "mutation" ? /* Mutation */1 : (
-                          kind === "fragment" ? /* Fragment */3 : (
-                              kind === "subscription" ? /* Subscription */2 : /* Query */0
+                      var block_body = Graphql.print(definition$1);
+                      var block_kind = kind === "query" ? /* Query */0 : (
+                          kind === "mutation" ? /* Mutation */1 : (
+                              kind === "fragment" ? /* Fragment */3 : (
+                                  kind === "subscription" ? /* Subscription */2 : /* Compute */4
+                                )
                             )
                         );
                       var block_contributedBy = blank.contributedBy;
@@ -2469,7 +2582,7 @@ function ChainEditor$Main(Props) {
                 return Curry._1(setState, (function (oldState) {
                               var newChain = Belt_Array.reduce(blocks, oldState.chain, (function (newChain, block) {
                                       var match = block.kind;
-                                      if (match >= 3) {
+                                      if (match === 3) {
                                         return {
                                                 name: newChain.name,
                                                 script: newChain.script,
@@ -2712,13 +2825,139 @@ function ChainEditor$Main(Props) {
             var targetRequest = match$4.targetRequest;
             var chainFragmentsDoc = Belt_Array.keepMap(state.chain.blocks, (function (block) {
                       var match = block.kind;
-                      if (match >= 3) {
+                      if (match !== 3) {
+                        return ;
+                      } else {
                         return block.body;
                       }
-                      
                     })).join("\n\n");
             var parsedOperation = Graphql.parse(sourceRequest.operation.body);
             var definition = Belt_Array.getExn(parsedOperation.definitions, 0);
+            var targetParsedOperation = Graphql.parse(targetRequest.operation.body);
+            var targetDefinition = Belt_Array.getExn(targetParsedOperation.definitions, 0);
+            var targetVariables = GraphQLUtils.getOperationVariables(targetDefinition);
+            console.log("Operation variables: ", sourceRequest.operation.body, targetVariables);
+            var targetVariableType = Belt_Option.map(Belt_Array.getBy(targetVariables, (function (param) {
+                        var variableName = param[0];
+                        console.log("Looking for ", variableName, targetVariableDependency.name);
+                        return targetVariableDependency.name === variableName;
+                      })), (function (param) {
+                    return param[1];
+                  }));
+            console.log("targetVariableType: ", targetVariableType);
+            var tmp$4 = {
+              requestId: sourceRequest.id,
+              schema: schema,
+              definition: definition,
+              fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
+                    operationDoc: chainFragmentsDoc
+                  }),
+              onCopy: (function (param) {
+                  var dataPath = Belt_Array.concat(["payload"], param.path);
+                  return Curry._1(setState, (function (oldState) {
+                                var newDependency = {
+                                  TAG: 2,
+                                  _0: {
+                                    name: targetVariableDependency.name,
+                                    ifMissing: "SKIP",
+                                    ifList: "FIRST",
+                                    fromRequestId: sourceRequest.id,
+                                    path: dataPath,
+                                    functionFromScript: "TBD"
+                                  },
+                                  [Symbol.for("name")]: "GraphQLProbe"
+                                };
+                                var newRequests = Belt_Array.map(oldState.chain.requests, (function (request) {
+                                        if (targetRequest.id !== request.id) {
+                                          return request;
+                                        }
+                                        var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
+                                                if (varDep.name === targetVariableDependency.name) {
+                                                  return {
+                                                          name: varDep.name,
+                                                          dependency: newDependency
+                                                        };
+                                                }
+                                                var argDep = varDep.dependency;
+                                                var dependency;
+                                                switch (argDep.TAG | 0) {
+                                                  case /* ArgumentDependency */0 :
+                                                      var argDep$1 = argDep._0;
+                                                      var newArgDep_functionFromScript = argDep$1.functionFromScript;
+                                                      var newArgDep_maxRecur = argDep$1.maxRecur;
+                                                      var newArgDep_ifMissing = argDep$1.ifMissing;
+                                                      var newArgDep_ifList = argDep$1.ifList;
+                                                      var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
+                                                      var newArgDep_name = argDep$1.name;
+                                                      var newArgDep = {
+                                                        functionFromScript: newArgDep_functionFromScript,
+                                                        maxRecur: newArgDep_maxRecur,
+                                                        ifMissing: newArgDep_ifMissing,
+                                                        ifList: newArgDep_ifList,
+                                                        fromRequestIds: newArgDep_fromRequestIds,
+                                                        name: newArgDep_name
+                                                      };
+                                                      dependency = {
+                                                        TAG: 0,
+                                                        _0: newArgDep,
+                                                        [Symbol.for("name")]: "ArgumentDependency"
+                                                      };
+                                                      break;
+                                                  case /* Direct */1 :
+                                                  case /* GraphQLProbe */2 :
+                                                      dependency = argDep;
+                                                      break;
+                                                  
+                                                }
+                                                return {
+                                                        name: varDep.name,
+                                                        dependency: dependency
+                                                      };
+                                              }));
+                                        return {
+                                                id: request.id,
+                                                variableDependencies: varDeps,
+                                                operation: request.operation,
+                                                dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
+                                              };
+                                      }));
+                                var init = oldState.chain;
+                                var newChain_name = init.name;
+                                var newChain_script = init.script;
+                                var newChain_scriptDependencies = init.scriptDependencies;
+                                var newChain_blocks = init.blocks;
+                                var newChain = {
+                                  name: newChain_name,
+                                  script: newChain_script,
+                                  scriptDependencies: newChain_scriptDependencies,
+                                  requests: newRequests,
+                                  blocks: newChain_blocks
+                                };
+                                var diagram = diagramFromChain$1(newChain);
+                                return {
+                                        diagram: diagram,
+                                        card: oldState.card,
+                                        schema: oldState.schema,
+                                        chain: newChain,
+                                        compiledChain: oldState.compiledChain,
+                                        chainResult: oldState.chainResult,
+                                        scriptFunctions: oldState.scriptFunctions,
+                                        chainExecutionResults: oldState.chainExecutionResults,
+                                        blocks: oldState.blocks,
+                                        inspected: oldState.inspected,
+                                        blockEdit: oldState.blockEdit,
+                                        scriptEditor: oldState.scriptEditor,
+                                        savedChainId: oldState.savedChainId,
+                                        requestValueCache: oldState.requestValueCache,
+                                        debugUIItems: oldState.debugUIItems,
+                                        connectionDrag: /* Empty */0
+                                      };
+                              }));
+                })
+            };
+            if (targetVariableType !== undefined) {
+              tmp$4.targetGqlType = Caml_option.valFromOption(targetVariableType);
+            }
             tmp$3 = React.createElement("div", {
                   className: "absolute",
                   style: {
@@ -2729,125 +2968,17 @@ function ChainEditor$Main(Props) {
                   }
                 }, React.createElement("div", {
                       className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
-                    }, React.createElement(Inspector.GraphQLPreview.make, {
-                          requestId: sourceRequest.id,
-                          schema: schema,
-                          definition: definition,
-                          fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
-                                operationDoc: chainFragmentsDoc
-                              }),
-                          onCopy: (function (path) {
-                              var dataPath = Belt_Array.concat(["payload"], path);
-                              return Curry._1(setState, (function (oldState) {
-                                            var newDependency = {
-                                              TAG: 2,
-                                              _0: {
-                                                name: targetVariableDependency.name,
-                                                ifMissing: "SKIP",
-                                                ifList: "FIRST",
-                                                fromRequestId: sourceRequest.id,
-                                                path: dataPath,
-                                                functionFromScript: "TBD"
-                                              },
-                                              [Symbol.for("name")]: "GraphQLProbe"
-                                            };
-                                            var newRequests = Belt_Array.map(oldState.chain.requests, (function (request) {
-                                                    if (targetRequest.id !== request.id) {
-                                                      return request;
-                                                    }
-                                                    var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
-                                                            if (varDep.name === targetVariableDependency.name) {
-                                                              return {
-                                                                      name: varDep.name,
-                                                                      dependency: newDependency
-                                                                    };
-                                                            }
-                                                            var argDep = varDep.dependency;
-                                                            var dependency;
-                                                            switch (argDep.TAG | 0) {
-                                                              case /* ArgumentDependency */0 :
-                                                                  var argDep$1 = argDep._0;
-                                                                  var newArgDep_functionFromScript = argDep$1.functionFromScript;
-                                                                  var newArgDep_maxRecur = argDep$1.maxRecur;
-                                                                  var newArgDep_ifMissing = argDep$1.ifMissing;
-                                                                  var newArgDep_ifList = argDep$1.ifList;
-                                                                  var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
-                                                                  var newArgDep_name = argDep$1.name;
-                                                                  var newArgDep = {
-                                                                    functionFromScript: newArgDep_functionFromScript,
-                                                                    maxRecur: newArgDep_maxRecur,
-                                                                    ifMissing: newArgDep_ifMissing,
-                                                                    ifList: newArgDep_ifList,
-                                                                    fromRequestIds: newArgDep_fromRequestIds,
-                                                                    name: newArgDep_name
-                                                                  };
-                                                                  dependency = {
-                                                                    TAG: 0,
-                                                                    _0: newArgDep,
-                                                                    [Symbol.for("name")]: "ArgumentDependency"
-                                                                  };
-                                                                  break;
-                                                              case /* Direct */1 :
-                                                              case /* GraphQLProbe */2 :
-                                                                  dependency = argDep;
-                                                                  break;
-                                                              
-                                                            }
-                                                            return {
-                                                                    name: varDep.name,
-                                                                    dependency: dependency
-                                                                  };
-                                                          }));
-                                                    return {
-                                                            id: request.id,
-                                                            variableDependencies: varDeps,
-                                                            operation: request.operation,
-                                                            dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
-                                                          };
-                                                  }));
-                                            var init = oldState.chain;
-                                            var newChain_name = init.name;
-                                            var newChain_script = init.script;
-                                            var newChain_scriptDependencies = init.scriptDependencies;
-                                            var newChain_blocks = init.blocks;
-                                            var newChain = {
-                                              name: newChain_name,
-                                              script: newChain_script,
-                                              scriptDependencies: newChain_scriptDependencies,
-                                              requests: newRequests,
-                                              blocks: newChain_blocks
-                                            };
-                                            var diagram = diagramFromChain$1(newChain);
-                                            return {
-                                                    diagram: diagram,
-                                                    card: oldState.card,
-                                                    schema: oldState.schema,
-                                                    chain: newChain,
-                                                    compiledChain: oldState.compiledChain,
-                                                    chainResult: oldState.chainResult,
-                                                    scriptFunctions: oldState.scriptFunctions,
-                                                    chainExecutionResults: oldState.chainExecutionResults,
-                                                    blocks: oldState.blocks,
-                                                    inspected: oldState.inspected,
-                                                    blockEdit: oldState.blockEdit,
-                                                    scriptEditor: oldState.scriptEditor,
-                                                    savedChainId: oldState.savedChainId,
-                                                    requestValueCache: oldState.requestValueCache,
-                                                    debugUIItems: oldState.debugUIItems,
-                                                    connectionDrag: /* Empty */0
-                                                  };
-                                          }));
-                            })
-                        })));
+                    }, React.createElement(Inspector.GraphQLPreview.make, tmp$4)));
           } else {
             var match$6 = conDrag.windowPosition;
             var scriptPosition = match$4.scriptPosition;
             var chainFragmentsDoc$1 = Belt_Array.keepMap(state.chain.blocks, (function (block) {
                       var match = block.kind;
-                      if (match >= 3) {
+                      if (match !== 3) {
+                        return ;
+                      } else {
                         return block.body;
                       }
-                      
                     })).join("\n\n");
             var parsedOperation$1 = Graphql.parse(sourceRequest.operation.body);
             var definition$1 = Belt_Array.getExn(parsedOperation$1.definitions, 0);
@@ -2869,8 +3000,8 @@ function ChainEditor$Main(Props) {
                           fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
                                 operationDoc: chainFragmentsDoc$1
                               }),
-                          onCopy: (function (path) {
-                              var dataPath = Belt_Array.concat(["payload"], path);
+                          onCopy: (function (payload) {
+                              var dataPath = Belt_Array.concat(["payload"], payload.path);
                               var re = new RegExp("\\[.+\\]", "g");
                               var binding = Caml_array.get(dataPath, dataPath.length - 1 | 0).replace(re, "");
                               return Curry._1(setState, (function (oldState) {

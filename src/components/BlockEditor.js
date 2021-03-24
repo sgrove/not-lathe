@@ -42,16 +42,17 @@ function BlockEditor(Props) {
                         };
                 }));
   };
-  var explorer = React.createElement("div", {
-        className: "graphiql-container w-full"
-      }, React.createElement(GraphiqlExplorer, {
-            schema: schema,
-            explorerIsOpen: true,
-            query: block.body,
-            width: "100%",
-            height: "100%",
-            onEdit: updateBlock
-          }));
+  var match$1 = block.kind;
+  var explorer = match$1 >= 4 ? null : React.createElement("div", {
+          className: "graphiql-container w-full"
+        }, React.createElement(GraphiqlExplorer, {
+              schema: schema,
+              explorerIsOpen: true,
+              query: block.body,
+              width: "100%",
+              height: "100%",
+              onEdit: updateBlock
+            }));
   var editor = React.createElement(BsReactMonaco.Editor.make, {
         height: "100%",
         value: block.body,

@@ -16,6 +16,7 @@ import {
   isUnionType,
   isInterfaceType,
   typeFromAST,
+  printType,
 } from "graphql";
 
 import React from "react";
@@ -493,7 +494,10 @@ function PreviewForAst({
   ast,
   onCopy,
   fragmentDefinitions,
+  targetGqlType,
 }) {
+  let nullableTargetGqlType = targetGqlType?.replace(/\!/g, "");
+
   let baseGqlType =
     ast.kind === "OperationDefinition"
       ? ast.operation === "query"
@@ -512,6 +516,8 @@ function PreviewForAst({
   }
 
   let helper = (selection, path, parentGqlType) => {
+    if (!parentGqlType) return;
+
     let parentNamedType =
       getNamedType(parentGqlType) || getNamedType(parentGqlType.type);
 
@@ -581,6 +587,19 @@ function PreviewForAst({
       })
       .filter(Boolean);
 
+    let printedType = gqlType?.toString();
+    let nullableTypes = printedType?.replace("!", "");
+
+    let typeNameMatches =
+      printedType && nullableTypes === nullableTargetGqlType;
+
+    console.log(
+      "TypeNameMatches: ",
+      printedType,
+      nullableTypes,
+      nullableTargetGqlType
+    );
+
     let mock = isScalarType(namedType)
       ? JSON.stringify(mockInputType(schema, namedType))
       : isObjectLike
@@ -599,10 +618,17 @@ function PreviewForAst({
       >
         <span
           style={{ cursor: "copy" }}
-          onClick={() => onCopy(fullPath)}
-          className="hover:bg-blue-700"
+          onClick={() =>
+            onCopy({
+              printedType: printedType,
+              path: fullPath,
+            })
+          }
+          className={"hover:bg-blue-700 "}
         >
-          {JSON.stringify(displayedName)}
+          <span className={typeNameMatches ? " bg-green-700" : ""}>
+            {JSON.stringify(displayedName)}
+          </span>
           <span style={{ color: "gray" }}>{finalMock}</span>
         </span>
         {sub}
@@ -625,6 +651,7 @@ export function GraphQLPreview({
   definition,
   fragmentDefinitions,
   onCopy,
+  targetGqlType,
 }) {
   return (
     <div
@@ -635,6 +662,7 @@ export function GraphQLPreview({
         ast={definition}
         schema={schema}
         onCopy={onCopy}
+        targetGqlType={targetGqlType}
         fragmentDefinitions={fragmentDefinitions || {}}
       />
     </div>
@@ -654,6 +682,74 @@ export function gatherFragmentDefinitions({ operationDoc }) {
   });
 
   return Object.fromEntries(entries);
+}
+
+export function compileComputeToIdentityQuery(definition) {
+  if (definition.kind !== "ObjectTypeDefinition") {
+    return null;
+  }
+
+  let name = definition?.name?.value || "Untitled";
+
+  let variableDefinitions = definition.fields.map((field) => {
+    return {
+      kind: "VariableDefinition",
+      variable: { kind: "Variable", name: field.name },
+      type: field.type,
+    };
+  });
+
+  let selections = definition.fields.map((field) => {
+    return {
+      kind: "Field",
+      name: { kind: "Name", value: "identity" },
+      alias: field.name,
+      selectionSet: {
+        kind: "SelectionSet",
+        selections: [],
+      },
+      arguments: [
+        {
+          kind: "Argument",
+          name: {
+            kind: "Name",
+            value: "input",
+          },
+          value: {
+            kind: "Variable",
+            name: field.name,
+          },
+        },
+      ],
+    };
+  });
+
+  let selectionSet = {
+    kind: "SelectionSet",
+    selections: [
+      {
+        kind: "Field",
+        name: {
+          kind: "Name",
+          value: "oneGraph",
+        },
+        arguments: [],
+        directives: [],
+        selectionSet: {
+          kind: "SelectionSet",
+          selections: [selections],
+        },
+      },
+    ],
+  };
+
+  return {
+    kind: "OperationDefinition",
+    operation: "query",
+    name: { kind: "Name", value: name },
+    selectionSet: selectionSet,
+    variableDefinitions: variableDefinitions,
+  };
 }
 
 const services = [

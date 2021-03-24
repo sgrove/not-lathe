@@ -9,13 +9,19 @@ module Clipboard = {
 }
 
 module GraphQLPreview = {
+  type previewCopyPayload = {
+    printedType: string,
+    path: array<string>,
+  }
+
   @react.component @module("../GraphQLMockInputType.js")
   external make: (
     ~requestId: string,
     ~schema: GraphQLJs.schema,
     ~definition: GraphQLJs.graphqlOperationDefinition,
     ~fragmentDefinitions: Js.Dict.t<GraphQLJs.graphqlOperationDefinition>,
-    ~onCopy: array<string> => unit,
+    ~targetGqlType: string=?,
+    ~onCopy: previewCopyPayload => unit,
   ) => React.element = "GraphQLPreview"
 }
 
@@ -41,11 +47,23 @@ type inspectable =
   | Request({chain: Chain.t, request: Chain.request})
   | RequestArgument({chain: Chain.t, request: Chain.request, variableName: string})
 
+type netlifyRemoteChainCall = {
+  path: string,
+  form: string,
+  code: string,
+}
+
+type nextjsRemoteChainCall = {
+  path: string,
+  code: string,
+}
+
 type remoteChainCalls = {
   fetch: string,
   curl: string,
   scriptKit: string,
-  netlify: string,
+  netlify: netlifyRemoteChainCall,
+  nextjs: nextjsRemoteChainCall,
 }
 
 type mockRequestValueVariable = {
@@ -301,20 +319,30 @@ let remoteChainCalls = (~appId, ~chainId, chain: Chain.t) => {
     })
     ->Js.Array2.joinWith(", ")
 
+  let variableParams =
+    targetChain.exposedVariables
+    ->Belt.Array.map(exposed => {
+      let key = exposed.exposedName
+      key
+    })
+    ->Js.Array2.joinWith(", ")
+
   let curl = j`curl -X POST "https://serve.onegraph.com/graphql?app_id=${appId}" --data '{"doc_id": "${chainId}", "operationName": "${targetChain.operationName}", "variables": {${freeVariables}}}'`
 
-  let fetch = j`await fetch("https://serve.onegraph.com/graphql?app_id=${appId}",
-  {
-    method: "POST",
-    "Content-Type": "application/json",
-    body: JSON.stringify({
-      "doc_id": "${chainId}",
-      "operationName": "${targetChain.operationName}",
-      "variables": {${freeVariables}}
-      }
-    )
-  }
-)`
+  let fetch = j`async function ${chain.name} ({${variableParams}}) {
+  await fetch("https://serve.onegraph.com/graphql?app_id=${appId}",
+    {
+      method: "POST",
+      "Content-Type": "application/json",
+      body: JSON.stringify({
+        "doc_id": "${chainId}",
+        "operationName": "${targetChain.operationName}",
+        "variables": {${freeVariables}}
+        }
+      )
+    }
+  )
+}`
 
   let htmlInputs =
     targetChain.exposedVariables
@@ -425,9 +453,11 @@ exports.handler = async (event, context) => {
 };
 `
 
-  let netlify = j`${netlifyHtml}
-
-${netlifyScript}`
+  let netlify = {
+    path: j`functions/${chain.name}.js`,
+    form: netlifyHtml,
+    code: netlifyScript,
+  }
 
   let scriptKitArgs =
     targetChain.exposedVariables
@@ -479,11 +509,111 @@ let response = await post("https://serve.onegraph.com/graphql?app_id=${appId}",
 console.log("Response: ", response.data)
 `
 
+  let nextJsVariableCoerced =
+    targetChain.exposedVariables
+    ->Belt.Array.map(exposed => {
+      let key = exposed.exposedName
+      let coerce = switch exposed.upstreamType {
+      | "String"
+      | "String!" => key
+      | "Int"
+      | "Int!" =>
+        j`parseInt(${key}) || 0`
+      | "Float"
+      | "Float!" =>
+        j`parseFloat(${key}) || 0.0`
+      | "Boolean"
+      | "Boolean!" =>
+        j`${key}?.trim() === "true"`
+      | "JSON"
+      | "JSON!" =>
+        j`JSON.parse(${key})`
+      | _other => key
+      }
+
+      j`${key}: ${coerce}`
+    })
+    ->Js.Array2.joinWith(",\n\t")
+
+  let nextjsScript = j`const fetch = require("node-fetch");
+
+async function ${chain.name} ({${variableParams}}) {
+  const resp = await fetch("https://serve.onegraph.com/graphql?app_id=${appId}",
+    {
+      method: "POST",
+      "Content-Type": "application/json",
+      body: JSON.stringify({
+        "doc_id": "${chainId}",
+        "operationName": "${targetChain.operationName}",
+        "variables": {${nextJsVariableCoerced}}
+        }
+      )
+    }
+  )
+
+  return resp.json()
+}
+
+export default async function handler(req, res) {
+  /* If not using GET, be sure to set the header "Content-Type: application/json"
+     for requests to your Next.js API */
+  const { query, message, name, positionMs } = req.method === 'GET' ? req.query : req.body
+
+  const result = await ${chain.name}({ ${variableParams} })
+
+  let errors = result.errors || [];
+
+  // Gather all of the errors from the nodes in the request chain
+  result?.data?.oneGraph?.executeChain?.results?.forEach((call) => {
+    const requestId = call.request.id
+
+    const requestErrors =
+      call?.result?.flatMap((result) => result?.errors)?.filter(Boolean) || []
+
+    const callArgumentDependencyErrors =
+      call?.argumentDependencies
+        ?.filter((argumentDependency) => !!argumentDependency?.error)
+        ?.map((argumentDependency) => {
+          return {
+            name: requestId + '.' + argumentDependency.name,
+            errors: argumentDependency.error,
+          }
+        })
+        ?.filter(Boolean) || []
+
+    if (requestErrors.length > 0 || callArgumentDependencyErrors.length > 0) {
+      console.warn('Error in requestId=', requestId, requestErrors, errors)
+      errors = errors
+        .concat(requestErrors)
+        .concat(callArgumentDependencyErrors)
+        .filter(Boolean)
+    }
+  })
+
+  // No errors present means the chain executed well
+  if ((errors || []).length === 0) {
+    res.status(200).json({
+      success: true
+    })
+  } else {
+    if ((result.errors || []).length > 0) {
+      console.warning("Error in executing chain ${chain.name}", errors)
+    }
+    res.status(500).json({ message: "Error executing chain" })
+  }
+}`
+
+  let nextjs = {
+    path: j`pages/api/${chain.name}.js`,
+    code: nextjsScript,
+  }
+
   {
     curl: curl,
     fetch: fetch,
     scriptKit: scriptKit,
     netlify: netlify,
+    nextjs: nextjs,
   }
 }
 
@@ -526,13 +656,223 @@ module Block = {
     }, [originalContent == block.body])
 
     <>
-      <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-        {block.body->React.string}
-      </pre>
+      <Comps.Pre> {block.body->React.string} </Comps.Pre>
       <Comps.Button onClick={_ => onAddBlock(block)}>
         {"Add block to chain"->React.string}
       </Comps.Button>
     </>
+  }
+}
+
+type repoNode = {
+  id: string,
+  nameWithOwner: string,
+}
+
+type repoEdge = {node: repoNode}
+
+type projectTypeGuess = option<OneGraphRe.GitHub.projectType>
+
+module GitHub = {
+  type state = {
+    repoList: option<array<repoEdge>>,
+    selectedRepo: option<repoEdge>,
+    repoProjectGuess: projectTypeGuess,
+  }
+
+  @react.component
+  let make = (~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
+    let loadedChain = savedChainId->Chain.loadFromLocalStorage
+
+    let appId = oneGraphAuth->OneGraphAuth.appId
+
+    let remoteChainCalls = remoteChainCalls(
+      ~appId,
+      ~chainId=savedChainId,
+      loadedChain->Belt.Option.getExn,
+    )
+
+    open React
+
+    let (state, setState) = React.useState(() => {
+      repoList: None,
+      selectedRepo: None,
+      repoProjectGuess: None,
+    })
+
+    React.useEffect0(() => {
+      Debug.assignToWindowForDeveloperDebug(
+        ~name="guessGitHubProject",
+        OneGraphRe.GitHub.guessProjecType,
+      )
+      OneGraphRe.basicFetchOneGraphPersistedQuery(
+        ~appId="993a3e2d-de45-44fa-bff4-0c58c6150cbf",
+        ~accessToken=None,
+        ~docId="fc839e0e-982b-43fc-b59b-3c080e17480a",
+        ~operationName=Some("ExecuteChainMutation_look_ma_connections"),
+        ~variables=None,
+      )
+      ->Js.Promise.then_(result => {
+        Js.log2("Got some repo results: ", result)
+        Obj.magic(result)["data"]
+        ->Js.Undefined.toOption
+        ->Belt.Option.forEach(data => {
+          try {
+            data["oneGraph"]["executeChain"]["results"]
+            ->Belt.Array.getBy(result => result["request"]["id"] == "ListMyRepositories")
+            ->Belt.Option.forEach(request => {
+              let repos = request["result"][0]["data"]["me"]["github"]["repositories"]["edges"]
+              setState(oldState => {
+                {...oldState, repoList: repos}
+              })
+            })
+          } catch {
+          | ex =>
+            Js.Console.warn2("Exception while fetching GitHub Repo list", ex)
+            ()
+          }
+        })
+        ->Js.Promise.resolve
+      }, _)
+      ->ignore
+
+      None
+    })
+
+    {
+      state.repoList->Belt.Option.mapWithDefault(React.null, repoList => {
+        <>
+          <Comps.Select
+            value={state.selectedRepo->Belt.Option.mapWithDefault("", repo => repo.node.id)}
+            onChange={event => {
+              let id = ReactEvent.Form.target(event)["value"]
+              let repo = state.repoList->Belt.Option.flatMap(repoList =>
+                repoList->Belt.Array.getBy(repoEdge => {
+                  repoEdge.node.id == id
+                })
+              )
+              setState(oldState => {...oldState, selectedRepo: repo, repoProjectGuess: None})
+              repo->Belt.Option.forEach(repo => {
+                switch repo.node.nameWithOwner->Js.String2.split("/") {
+                | [owner, name] =>
+                  OneGraphRe.GitHub.guessProjecType(~owner, ~name)->Js.Promise.then_(result => {
+                    setState(oldState => {
+                      ...oldState,
+                      repoProjectGuess: Some(result),
+                    })->Js.Promise.resolve
+                  }, _)->ignore
+                | _ => ()
+                }
+              })
+            }}>
+            <option value="" />
+            {repoList
+            ->Belt.Array.map(repoEdge => {
+              <option value={repoEdge.node.id}>
+                {repoEdge.node.nameWithOwner->React.string}
+              </option>
+            })
+            ->array}
+          </Comps.Select>
+          <Comps.Button
+            disabled={state.repoProjectGuess->Belt.Option.isNone}
+            onClick={_ =>
+              state.repoProjectGuess->Belt.Option.forEach(repoProjectGuess => {
+                state.selectedRepo->Belt.Option.forEach(repo => {
+                  switch repo.node.nameWithOwner->Js.String2.split("/") {
+                  | [owner, name] =>
+                    let content = switch repoProjectGuess {
+                    | Unknown =>
+                      remoteChainCalls.fetch->Prettier.format({
+                        "parser": "babel",
+                        "plugins": [Prettier.babel],
+                        "singleQuote": true,
+                      })
+                    | Netlify(#any) =>
+                      let code = remoteChainCalls.netlify.code
+
+                      let fmt = s =>
+                        s->Prettier.format({
+                          "parser": "babel",
+                          "plugins": [Prettier.babel],
+                          "singleQuote": true,
+                        })
+
+                      Debug.assignToWindowForDeveloperDebug(~name="nextjscode", code)
+                      Debug.assignToWindowForDeveloperDebug(~name="pfmt", fmt)
+
+                      code->Prettier.format({
+                        "parser": "babel",
+                        "plugins": [Prettier.babel],
+                        "singleQuote": true,
+                      })
+                    | Netlify(#nextjs)
+                    | Nextjs =>
+                      let code = remoteChainCalls.nextjs.code
+
+                      let fmt = s =>
+                        s->Prettier.format({
+                          "parser": "babel",
+                          "plugins": [Prettier.babel],
+                          "singleQuote": true,
+                        })
+
+                      Debug.assignToWindowForDeveloperDebug(~name="nextjscode", code)
+                      Debug.assignToWindowForDeveloperDebug(~name="pfmt", fmt)
+
+                      code->Prettier.format({
+                        "parser": "babel",
+                        "plugins": [Prettier.babel],
+                        "singleQuote": true,
+                      })
+                    }
+
+                    let path = switch repoProjectGuess {
+                    | Unknown => j`src/${chain.name}.js`
+                    | Netlify(#any) => remoteChainCalls.netlify.path
+                    | Netlify(#nextjs)
+                    | Nextjs =>
+                      remoteChainCalls.nextjs.path
+                    }
+
+                    let file = {
+                      OneGraphRe.GitHub.path: path,
+                      content: content,
+                      mode: "100644",
+                    }
+
+                    OneGraphRe.GitHub.pushToRepo({
+                      "owner": owner,
+                      "name": name,
+                      "branch": "onegraph-studio",
+                      "treeFiles": [file],
+                      "message": "Automated push for " ++ chain.name,
+                      "acceptOverrides": true,
+                    })
+                    ->Js.Promise.then_(result => {
+                      Js.log2("Got push result: ", result)->Js.Promise.resolve
+                    }, _)
+                    ->ignore
+                  | _ => ()
+                  }
+                })
+              })}>
+            {switch (state.selectedRepo, state.repoProjectGuess) {
+            | (None, _) => "Select a GitHub repository"
+            | (_, None) => "Determining project type..."
+            | (Some(_), Some(projectGuess)) =>
+              let target = switch projectGuess {
+              | Unknown => "repo"
+              | Netlify(#nextjs)
+              | Nextjs => "next.js project"
+              | Netlify(#any) => "Netlify functions"
+              }
+              j`Push chain to ${target} on GitHub`
+            }->React.string}
+          </Comps.Button>
+        </>
+      })
+    }
   }
 }
 
@@ -1296,7 +1636,10 @@ module Request = {
           schema,
           def,
           setFormVariables,
-          formInputOptions(~labelClassname="underline pl-2 m-2 mt-0 mb-0", ()),
+          formInputOptions(
+            ~labelClassname="underline pl-2 m-2 mt-0 mb-0 font-semibold text-sm font-mono",
+            (),
+          ),
         )
       })
 
@@ -1384,7 +1727,7 @@ module Request = {
           fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
             "operationDoc": chainFragmentsDoc,
           })}
-          onCopy={path => {
+          onCopy={({path}) => {
             let dataPath = path->Js.Array2.joinWith("?.")
             let fullPath = "payload." ++ dataPath
 
@@ -1487,6 +1830,7 @@ module Nothing = {
     let targetChain = compiledOperation.chains->Belt.Array.get(0)
 
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
+    let (openedTab, setOpenedTab) = React.useState(() => #inspector)
 
     let form =
       targetChain
@@ -1537,7 +1881,7 @@ module Nothing = {
             onClick={event => {
               event->ReactEvent.Mouse.stopPropagation
               event->ReactEvent.Mouse.preventDefault
-              let confirmation = Debug.confirm(j`Really delete "${request.operation.title}"?`)
+              let confirmation = Utils.confirm(j`Really delete "${request.operation.title}"?`)
 
               switch confirmation {
               | false => ()
@@ -1551,87 +1895,158 @@ module Nothing = {
       </article>
     })
 
-    <>
-      {form}
-      {authButtons->React.array}
-      {
-        // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-        //   {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
-        // </pre>
-        isChainViable
-          ? <>
-              <Comps.Button
-                onClick={_ => {
-                  let variables = Some(formVariables->Obj.magic)
+    let formTab =
+      <>
+        <Comps.Header>
+          <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+          {"Chain Form"->React.string}
+        </Comps.Header>
+        {form}
+        {authButtons->React.array}
+        <Comps.Button
+          onClick={_ => {
+            let variables = Some(formVariables->Obj.magic)
 
-                  transformAndExecuteChain(~variables)
-                }}>
-                {"Run chain"->React.string}
-              </Comps.Button>
-              {chainExecutionResults
-              ->Belt.Option.map(chainExecutionResults =>
-                <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
-              )
-              ->Belt.Option.getWithDefault(React.null)}
-              <Comps.Button
-                onClick={_ => {
-                  onPersistChain()
-                }}>
-                {"Save Chain"->React.string}
-              </Comps.Button>
-            </>
-          : {"Add some blocks to get started"->React.string}
-      }
-      {savedChainId
-      ->Belt.Option.map(chainId => {
-        <select
-          className="w-full focus:outline-none text-white text-sm py-2.5 px-5 border-b-4 border-gray-600 rounded-md bg-gray-500 hover:bg-gray-400 m-2"
-          value=""
-          onChange={event => {
-            let chain = chainId->Chain.loadFromLocalStorage
-
-            let appId = oneGraphAuth->OneGraphAuth.appId
-
-            let remoteChainCalls = remoteChainCalls(~appId, ~chainId, chain->Belt.Option.getExn)
-
-            let value = switch ReactEvent.Form.target(event)["value"] {
-            | "form" => Some(j`http://localhost:3003/form?form_id=${chainId}`)
-            | "fetch" => Some(remoteChainCalls.fetch)
-            | "curl" => Some(remoteChainCalls.curl)
-            | "netlify" => Some(remoteChainCalls.netlify)
-            | "scriptkit" => Some(remoteChainCalls.scriptKit)
-            | _ => None
-            }
-            value->Belt.Option.forEach(Clipboard.copy)
+            transformAndExecuteChain(~variables)
           }}>
-          <option value=""> {"> Copy usage"->React.string} </option>
-          <option value={"form"}> {"Copy link to form"->React.string} </option>
-          <option value={"fetch"}> {"Copy fetch call"->React.string} </option>
-          <option value={"curl"}> {"Copy cURL call"->React.string} </option>
-          <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
-          <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
-        </select>
-      })
-      ->Belt.Option.getWithDefault(React.null)}
-      {requests->Belt.Array.length > 0
-        ? <> <Comps.Header> {"Chain Requests"->React.string} </Comps.Header> {requests->array} </>
-        : React.null}
-      // <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
-      // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-      //   {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
-      // </pre>
-      // <Comps.Header> {"Compiled Executable Chain"->React.string} </Comps.Header>
-      // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
-      //   {
-      //     let transformed = chain->internallyPatchChain
-      //     let script = transformed.script
+          {"Run chain"->React.string}
+        </Comps.Button>
+        {chainExecutionResults
+        ->Belt.Option.map(chainExecutionResults =>
+          <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
+        )
+        ->Belt.Option.getWithDefault(React.null)}
+      </>
+    let saveTab =
+      <>
+        <Comps.Header>
+          <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+          {"Export"->React.string}
+        </Comps.Header>
+        <Comps.Button
+          onClick={_ => {
+            onPersistChain()
+          }}>
+          {"Save Chain"->React.string}
+        </Comps.Button>
+        {savedChainId
+        ->Belt.Option.map(chainId => {
+          <Comps.Select
+            value=""
+            onChange={event => {
+              let chain = chainId->Chain.loadFromLocalStorage
 
-      //     // let script = Obj.magic(transformed)["script"]
+              let appId = oneGraphAuth->OneGraphAuth.appId
 
-      //     // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
-      //     script->React.string
-      //   }
-      // </pre>
+              let remoteChainCalls = remoteChainCalls(~appId, ~chainId, chain->Belt.Option.getExn)
+
+              let value = switch ReactEvent.Form.target(event)["value"] {
+              | "form" => Some(j`http://localhost:3003/form?form_id=${chainId}`)
+              | "fetch" => Some(remoteChainCalls.fetch)
+              | "curl" => Some(remoteChainCalls.curl)
+              | "netlify" =>
+                Some(
+                  j`/** HTML form for this function
+${remoteChainCalls.netlify.form}
+**/
+
+${remoteChainCalls.netlify.code}
+`,
+                )
+              | "scriptkit" => Some(remoteChainCalls.scriptKit)
+              | _ => None
+              }
+              value->Belt.Option.forEach(Clipboard.copy)
+            }}>
+            <option value=""> {"> Copy usage"->React.string} </option>
+            <option value={"form"}> {"Copy link to form"->React.string} </option>
+            <option value={"fetch"}> {"Copy fetch call"->React.string} </option>
+            <option value={"curl"}> {"Copy cURL call"->React.string} </option>
+            <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
+            <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
+          </Comps.Select>
+        })
+        ->Belt.Option.getWithDefault(React.null)}
+        {savedChainId->Belt.Option.mapWithDefault(React.null, savedChainId => {
+          <GitHub chain savedChainId oneGraphAuth />
+        })}
+      </>
+
+    let inspectorTab =
+      <>
+        {
+          // <pre className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200 overflow-scroll select-all">
+          //   {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+          // </pre>
+          isChainViable
+            ? React.null
+            : <div className="m-2" style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
+                {"Add some blocks to get started"->React.string}
+              </div>
+        }
+        {requests->Belt.Array.length > 0
+          ? <>
+              <Comps.Header>
+                <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+                {"Chain Requests"->React.string}
+              </Comps.Header>
+              {requests->array}
+            </>
+          : React.null}
+        // <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
+        // <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
+        // <Comps.Header> {"Compiled Executable Chain"->React.string} </Comps.Header>
+        // <Comps.Pre>
+        //   {
+        //     let transformed = chain->internallyPatchChain
+        //     let script = transformed.script
+
+        //     // let script = Obj.magic(transformed)["script"]
+
+        //     // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
+        //     script->React.string
+        //   }
+        // </Comps.Pre>
+      </>
+
+    <>
+      <div className="w-full flex ml-2 border-b border-blue-400 justify-around">
+        <button
+          onClick={_ => {
+            setOpenedTab(_ => #inspector)
+          }}
+          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
+            openedTab == #inspector ? " bg-blue-400" : ""
+          }}>
+          <Icons.Gears className="" width="24px" height="24px" color="white" />
+          <span className="mx-2"> {"Chain"->React.string} </span>
+        </button>
+        <button
+          onClick={_ => {
+            setOpenedTab(_ => #form)
+          }}
+          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
+            openedTab == #form ? " bg-blue-400" : ""
+          }}>
+          <Icons.Form width="24px" height="24px" color="white" />
+          <span className="mx-2"> {"Form"->React.string} </span>
+        </button>
+        <button
+          onClick={_ => {
+            setOpenedTab(_ => #save)
+          }}
+          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
+            openedTab == #save ? " bg-blue-400" : ""
+          }}>
+          <Icons.Save width="24px" height="24px" color="white" />
+          <span className="mx-2"> {"Export"->React.string} </span>
+        </button>
+      </div>
+      {switch openedTab {
+      | #inspector => inspectorTab
+      | #form => formTab
+      | #save => saveTab
+      }}
     </>
   }
 }

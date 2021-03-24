@@ -1,18 +1,26 @@
 module DevTimeJson = {
   @module("../DevTime_Json.js") external devJsonChain: Chain.t = "devJsonChain"
   @module("../DevTime_Json.js") external simpleChain: Chain.t = "simpleChain"
+  @module("../DevTime_Json.js") external spotifyChain: Chain.t = "spotifyChain"
 }
 
 @react.component
 let make = (~schema, ~config) => {
-  // let initialChain = Chain.emptyChain
+  let (initialChain, setInitialChain) = React.useState(() => {
+    let initialChain = Chain.emptyChain
+
+    // let initialChain = DevTimeJson.simpleChain
+
+    // let initialChain = DevTimeJson.spotifyChain
+
+    initialChain
+  })
   // To debug with a local JSON chain:
-  let initialChain = DevTimeJson.devJsonChain
 
   open React
 
-  let navButton = (~onClick, content) => {
-    <button className="mr-2 ml-2" onClick> content </button>
+  let navButton = (~onClick, ~onDoubleClick=?, content) => {
+    <button className="mr-2 ml-2" ?onDoubleClick onClick> content </button>
   }
 
   <div>
@@ -25,7 +33,19 @@ let make = (~schema, ~config) => {
       )}>
       {navButton(~onClick=_ => (), "OneGraph >"->string)}
       {navButton(~onClick=_ => (), "Workspace >"->string)}
-      {navButton(~onClick=_ => (), <strong> {initialChain.name->string} </strong>)}
+      {navButton(
+        ~onClick=_ => (),
+        ~onDoubleClick={
+          _ => {
+            let newName = Utils.prompt("Rename chain", ~default=Some(initialChain.name))
+            switch newName {
+            | None | Some("") => ()
+            | Some(newName) => setInitialChain(oldChain => {...oldChain, name: newName})
+            }
+          }
+        },
+        <strong> {initialChain.name->string} </strong>,
+      )}
     </nav>
     <ChainEditor schema initialChain config />
   </div>

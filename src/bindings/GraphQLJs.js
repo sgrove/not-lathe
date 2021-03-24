@@ -93,6 +93,10 @@ function gatherFragmentDefinitions(prim) {
   return GraphQLMockInputTypeJs.gatherFragmentDefinitions(prim);
 }
 
+function compileComputeToIdentityQuery(prim) {
+  return GraphQLMockInputTypeJs.compileComputeToIdentityQuery(prim);
+}
+
 var Mock = {
   stripVariables: stripVariables,
   mockOperationVariables: mockOperationVariables,
@@ -100,7 +104,8 @@ var Mock = {
   typeScriptForOperation: typeScriptForOperation,
   typeScriptSignatureForOperations: typeScriptSignatureForOperations,
   typeScriptSignatureForOperationVariables: typeScriptSignatureForOperationVariables,
-  gatherFragmentDefinitions: gatherFragmentDefinitions
+  gatherFragmentDefinitions: gatherFragmentDefinitions,
+  compileComputeToIdentityQuery: compileComputeToIdentityQuery
 };
 
 function operationNames(ast) {

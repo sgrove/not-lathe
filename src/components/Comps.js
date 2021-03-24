@@ -65,6 +65,7 @@ function Comps$Button(Props) {
   var classNameOpt = Props.className;
   var type_Opt = Props.type_;
   var children = Props.children;
+  var disabled = Props.disabled;
   var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : ({});
   var className = classNameOpt !== undefined ? classNameOpt : "";
   var type_ = type_Opt !== undefined ? type_Opt : "button";
@@ -73,6 +74,9 @@ function Comps$Button(Props) {
     style: Object.assign({}, defaultStyle$1, style),
     type: type_
   };
+  if (disabled !== undefined) {
+    tmp.disabled = Caml_option.valFromOption(disabled);
+  }
   if (onClick !== undefined) {
     tmp.onClick = Caml_option.valFromOption(onClick);
   }
@@ -99,11 +103,44 @@ var Pre = {
   make: Comps$Pre
 };
 
+var defaultStyle$2 = {
+  backgroundColor: colors["gray-7"],
+  color: colors["gray-4"],
+  padding: "6px",
+  paddingRight: "40px",
+  width: "unset",
+  borderRadius: "6px"
+};
+
+function Comps$Select(Props) {
+  var children = Props.children;
+  var onChange = Props.onChange;
+  var styleOpt = Props.style;
+  var value = Props.value;
+  var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : ({});
+  var tmp = {
+    style: Object.assign({}, defaultStyle$2, style)
+  };
+  if (value !== undefined) {
+    tmp.value = Caml_option.valFromOption(value);
+  }
+  if (onChange !== undefined) {
+    tmp.onChange = Caml_option.valFromOption(onChange);
+  }
+  return React.createElement("select", tmp, children);
+}
+
+var Select = {
+  defaultStyle: defaultStyle$2,
+  make: Comps$Select
+};
+
 export {
   colors ,
   Header ,
   Button ,
   Pre ,
+  Select ,
   
 }
 /* defaultStyle Not a pure module */

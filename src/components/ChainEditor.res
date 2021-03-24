@@ -62,15 +62,29 @@ type state = {
   connectionDrag: ConnectionContext.connectionDrag,
 }
 
-let makeBlankBlock = (): Card.block => {
+let makeBlankBlock = (kind): Card.block => {
+  let (kind: Card.operationKind, body) = switch kind {
+  | #query => (Query, "query Untitled { __typename }")
+  | #mutation => (Mutation, "mutation Untitled { __typename }")
+  | #subscription => (Subscription, "subscription Untitled { __typename }")
+  | #compute => (
+      Compute,
+      `# Fields on ComputeType will turn into variables for you to compute
+# based on other blocks or user input
+type ComputeType {
+  name: String!
+}`,
+    )
+  }
+
   {
     title: "Untitled",
     id: Uuid.v4(),
     services: [],
-    body: "query Untitled { __typename }",
+    body: body,
     description: "TODO",
     contributedBy: None,
-    kind: Query,
+    kind: kind,
   }
 }
 
@@ -157,7 +171,7 @@ module BlockSearch = {
             style={ReactDOMStyle.make(~backgroundColor="#282B30", ())}>
             <div className="pl-2"> <Icons.Search color={Comps.colors["gray-4"]} /> </div>
             <input
-              className="w-full rounded-md text-gray-700 leading-tight focus:outline-none py-2 px-2 border-0"
+              className="w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white"
               style={ReactDOMStyle.make(~backgroundColor="#282B30", ())}
               id="search"
               spellCheck=false
@@ -179,9 +193,30 @@ module BlockSearch = {
               }}
             />
             <div className="flex items-center rounded-md inline ">
-              <button className="p-2 hover:bg-blue-200 rounded-md" onClick={_ => onCreate()}>
-                {"+"->React.string}
-              </button>
+              <Comps.Select
+                style={ReactDOMStyle.make(~maxWidth="1ch", ())}
+                value="never"
+                onChange={event => {
+                  let kind = switch ReactEvent.Form.target(event)["value"] {
+                  | "query" => Some(#query)
+                  | "mutation" => Some(#mutation)
+                  | "subscription" => Some(#subscription)
+                  | "compute" => Some(#compute)
+                  | _ => None
+                  }
+
+                  kind->Belt.Option.forEach(kind => onCreate(kind))
+                }}>
+                <option value="+"> {""->React.string} </option>
+                <option value="query"> {"+ New Query Block"->React.string} </option>
+                <option value="mutation"> {"+ New Mutation Block"->React.string} </option>
+                <option value="subscription"> {"+ New Subscription Block"->React.string} </option>
+                <option value="compute"> {"+ New Compute Block"->React.string} </option>
+              </Comps.Select>
+
+              // <button className="p-2 hover:bg-blue-200 rounded-md" >
+              //   {"+"->React.string}
+              // </button>
             </div>
           </div>
           <div className="py-3 text-sm h-full overflow-y-scroll">
@@ -210,6 +245,7 @@ module BlockSearch = {
                     | Mutation => "B20D5D"
                     | Subscription => "F2C94C"
                     | Fragment => "F2C94C"
+                    | Compute => Comps.colors["gray-10"]
                     }
 
                     ReactDOMStyle.make(
@@ -227,8 +263,12 @@ module BlockSearch = {
                   {block.title->string}
                 </div>
                 <div
-                  style={ReactDOMStyle.make(~backgroundColor="#E0E0E0", ~minWidth="40px", ())}
-                  className="px-2  rounded-r-md py-2">
+                  style={ReactDOMStyle.make(
+                    ~backgroundColor=Comps.colors["gray-2"],
+                    ~minWidth="40px",
+                    (),
+                  )}
+                  className="px-2 rounded-r-md py-2">
                   {block.services
                   ->Belt.Array.keepMap(service =>
                     service
@@ -238,7 +278,7 @@ module BlockSearch = {
                         key={friendlyServiceName}
                         alt=friendlyServiceName
                         title=friendlyServiceName
-                        style={ReactDOMStyle.make(~pointerEvents="none", ())}
+                        style={ReactDOMStyle.make(~pointerEvents="none", ~opacity="0.80", ())}
                         src=url
                         className="rounded-full"
                       />
@@ -285,8 +325,6 @@ module NodeLabel = {
     ~schema as _,
     ~onPotentialVariableSourceConnect,
   ) => {
-    %raw(`console.log("NL Args: ", arguments)`)->ignore
-
     let services =
       block.services
       ->Belt.Array.keepMap(service =>
@@ -975,7 +1013,14 @@ module Script = {
     React.useEffect1(() => {
       editor.current->Belt.Option.forEach(editor => {
         let position = editor->BsReactMonaco.getPosition
-        editor->BsReactMonaco.setValue(content)
+
+        let model = editor->BsReactMonaco.getModel("file:///main.tsx")
+        let fullRange = model->BsReactMonaco.Model.getFullModelRange
+        let edit = BsReactMonaco.editOperation(~range=fullRange, ~text=content, ())
+        editor->BsReactMonaco.executeEdits(
+          Js.Nullable.return("externalContentChange"),
+          ~edits=[edit],
+        )
         editor->BsReactMonaco.setPosition(position)
       })
 
@@ -1203,7 +1248,7 @@ module Diagram = {
     <ReactFlow
       nodeTypes={
         "fragment": FragmentNodeComponent.make,
-        "operation": OperationNodeComponent.make,
+        // "operation": OperationNodeComponent.make,
       }
       style={ReactDOMStyle.make(
         ~borderWidth="1px",
@@ -1356,7 +1401,7 @@ module Diagram = {
         variant=#lines
         gap={20}
         size={1}
-        color="rgb(34, 37, 40)"
+        color={Comps.colors["gray-1"]}
         style={ReactDOMStyle.make(~backgroundColor="rgb(31, 33, 37)", ())}
       />
     </ReactFlow>
@@ -1386,11 +1431,11 @@ module Main = {
       | _ => []
       }
 
-      let inspected: Inspector.inspectable = //  Nothing(initialChain)
-      Request({
-        chain: initialChain,
-        request: initialChain.requests->Belt.Array.get(1)->Belt.Option.getExn,
-      })
+      let inspected: Inspector.inspectable = Nothing(initialChain)
+      // Request({
+      //   chain: initialChain,
+      //   request: initialChain.requests->Belt.Array.get(1)->Belt.Option.getExn,
+      // })
       // Block(Card.blocks[0])
 
       {
@@ -1481,17 +1526,6 @@ module Main = {
 
     let onPotentialVariableSourceConnect = (~connectionDrag: ConnectionContext.connectionDrag) => {
       setState(oldState => {
-        // let connectionDrag = ConnectionContext.Completed({
-        //   sourceRequest: dragInfo.sourceRequest,
-        //   sourceDom: dragInfo.sourceDom,
-        //   windowPosition: mouseClientPosition,
-        //   target: Variable({
-        //     targetRequest: targetRequest,
-        //     variableDependency: variableDependency,
-        //   }),
-        // })
-        // Js.log2("onPotentialVariableSourceConnect COMPLETED", connectionDrag)
-
         {
           ...oldState,
           connectionDrag: connectionDrag,
@@ -1553,6 +1587,11 @@ module Main = {
     }, [state.chain.script])
 
     React.useEffect1(() => {
+      setState(oldState => {...oldState, chain: {...oldState.chain, name: initialChain.name}})
+      None
+    }, [initialChain.name])
+
+    React.useEffect1(() => {
       state.chain.requests->Belt.Array.length > 3
         ? fitView({
             padding: 0.2,
@@ -1611,7 +1650,7 @@ ${chainFragments}`->Js.String2.trim
           ->GraphQLUtils.gatherAllReferencedServices(~schema)
           ->Belt.Array.map(service => service.slug)
 
-        let blank = makeBlankBlock()
+        let blank = makeBlankBlock(#query)
 
         let block = {
           ...blank,
@@ -1823,10 +1862,10 @@ ${newScript}`
           setState(oldState => {...oldState, inspected: Block(block)})
         }}
         onAdd={addBlock}
-        onCreate={() => {
+        onCreate={kind => {
           setState(oldState => {
             ...oldState,
-            blockEdit: Create(makeBlankBlock()),
+            blockEdit: Create(makeBlankBlock(kind)),
           })
         }}
       />
@@ -2134,7 +2173,8 @@ ${newScript}`
                     ast.definitions
                     ->Belt.Array.keep(definition => {
                       switch Obj.magic(definition)["kind"] {
-                      | "FragmentDefinition" => false
+                      | "FragmentDefinition"
+                      | "ObjectTypeDefinition" => false
                       | _ => true
                       }
                     })
@@ -2145,8 +2185,22 @@ ${newScript}`
                   let blocks = ast.definitions->Belt.Array.mapWithIndex((_idx, definition) => {
                     let kind = switch Obj.magic(definition)["kind"] {
                     | "FragmentDefinition" => #fragment
+                    | "ObjectTypeDefinition" => #objectType
                     | _ => definition.operation
                     }
+
+                    let definition = switch kind {
+                    | #objectType =>
+                      let compiled = definition->GraphQLJs.Mock.compileComputeToIdentityQuery
+                      Debug.assignToWindowForDeveloperDebug(
+                        ~name="computedCompiled",
+                        [definition->Obj.magic, compiled],
+                      )
+                      Js.log2("Compiled compute: ", definition->Obj.magic->GraphQLJs.printAst)
+                      compiled
+                    | _ => definition
+                    }
+
                     let sameNameAsInitial = initialAst.name.value == definition.name.value
                     let sameOperationKindChanged = switch (
                       newOperationDefinitionCount,
@@ -2174,7 +2228,7 @@ ${newScript}`
                       ->GraphQLUtils.gatherAllReferencedServices(~schema)
                       ->Belt.Array.map(service => service.slug)
 
-                    let blank = makeBlankBlock()
+                    let blank = makeBlankBlock(#query)
 
                     let title =
                       definition.name.value->Obj.magic->Belt.Option.getWithDefault("Untitled")
@@ -2190,6 +2244,7 @@ ${newScript}`
                       | #query => Query
                       | #mutation => Mutation
                       | #subscription => Subscription
+                      | #objectType => Compute
                       },
                     }
 
@@ -2411,7 +2466,8 @@ ${newScript}`
                   fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
                     "operationDoc": chainFragmentsDoc,
                   })}
-                  onCopy={path => {
+                  onCopy={payload => {
+                    let {path} = payload
                     let dataPath = ["payload"]->Belt.Array.concat(path)
                     let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
                     let binding =
@@ -2520,6 +2576,21 @@ ${newScript}`
             let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
             let definition = parsedOperation.definitions->Belt.Array.getExn(0)
 
+            let targetParsedOperation = targetRequest.operation.body->GraphQLJs.parse
+            let targetDefinition = targetParsedOperation.definitions->Belt.Array.getExn(0)
+            let targetVariables = targetDefinition->GraphQLUtils.getOperationVariables
+
+            Js.log3("Operation variables: ", sourceRequest.operation.body, targetVariables)
+
+            let targetVariableType =
+              targetVariables
+              ->Belt.Array.getBy(((variableName, _)) => {
+                Js.log3("Looking for ", variableName, targetVariableDependency.name)
+                targetVariableDependency.name == variableName
+              })
+              ->Belt.Option.map(((_, typ)) => typ)
+
+            Js.log2("targetVariableType: ", targetVariableType)
             <div
               className="absolute"
               style={ReactDOMRe.Style.make(
@@ -2537,7 +2608,8 @@ ${newScript}`
                   fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
                     "operationDoc": chainFragmentsDoc,
                   })}
-                  onCopy={path => {
+                  targetGqlType=?targetVariableType
+                  onCopy={({path}) => {
                     let dataPath = ["payload"]->Belt.Array.concat(path)
 
                     setState(oldState => {

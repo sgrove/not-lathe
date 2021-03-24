@@ -577,7 +577,7 @@ export function makeVariablesForSetSlackStatus(
 }
 
 let emptyChain = {
-  name: "look_ma_connections",
+  name: "new_chain",
   script: ``,
   scriptDependencies: [],
   requests: [],

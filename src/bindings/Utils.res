@@ -95,3 +95,6 @@ let windowLocationOrigin: unit => option<string> = () => {
     Obj.magic(window)["location"]["origin"]
   )
 }
+@val external prompt: (string, ~default: option<string>) => option<string> = "prompt"
+@val external alert: string => unit = "alert"
+@val external confirm: string => bool = "confirm"

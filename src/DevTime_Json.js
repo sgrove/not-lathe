@@ -1,5 +1,5 @@
 export const devJsonChain = {
-  name: "main",
+  name: "og_studio_dev_chain",
   script:
     "import {\n  CreateTreeInput,\n  CreateTreeVariables,\n  DefaultBranchRefInput,\n  DefaultBranchRefVariables,\n  UserInputInput,\n  UserInputVariables,\n  CreateRefInput,\n  CreateRefVariables,\n  CheckIfRefExistsInput,\n  CheckIfRefExistsVariables,\n  FilesOnRefInput,\n  FilesOnRefVariables,\n  CreateCommitInput,\n  CreateCommitVariables,\n  UpdateRefInput,\n  UpdateRefVariables,\n} from 'oneGraphStudio';\n\nimport sha1 from 'js-sha1';\nimport { TextEncoder } from 'text-encoder';\n\nconst encoder = new TextEncoder();\n\nconst computeGitHash = (source) =>\n  sha1('blob ' + encoder.encode(source).length + '\\0' + source);\n\nconst findExistingFileByPath = (existingFiles, path) => {\n  const parts = path.split('/');\n  let candidates = existingFiles;\n\n  const helper = (parts) => {\n    const next = parts[0];\n    const remainingParts = parts.slice(1);\n    const nextFile = candidates.find((gitFile) => gitFile.name === next);\n\n    if (!nextFile) return null;\n\n    if (remainingParts.length === 0) {\n      return nextFile;\n    }\n\n    candidates = nextFile.object?.entries || [];\n    return helper(remainingParts);\n  };\n\n  return helper(parts);\n};\n\nexport function makeVariablesForCreateTree(\n  payload: CreateTreeInput\n): CreateTreeVariables {\n  const headRef =\n    payload.CreateRef?.data?.gitHub?.createRef?.ref ||\n    payload.DefaultBranchRef?.data?.gitHub?.repository?.defaultBranchRef;\n\n  let headRefNodeId = headRef?.id;\n  let headRefCommitSha = headRef?.target?.oid;\n  let headRefTreeSha = headRef?.target?.tree?.oid;\n  let branch = headRef?.name;\n  const fullyQualifiedRefName = `refs/heads/${branch}`;\n\n  let inputFiles = payload.UserInput?.data?.oneGraph?.treeFiles || [];\n\n  let existingFiles =\n    payload.DefaultBranchRef?.data?.gitHub?.repository?.defaultBranchRef?.target\n      ?.history?.edges[0]?.node?.tree?.entries ||\n    payload.FilesOnRef?.data?.gitHub?.repository?.ref?.target?.history?.edges[0]\n      ?.node?.tree?.entries;\n\n  const fileHashes = inputFiles?.reduce((acc, next) => {\n    console.log('Computing next hash for: ', next);\n    acc[next.path] = computeGitHash(next.content || 'default');\n    return acc;\n  }, {});\n\n  // Try to calculate the minimum number of files we can upload\n  const changeset = inputFiles?.reduce(\n    (acc, file) => {\n      // This will only look two levels down since that's the limit of our GraphQL query\n      const existingFile = findExistingFileByPath(existingFiles, file.path);\n      if (!existingFile) {\n        acc['new'] = [...acc.new, file];\n        return acc;\n      }\n\n      // This file already exists, so check if the hash is the same\n      if (fileHashes[file.path] === existingFile.oid) {\n        const tempFile = {\n          ...file,\n        };\n\n        delete tempFile['content'];\n\n        acc['unchanged'] = [\n          ...acc.unchanged,\n          { ...tempFile, sha: fileHashes[file.path] },\n        ];\n        return acc;\n      }\n\n      // The file exists, but its hash has changed;\n      acc['changed'] = [...acc.changed, file];\n      return acc;\n    },\n    { unchanged: [], new: [], changed: [] }\n  );\n\n  // Don't bother uploading files with unchanged hashes (Git will filter these out of a changeset anyway)\n  const treeFiles = [...changeset.new, ...changeset.changed];\n\n  console.log('Changeset: ', inputFiles, changeset);\n\n  const treeJson = {\n    base_tree: headRefTreeSha,\n    tree: treeFiles,\n  };\n\n  const owner = String(payload.UserInput?.data?.oneGraph?.owner);\n  const name = String(payload.UserInput?.data?.oneGraph?.name);\n\n  const path = `/repos/${owner}/${name}/git/trees`;\n\n  const acceptOverrides = !!payload.UserInput?.data?.oneGraph?.acceptOverrides;\n\n  if ((changeset.changed || []).length > 0 && !acceptOverrides) {\n    return {\n      confirmationNeeded: 'Some files have changed and will be overwritten',\n      changeset,\n    };\n  }\n\n  return { path: path, treeJson: treeJson };\n}\n\nexport function makeVariablesForDefaultBranchRef(\n  payload: DefaultBranchRefInput\n): DefaultBranchRefVariables {\n  return {\n    owner: String(payload.UserInput?.data?.oneGraph?.owner),\n    name: String(payload.UserInput?.data?.oneGraph?.name),\n  };\n}\n\nexport function makeVariablesForFilesOnRef(\n  payload: FilesOnRefInput\n): FilesOnRefVariables {\n  const branch = payload.UserInput?.data?.oneGraph?.branch;\n\n  return {\n    owner: String(payload.UserInput?.data?.oneGraph?.owner),\n    name: String(payload.UserInput?.data?.oneGraph?.name),\n    fullyQualifiedRefName: !!branch ? `refs/heads/${branch}` : null,\n  };\n}\n\nexport function makeVariablesForCreateCommit(\n  payload: CreateCommitInput\n): CreateCommitVariables {\n  const headRef =\n    payload.CheckIfRefExists?.data?.gitHub?.repository?.ref ||\n    payload.CreateRef?.data?.gitHub?.createRef?.ref ||\n    payload.DefaultBranchRef?.data?.gitHub?.repository?.defaultBranchRef;\n\n  const message = payload.UserInput?.data?.oneGraph?.message;\n  const treeResults =\n    payload.CreateTree?.data?.gitHub?.makeRestCall?.post?.jsonBody;\n  const newTreeSha = treeResults?.sha;\n  const headRefCommitSha = headRef.target.oid;\n\n  const owner = String(payload.UserInput?.data?.oneGraph?.owner);\n  const name = String(payload.UserInput?.data?.oneGraph?.name);\n\n  const path = `/repos/${owner}/${name}/git/commits`;\n\n  const commitJson = {\n    message: message,\n    tree: newTreeSha,\n    parents: [headRefCommitSha],\n  };\n\n  return {\n    path: path,\n    commitJson: commitJson,\n  };\n}\n\nexport function makeVariablesForCreateRef(\n  payload: CreateRefInput\n): CreateRefVariables {\n  const refAlreadyExists = !!payload.CheckIfRefExists?.data?.gitHub?.repository\n    ?.ref?.target?.oid;\n  const branch = refAlreadyExists\n    ? null\n    : payload.UserInput?.data?.oneGraph?.branch;\n\n  return {\n    name: !!branch ? `refs/heads/${branch}` : null,\n    repositoryId: payload.DefaultBranchRef?.data?.gitHub?.repository?.id,\n    oid:\n      payload.DefaultBranchRef?.data?.gitHub?.repository?.defaultBranchRef\n        ?.target?.oid,\n  };\n}\n\nexport function makeVariablesForUpdateRef(\n  payload: UpdateRefInput\n): UpdateRefVariables {\n  const headRef =\n    payload.CheckIfRefExists?.data?.gitHub?.repository?.ref ||\n    payload.CreateRef?.data?.gitHub?.createRef?.ref ||\n    payload.DefaultBranchRef?.data?.gitHub?.repository?.defaultBranchRef;\n\n  const headRefId = headRef.id;\n\n  const commitResult =\n    payload.CreateCommit?.data?.gitHub?.makeRestCall?.post?.jsonBody;\n  const commitSha = commitResult?.sha;\n\n  return {\n    refId: headRefId,\n    sha: commitSha,\n  };\n}\n\nexport function makeVariablesForUserInput(\n  payload: UserInputInput\n): UserInputVariables {\n  return {};\n}\n\nexport function makeVariablesForCheckIfRefExists(\n  payload: CheckIfRefExistsInput\n): CheckIfRefExistsVariables {\n  const branch = String(payload.UserInput?.data?.oneGraph?.branch);\n  return {\n    owner: String(payload.UserInput?.data?.oneGraph?.owner),\n    name: String(payload.UserInput?.data?.oneGraph?.name),\n    fullyQualifiedRefName: !!branch ? `refs/heads/${branch}` : null,\n  };\n}\n",
   scriptDependencies: [
@@ -644,6 +644,220 @@ export const simpleChain = {
       description: "TODO",
       body:
         'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: 69500}) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}',
+      kind: 1,
+      services: ["spotify"],
+    },
+  ],
+};
+
+export const spotifyChain = {
+  name: "new_chain",
+  script:
+    "import {\n  SearchInput,\n  SearchVariables,\n  ComputeTypeInput,\n  ComputeTypeVariables,\n  SetSlackStatusInput,\n  SetSlackStatusVariables,\n  SpotifyPlayTrackInput,\n  SpotifyPlayTrackVariables,\n} from 'oneGraphStudio';\n\nexport function makeVariablesForSearch(payload: SearchInput): SearchVariables {\n  return {};\n}\n\nexport function makeVariablesForSpotifyPlayTrack(\n  payload: SpotifyPlayTrackInput\n): SpotifyPlayTrackVariables {\n  return {};\n}\n\nexport function makeVariablesForSetSlackStatus(\n  payload: SetSlackStatusInput\n): SetSlackStatusVariables {\n  let name = payload?.ComputeType?.data?.oneGraph?.name;\n  const songName =\n    payload?.SpotifyPlayTrack?.data?.spotify?.playTrack?.player?.item?.name;\n  const albumName =\n    payload?.SpotifyPlayTrack?.data?.spotify?.playTrack?.player?.item?.album\n      ?.name;\n  const message = payload?.ComputeType?.data?.oneGraph?.message;\n\n  const status_text = `Listening to \"${songName}\" on ${albumName}, > ${name} says, \"${message}\"`;\n\n  return {\n    jsonBody: {\n      profile: {\n        status_text: status_text,\n        status_emoji: ':mountain_railway:',\n      },\n    },\n  };\n}\n\nexport function makeVariablesForComputeType(\n  payload: ComputeTypeInput\n): ComputeTypeVariables {\n  return {};\n}\n",
+  scriptDependencies: [],
+  requests: [
+    {
+      id: "Search",
+      variableDependencies: [
+        {
+          name: "query",
+          dependency: {
+            TAG: 1,
+            _0: {
+              name: "query",
+              value: {
+                TAG: 1,
+                _0: "query",
+              },
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "13083522-28ad-49c2-bc94-f35bfac1c956",
+        title: "Search",
+        description: "TODO",
+        body:
+          "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+        kind: 0,
+        services: ["spotify"],
+      },
+      dependencyRequestIds: ["ComputeType"],
+    },
+    {
+      id: "ComputeType",
+      variableDependencies: [
+        {
+          name: "message",
+          dependency: {
+            TAG: 1,
+            _0: {
+              name: "message",
+              value: {
+                TAG: 1,
+                _0: "message",
+              },
+            },
+          },
+        },
+        {
+          name: "name",
+          dependency: {
+            TAG: 1,
+            _0: {
+              name: "name",
+              value: {
+                TAG: 1,
+                _0: "name",
+              },
+            },
+          },
+        },
+        {
+          name: "positionMs",
+          dependency: {
+            TAG: 1,
+            _0: {
+              name: "positionMs",
+              value: {
+                TAG: 1,
+                _0: "positionMs",
+              },
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "fc9c01c0-e76b-44cc-9460-a954a0a3fef6",
+        title: "ComputeType",
+        description: "TODO",
+        body:
+          "query ComputeType($message: String!, $name: String!, $positionMs: Int) {\n  oneGraph {\n    message: identity(input: $message),name: identity(input: $name),positionMs: identity(input: $positionMs)\n  }\n}",
+        kind: 4,
+        services: ["onegraph"],
+      },
+      dependencyRequestIds: [],
+    },
+    {
+      id: "SetSlackStatus",
+      variableDependencies: [
+        {
+          name: "jsonBody",
+          dependency: {
+            TAG: 0,
+            _0: {
+              functionFromScript: "INITIAL_UNKNOWN",
+              ifMissing: "SKIP",
+              ifList: "FIRST",
+              fromRequestIds: ["ComputeType"],
+              name: "jsonBody",
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "936e0e44-4d8f-43b5-b8d0-ea0e2ccba075",
+        title: "SetSlackStatus",
+        description: "TODO",
+        body:
+          'mutation SetSlackStatus($jsonBody: JSON!) {\n  slack {\n    makeRestCall {\n      post(\n        path: "/api/users.profile.set"\n        contentType: "application/json"\n        jsonBody: $jsonBody\n      ) {\n        jsonBody\n      }\n    }\n  }\n}',
+        kind: 1,
+        services: ["slack"],
+      },
+      dependencyRequestIds: ["SpotifyPlayTrack", "ComputeType"],
+    },
+    {
+      id: "SpotifyPlayTrack",
+      variableDependencies: [
+        {
+          name: "trackId",
+          dependency: {
+            TAG: 2,
+            _0: {
+              name: "trackId",
+              ifMissing: "SKIP",
+              ifList: "FIRST",
+              fromRequestId: "Search",
+              path: [
+                "payload",
+                "Search",
+                "data",
+                "spotify",
+                "search",
+                "tracks[0]",
+                "id",
+              ],
+              functionFromScript: "TBD",
+            },
+          },
+        },
+        {
+          name: "positionMs",
+          dependency: {
+            TAG: 2,
+            _0: {
+              name: "positionMs",
+              ifMissing: "ALLOW",
+              ifList: "FIRST",
+              fromRequestId: "ComputeType",
+              path: [
+                "payload",
+                "ComputeType",
+                "data",
+                "oneGraph",
+                "positionMs",
+              ],
+              functionFromScript: "TBD",
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "31125f56-0c8f-4eda-9500-1378fbe22113",
+        title: "SpotifyPlayTrack",
+        description: "TODO",
+        body:
+          'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy", $positionMs: Int = 0) {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: $positionMs}) {\n      player {\n        isPlaying\n        item {\n          name\n          album {\n            name\n          }\n        }\n      }\n    }\n  }\n}',
+        kind: 1,
+        services: ["spotify"],
+      },
+      dependencyRequestIds: ["Search", "ComputeType"],
+    },
+  ],
+  blocks: [
+    {
+      id: "13083522-28ad-49c2-bc94-f35bfac1c956",
+      title: "Search",
+      description: "TODO",
+      body:
+        "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+      kind: 0,
+      services: ["spotify"],
+    },
+    {
+      id: "936e0e44-4d8f-43b5-b8d0-ea0e2ccba075",
+      title: "SetSlackStatus",
+      description: "TODO",
+      body:
+        'mutation SetSlackStatus($jsonBody: JSON!) {\n  slack {\n    makeRestCall {\n      post(\n        path: "/api/users.profile.set"\n        contentType: "application/json"\n        jsonBody: $jsonBody\n      ) {\n        jsonBody\n      }\n    }\n  }\n}',
+      kind: 1,
+      services: ["slack"],
+    },
+    {
+      id: "fc9c01c0-e76b-44cc-9460-a954a0a3fef6",
+      title: "ComputeType",
+      description: "TODO",
+      body:
+        "query ComputeType($message: String!, $name: String!, $positionMs: Int) {\n  oneGraph {\n    message: identity(input: $message),name: identity(input: $name),positionMs: identity(input: $positionMs)\n  }\n}",
+      kind: 4,
+      services: ["onegraph"],
+    },
+    {
+      id: "31125f56-0c8f-4eda-9500-1378fbe22113",
+      title: "SpotifyPlayTrack",
+      description: "TODO",
+      body:
+        'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy", $positionMs: Int = 0) {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: $positionMs}) {\n      player {\n        isPlaying\n        item {\n          name\n          album {\n            name\n          }\n        }\n      }\n    }\n  }\n}',
       kind: 1,
       services: ["spotify"],
     },

@@ -1,6 +1,9 @@
 type monaco
 type editor
 type action
+
+type range
+
 module Model = {
   type t
 
@@ -41,6 +44,8 @@ return model2
   }
 
   @send external updateOptions: (t, modelOptions) => unit = "updateOptions"
+
+  @send external getFullModelRange: t => range = "getFullModelRange"
 }
 
 module Editor: {
@@ -90,6 +95,18 @@ module Editor: {
 @send external getAction: (editor, string) => option<action> = "getAction"
 
 @send external runAction: action => unit = "run"
+
+@deriving(abstract)
+type editOperation = {
+  @optional
+  forceMoveMarkers: bool,
+  range: range,
+  text: string,
+}
+
+@send
+external executeEdits: (editor, Js.Nullable.t<'a>, ~edits: array<editOperation>) => unit =
+  "executeEdits"
 
 type position = {
   lineNumber: int,

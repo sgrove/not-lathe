@@ -21,7 +21,7 @@ type variableDefinition = {
 }
 
 type operationKind = [#query | #mutation | #subscription]
-type definitionKind = [#query | #mutation | #subscription | #fragment]
+type definitionKind = [#query | #mutation | #subscription | #fragment | #objectType]
 
 type graphqlOperationDefinition = {
   name: nameNode,
@@ -200,6 +200,10 @@ module Mock = {
   external gatherFragmentDefinitions: {"operationDoc": string} => Js.Dict.t<
     graphqlOperationDefinition,
   > = "gatherFragmentDefinitions"
+
+  @module("../GraphQLMockInputType.js")
+  external compileComputeToIdentityQuery: graphqlOperationDefinition => graphqlOperationDefinition =
+    "compileComputeToIdentityQuery"
 }
 
 let operationNames = (ast: graphqlAst) => {

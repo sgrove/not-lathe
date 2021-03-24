@@ -52,10 +52,12 @@ module Button = {
     ~className="",
     ~type_="button",
     ~children,
+    ~disabled=?,
   ) => {
     <button
       type_
       ?onClick
+      ?disabled
       style={ReactDOMStyle.combine(defaultStyle, style)}
       className={className ++ " focus:outline-none text-white text-sm py-2.5 px-5 rounded-md m-2"}>
       {children}
@@ -71,5 +73,23 @@ module Pre = {
       style={ReactDOMStyle.make(~backgroundColor=colors["gray-8"], ~maxHeight="150px", ())}>
       {children}
     </pre>
+  }
+}
+
+module Select = {
+  let defaultStyle = ReactDOMStyle.make(
+    ~backgroundColor=colors["gray-7"],
+    ~padding="6px",
+    ~paddingRight="40px",
+    ~color=colors["gray-4"],
+    ~width="unset",
+    ~borderRadius="6px",
+    (),
+  )
+  @react.component
+  let make = (~children, ~onChange=?, ~style=ReactDOMStyle.make(), ~value=?) => {
+    <select ?value ?onChange style={ReactDOMStyle.combine(defaultStyle, style)}>
+      {children}
+    </select>
   }
 }

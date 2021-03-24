@@ -381,7 +381,7 @@ var emptyChain_requests = [];
 var emptyChain_blocks = [];
 
 var emptyChain = {
-  name: "look_ma_connections",
+  name: "new_chain",
   script: emptyChain_script,
   scriptDependencies: emptyChain_scriptDependencies,
   requests: emptyChain_requests,
@@ -601,11 +601,10 @@ function compileOperationDoc(chain) {
               }
             })), (function (request) {
           var match = request.operation.kind;
-          if (match >= 3) {
-            return ;
-          } else {
+          if (match !== 3) {
             return makeRequest(request);
           }
+          
         }));
   var scriptDependencies = Belt_Array.map(chain.scriptDependencies, (function (param) {
           return "{name: \"" + param.name + "\", version: \"" + param.version + "\"}";
