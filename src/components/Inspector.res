@@ -1745,7 +1745,14 @@ module Request = {
             ? <CollapsableSection
                 title={<>
                   {"Computed Variable Preview"->string}
-                  <Icons.Export className="inline-block ml-2" />
+                  <button
+                    onClick={event => {
+                      event->ReactEvent.Mouse.preventDefault
+                      event->ReactEvent.Mouse.stopPropagation
+                      onRequestCodeInspected(~request)
+                    }}>
+                    <Icons.Export className="inline-block ml-2" />
+                  </button>
                 </>}>
                 <Comps.Pre>
                   {mockedEvalResults

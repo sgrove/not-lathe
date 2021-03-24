@@ -1078,6 +1078,7 @@ function Inspector$Request(Props) {
   var chain = Props.chain;
   var onChainUpdated = Props.onChainUpdated;
   var schema = Props.schema;
+  var onRequestCodeInspected = Props.onRequestCodeInspected;
   var cachedResult = Props.cachedResult;
   var onExecuteRequest = Props.onExecuteRequest;
   var onLogin = Props.onLogin;
@@ -1551,9 +1552,15 @@ function Inspector$Request(Props) {
                           title: "Variable Settings",
                           children: variables
                         }) : null, variables.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
-                          title: React.createElement(React.Fragment, undefined, "Computed Variable Preview", React.createElement(Icons.Export.make, {
-                                    className: "inline-block ml-2"
-                                  })),
+                          title: React.createElement(React.Fragment, undefined, "Computed Variable Preview", React.createElement("button", {
+                                    onClick: (function ($$event) {
+                                        $$event.preventDefault();
+                                        $$event.stopPropagation();
+                                        return Curry._1(onRequestCodeInspected, request);
+                                      })
+                                  }, React.createElement(Icons.Export.make, {
+                                        className: "inline-block ml-2"
+                                      }))),
                           children: React.createElement(Comps.Pre.make, {
                                 children: Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
                                             var tmp;
