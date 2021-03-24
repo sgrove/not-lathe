@@ -161,7 +161,7 @@ module BlockSearch = {
     }, [blocks->Belt.Array.length])
 
     <div
-      className="flex w-full m-0 max-h-full block"
+      className="flex w-full m-0 max-h-full block select-none"
       style={ReactDOMStyle.make(~backgroundColor="#1D1F22", ())}>
       <div className="w-full max-h-full">
         <Comps.Header> {"Block Library"->React.string} </Comps.Header>
@@ -263,11 +263,7 @@ module BlockSearch = {
                   {block.title->string}
                 </div>
                 <div
-                  style={ReactDOMStyle.make(
-                    ~backgroundColor=Comps.colors["gray-2"],
-                    ~minWidth="40px",
-                    (),
-                  )}
+                  style={ReactDOMStyle.make(~minWidth="40px", ())}
                   className="px-2 rounded-r-md py-2">
                   {block.services
                   ->Belt.Array.keepMap(service =>
@@ -278,7 +274,14 @@ module BlockSearch = {
                         key={friendlyServiceName}
                         alt=friendlyServiceName
                         title=friendlyServiceName
-                        style={ReactDOMStyle.make(~pointerEvents="none", ~opacity="0.80", ())}
+                        style={ReactDOMStyle.make(
+                          ~pointerEvents="none",
+                          ~opacity="0.80",
+                          ~border="2px",
+                          ~borderStyle="solid",
+                          ~borderColor=Comps.colors["gray-6"],
+                          (),
+                        )}
                         src=url
                         className="rounded-full"
                       />

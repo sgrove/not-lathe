@@ -93,3 +93,11 @@ module Select = {
     </select>
   }
 }
+
+let activeTabStyle = ReactDOMStyle.make(
+  ~borderBottomWidth="3px",
+  ~borderBottomColor=colors["blue-1"],
+  (),
+)
+
+let inactiveTabStyle = ReactDOMStyle.make()

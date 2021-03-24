@@ -135,12 +135,21 @@ var Select = {
   make: Comps$Select
 };
 
+var activeTabStyle = {
+  borderBottomColor: colors["blue-1"],
+  borderBottomWidth: "3px"
+};
+
+var inactiveTabStyle = {};
+
 export {
   colors ,
   Header ,
   Button ,
   Pre ,
   Select ,
+  activeTabStyle ,
+  inactiveTabStyle ,
   
 }
 /* defaultStyle Not a pure module */

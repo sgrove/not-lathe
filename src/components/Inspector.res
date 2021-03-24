@@ -1672,86 +1672,132 @@ module Request = {
       </Comps.Button>
     })
 
-    <div className="max-h-full overflow-y-scroll" ref={ReactDOM.Ref.domRef(domRef)}>
-      {variables->Belt.Array.length > 0
-        ? <>
-            <Comps.Header>
-              <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-              {"Variable Settings"->React.string}
-            </Comps.Header>
-            {variables->array}
-          </>
-        : React.null}
-      {variables->Belt.Array.length > 0
-        ? <div>
-            <Comps.Header onClick={_ => onRequestCodeInspected(~request)}>
-              <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-              {"Computed Variable Preview"->string}
-              <Icons.Export className="inline-block ml-2" />
-            </Comps.Header>
-            <Comps.Pre>
-              {mockedEvalResults
-              ->Belt.Option.map(r =>
-                switch r {
-                | Ok(d) => d
-                | Error(d) => Obj.magic(d)
-                }
-                ->Obj.magic
-                ->Js.Json.stringifyWithSpace(2)
-              )
-              ->Belt.Option.getWithDefault("Nothing")
-              ->string}
-            </Comps.Pre>
-          </div>
-        : React.null}
-      {request.dependencyRequestIds->Belt.Array.length > 0
-        ? <>
-            <Comps.Header>
-              <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-              {"Upstream Requests"->React.string}
-            </Comps.Header>
-            {upstreamRequests->array}
-          </>
-        : React.null}
-      <Comps.Header>
-        <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-        {"GraphQL Structure"->React.string}
-      </Comps.Header>
-      <div
-        className="my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"
-        style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-8"], ~maxHeight="150px", ())}>
-        <GraphQLPreview
-          requestId=request.id
-          schema
-          definition
-          fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
-            "operationDoc": chainFragmentsDoc,
-          })}
-          onCopy={({path}) => {
-            let dataPath = path->Js.Array2.joinWith("?.")
-            let fullPath = "payload." ++ dataPath
+    let (openedTab, setOpenedTab) = React.useState(() => #inspector)
 
-            fullPath->Clipboard.copy
-          }}
-        />
-      </div>
-      <div>
-        <Comps.Header
+    <div className="max-h-full overflow-y-scroll" ref={ReactDOM.Ref.domRef(domRef)}>
+      <div
+        className="w-full flex ml-2 border-b justify-around"
+        style={ReactDOMStyle.make(~borderColor=Comps.colors["gray-1"], ())}>
+        <button
           onClick={_ => {
-            onExecuteRequest(~request, ~variables=formVariables)
-          }}>
-          <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-          {"Execute block"->string}
-          <Icons.Play className="inline-block ml-2" />
-        </Comps.Header>
-        {form}
-        {authButtons->array}
-        <Comps.Pre>
-          {cachedResult
-          ->Belt.Option.mapWithDefault("Nothing", json => json->Js.Json.stringifyWithSpace(2))
-          ->string}
-        </Comps.Pre>
+            setOpenedTab(_ => #inspector)
+          }}
+          className={"flex justify-center flex-grow cursor-pointer p-1 " ++ {
+            openedTab == #inspector ? " text-blue-400" : ""
+          }}
+          style={openedTab == #inspector ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          <Icons.Link
+            className=""
+            width="24px"
+            height="24px"
+            color={openedTab == #inspector ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
+          />
+          <span className="mx-2"> {"Request"->React.string} </span>
+        </button>
+        <button
+          onClick={_ => {
+            setOpenedTab(_ => #form)
+          }}
+          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
+            openedTab == #form ? " text-blue-400" : ""
+          }}
+          style={openedTab == #form ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          <Icons.List
+            width="24px"
+            height="24px"
+            color={openedTab == #form ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
+          />
+          <span className="mx-2"> {"Form"->React.string} </span>
+        </button>
       </div>
+      {switch openedTab {
+      | #inspector => <>
+          {variables->Belt.Array.length > 0
+            ? <>
+                <Comps.Header>
+                  <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+                  {"Variable Settings"->React.string}
+                </Comps.Header>
+                {variables->array}
+              </>
+            : React.null}
+          {variables->Belt.Array.length > 0
+            ? <div>
+                <Comps.Header onClick={_ => onRequestCodeInspected(~request)}>
+                  <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+                  {"Computed Variable Preview"->string}
+                  <Icons.Export className="inline-block ml-2" />
+                </Comps.Header>
+                <Comps.Pre>
+                  {mockedEvalResults
+                  ->Belt.Option.map(r =>
+                    switch r {
+                    | Ok(d) => d
+                    | Error(d) => Obj.magic(d)
+                    }
+                    ->Obj.magic
+                    ->Js.Json.stringifyWithSpace(2)
+                  )
+                  ->Belt.Option.getWithDefault("Nothing")
+                  ->string}
+                </Comps.Pre>
+              </div>
+            : React.null}
+          {request.dependencyRequestIds->Belt.Array.length > 0
+            ? <>
+                <Comps.Header>
+                  <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+                  {"Upstream Requests"->React.string}
+                </Comps.Header>
+                {upstreamRequests->array}
+              </>
+            : React.null}
+          <Comps.Header>
+            <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+            {"GraphQL Structure"->React.string}
+          </Comps.Header>
+          <div
+            className="my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"
+            style={ReactDOMStyle.make(
+              ~backgroundColor=Comps.colors["gray-8"],
+              ~maxHeight="150px",
+              (),
+            )}>
+            <GraphQLPreview
+              requestId=request.id
+              schema
+              definition
+              fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                "operationDoc": chainFragmentsDoc,
+              })}
+              onCopy={({path}) => {
+                let dataPath = path->Js.Array2.joinWith("?.")
+                let fullPath = "payload." ++ dataPath
+
+                fullPath->Clipboard.copy
+              }}
+            />
+          </div>
+        </>
+      | #form =>
+        <div>
+          <Comps.Header
+            onClick={_ => {
+              onExecuteRequest(~request, ~variables=formVariables)
+            }}>
+            <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+            {"Execute block"->string}
+            <Icons.Play className="inline-block ml-2" />
+          </Comps.Header>
+          {form}
+          {authButtons->array}
+          <Comps.Pre>
+            {cachedResult
+            ->Belt.Option.mapWithDefault("Nothing", json => json->Js.Json.stringifyWithSpace(2))
+            ->string}
+          </Comps.Pre>
+        </div>
+      }}
     </div>
   }
 }
@@ -2010,15 +2056,23 @@ ${remoteChainCalls.netlify.code}
       </>
 
     <>
-      <div className="w-full flex ml-2 border-b border-blue-400 justify-around">
+      <div
+        className="w-full flex ml-2 border-b justify-around"
+        style={ReactDOMStyle.make(~borderColor=Comps.colors["gray-1"], ())}>
         <button
           onClick={_ => {
             setOpenedTab(_ => #inspector)
           }}
-          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
-            openedTab == #inspector ? " bg-blue-400" : ""
-          }}>
-          <Icons.Gears className="" width="24px" height="24px" color="white" />
+          className={"flex justify-center flex-grow cursor-pointer p-1 " ++ {
+            openedTab == #inspector ? " text-blue-400" : ""
+          }}
+          style={openedTab == #inspector ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          <Icons.Link
+            className=""
+            width="24px"
+            height="24px"
+            color={openedTab == #inspector ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
+          />
           <span className="mx-2"> {"Chain"->React.string} </span>
         </button>
         <button
@@ -2026,9 +2080,14 @@ ${remoteChainCalls.netlify.code}
             setOpenedTab(_ => #form)
           }}
           className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
-            openedTab == #form ? " bg-blue-400" : ""
-          }}>
-          <Icons.Form width="24px" height="24px" color="white" />
+            openedTab == #form ? " text-blue-400" : ""
+          }}
+          style={openedTab == #form ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          <Icons.List
+            width="24px"
+            height="24px"
+            color={openedTab == #form ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
+          />
           <span className="mx-2"> {"Form"->React.string} </span>
         </button>
         <button
@@ -2036,9 +2095,14 @@ ${remoteChainCalls.netlify.code}
             setOpenedTab(_ => #save)
           }}
           className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
-            openedTab == #save ? " bg-blue-400" : ""
-          }}>
-          <Icons.Save width="24px" height="24px" color="white" />
+            openedTab == #save ? " text-blue-400" : ""
+          }}
+          style={openedTab == #save ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          <Icons.OpenInNew
+            width="24px"
+            height="24px"
+            color={openedTab == #save ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
+          />
           <span className="mx-2"> {"Export"->React.string} </span>
         </button>
       </div>
@@ -2082,23 +2146,20 @@ let make = (
   <div
     className="h-screen text-white border-l border-gray-800"
     style={ReactDOMStyle.make(~backgroundColor="rgb(27,29,31)", ())}>
-    <div>
-      <nav className="flex flex-row py-1 px-2 mb-2">
-        <button
-          className={"text-left text-gray-600 hover:text-blue-500 focus:outline-none text-blue-500 flex-grow"}>
-          {switch inspected {
-          | Nothing(_) => "Inspector"
-          | Block({title}) => "Block." ++ title
-          | Request({request}) => request.id
-          | RequestArgument(_) => "Request Argument"
-          }->string}
-        </button>
+    <nav className="flex flex-row py-1 px-2 mb-2 justify-between">
+      <Comps.Header>
         {switch inspected {
-        | Nothing(_) => null
-        | _ => <span className="text-white" onClick={_ => onReset()}> {"X"->React.string} </span>
-        }}
-      </nav>
-    </div>
+        | Nothing(_) => "Inspector"
+        | Block({title}) => "Block." ++ title
+        | Request({request}) => request.id
+        | RequestArgument(_) => "Request Argument"
+        }->string}
+      </Comps.Header>
+      {switch inspected {
+      | Nothing(_) => null
+      | _ => <span className="text-white" onClick={_ => onReset()}> {"X"->React.string} </span>
+      }}
+    </nav>
     <div className="max-h-screen overflow-y-scroll">
       {switch inspected {
       | Nothing(chain) =>

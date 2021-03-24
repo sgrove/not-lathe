@@ -1444,74 +1444,117 @@ function Inspector$Request(Props) {
                       key: service
                     });
         }));
+  var match$4 = React.useState(function () {
+        return "inspector";
+      });
+  var setOpenedTab = match$4[1];
+  var openedTab = match$4[0];
   return React.createElement("div", {
               ref: domRef,
               className: "max-h-full overflow-y-scroll"
-            }, variables.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                        children: null
-                      }, React.createElement(Icons.Caret.make, {
-                            className: "inline mr-2",
-                            color: Comps.colors["gray-6"]
-                          }), "Variable Settings"), variables) : null, variables.length !== 0 ? React.createElement("div", undefined, React.createElement(Comps.Header.make, {
-                        onClick: (function (param) {
-                            return Curry._1(onRequestCodeInspected, request);
-                          }),
-                        children: null
-                      }, React.createElement(Icons.Caret.make, {
-                            className: "inline mr-2",
-                            color: Comps.colors["gray-6"]
-                          }), "Computed Variable Preview", React.createElement(Icons.Export.make, {
-                            className: "inline-block ml-2"
-                          })), React.createElement(Comps.Pre.make, {
-                        children: Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
-                                    var tmp;
-                                    tmp = r._0;
-                                    return JSON.stringify(tmp, null, 2);
-                                  })), "Nothing")
-                      })) : null, request.dependencyRequestIds.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                        children: null
-                      }, React.createElement(Icons.Caret.make, {
-                            className: "inline mr-2",
-                            color: Comps.colors["gray-6"]
-                          }), "Upstream Requests"), upstreamRequests) : null, React.createElement(Comps.Header.make, {
-                  children: null
-                }, React.createElement(Icons.Caret.make, {
-                      className: "inline mr-2",
-                      color: Comps.colors["gray-6"]
-                    }), "GraphQL Structure"), React.createElement("div", {
-                  className: "my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
+            }, React.createElement("div", {
+                  className: "w-full flex ml-2 border-b justify-around",
                   style: {
-                    backgroundColor: Comps.colors["gray-8"],
-                    maxHeight: "150px"
+                    borderColor: Comps.colors["gray-1"]
                   }
-                }, React.createElement(make, {
-                      requestId: request.id,
-                      schema: schema,
-                      definition: definition,
-                      fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
-                            operationDoc: chainFragmentsDoc
-                          }),
-                      onCopy: (function (param) {
-                          var dataPath = param.path.join("?.");
-                          var fullPath = "payload." + dataPath;
-                          CopyToClipboard(fullPath);
-                          
-                        })
-                    })), React.createElement("div", undefined, React.createElement(Comps.Header.make, {
+                }, React.createElement("button", {
+                      className: "flex justify-center flex-grow cursor-pointer p-1 " + (
+                        openedTab === "inspector" ? " text-blue-400" : ""
+                      ),
+                      style: openedTab === "inspector" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
-                          return Curry._2(onExecuteRequest, request, formVariables);
-                        }),
-                      children: null
-                    }, React.createElement(Icons.Caret.make, {
-                          className: "inline mr-2",
-                          color: Comps.colors["gray-6"]
-                        }), "Execute block", React.createElement(Icons.Play.make, {
-                          className: "inline-block ml-2"
-                        })), form, authButtons, React.createElement(Comps.Pre.make, {
-                      children: Belt_Option.mapWithDefault(cachedResult, "Nothing", (function (json) {
-                              return JSON.stringify(json, null, 2);
-                            }))
-                    })));
+                          return Curry._1(setOpenedTab, (function (param) {
+                                        return "inspector";
+                                      }));
+                        })
+                    }, React.createElement(Icons.Link.make, {
+                          className: "",
+                          color: openedTab === "inspector" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
+                          width: "24px",
+                          height: "24px"
+                        }), React.createElement("span", {
+                          className: "mx-2"
+                        }, "Request")), React.createElement("button", {
+                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
+                        openedTab === "form" ? " text-blue-400" : ""
+                      ),
+                      style: openedTab === "form" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
+                      onClick: (function (param) {
+                          return Curry._1(setOpenedTab, (function (param) {
+                                        return "form";
+                                      }));
+                        })
+                    }, React.createElement(Icons.List.make, {
+                          color: openedTab === "form" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
+                          width: "24px",
+                          height: "24px"
+                        }), React.createElement("span", {
+                          className: "mx-2"
+                        }, "Form"))), openedTab === "inspector" ? React.createElement(React.Fragment, undefined, variables.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+                              children: null
+                            }, React.createElement(Icons.Caret.make, {
+                                  className: "inline mr-2",
+                                  color: Comps.colors["gray-6"]
+                                }), "Variable Settings"), variables) : null, variables.length !== 0 ? React.createElement("div", undefined, React.createElement(Comps.Header.make, {
+                              onClick: (function (param) {
+                                  return Curry._1(onRequestCodeInspected, request);
+                                }),
+                              children: null
+                            }, React.createElement(Icons.Caret.make, {
+                                  className: "inline mr-2",
+                                  color: Comps.colors["gray-6"]
+                                }), "Computed Variable Preview", React.createElement(Icons.Export.make, {
+                                  className: "inline-block ml-2"
+                                })), React.createElement(Comps.Pre.make, {
+                              children: Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
+                                          var tmp;
+                                          tmp = r._0;
+                                          return JSON.stringify(tmp, null, 2);
+                                        })), "Nothing")
+                            })) : null, request.dependencyRequestIds.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+                              children: null
+                            }, React.createElement(Icons.Caret.make, {
+                                  className: "inline mr-2",
+                                  color: Comps.colors["gray-6"]
+                                }), "Upstream Requests"), upstreamRequests) : null, React.createElement(Comps.Header.make, {
+                        children: null
+                      }, React.createElement(Icons.Caret.make, {
+                            className: "inline mr-2",
+                            color: Comps.colors["gray-6"]
+                          }), "GraphQL Structure"), React.createElement("div", {
+                        className: "my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
+                        style: {
+                          backgroundColor: Comps.colors["gray-8"],
+                          maxHeight: "150px"
+                        }
+                      }, React.createElement(make, {
+                            requestId: request.id,
+                            schema: schema,
+                            definition: definition,
+                            fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
+                                  operationDoc: chainFragmentsDoc
+                                }),
+                            onCopy: (function (param) {
+                                var dataPath = param.path.join("?.");
+                                var fullPath = "payload." + dataPath;
+                                CopyToClipboard(fullPath);
+                                
+                              })
+                          }))) : React.createElement("div", undefined, React.createElement(Comps.Header.make, {
+                        onClick: (function (param) {
+                            return Curry._2(onExecuteRequest, request, formVariables);
+                          }),
+                        children: null
+                      }, React.createElement(Icons.Caret.make, {
+                            className: "inline mr-2",
+                            color: Comps.colors["gray-6"]
+                          }), "Execute block", React.createElement(Icons.Play.make, {
+                            className: "inline-block ml-2"
+                          })), form, authButtons, React.createElement(Comps.Pre.make, {
+                        children: Belt_Option.mapWithDefault(cachedResult, "Nothing", (function (json) {
+                                return JSON.stringify(json, null, 2);
+                              }))
+                      })));
 }
 
 var $$Request = {
@@ -1736,49 +1779,55 @@ function Inspector$Nothing(Props) {
                       color: Comps.colors["gray-6"]
                     }), "Chain Requests"), requests) : null);
   return React.createElement(React.Fragment, undefined, React.createElement("div", {
-                  className: "w-full flex ml-2 border-b border-blue-400 justify-around"
+                  className: "w-full flex ml-2 border-b justify-around",
+                  style: {
+                    borderColor: Comps.colors["gray-1"]
+                  }
                 }, React.createElement("button", {
-                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
-                        openedTab === "inspector" ? " bg-blue-400" : ""
+                      className: "flex justify-center flex-grow cursor-pointer p-1 " + (
+                        openedTab === "inspector" ? " text-blue-400" : ""
                       ),
+                      style: openedTab === "inspector" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "inspector";
                                       }));
                         })
-                    }, React.createElement(Icons.Gears.make, {
+                    }, React.createElement(Icons.Link.make, {
                           className: "",
-                          color: "white",
+                          color: openedTab === "inspector" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
                           width: "24px",
                           height: "24px"
                         }), React.createElement("span", {
                           className: "mx-2"
                         }, "Chain")), React.createElement("button", {
                       className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
-                        openedTab === "form" ? " bg-blue-400" : ""
+                        openedTab === "form" ? " text-blue-400" : ""
                       ),
+                      style: openedTab === "form" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "form";
                                       }));
                         })
-                    }, React.createElement(Icons.Form.make, {
-                          color: "white",
+                    }, React.createElement(Icons.List.make, {
+                          color: openedTab === "form" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
                           width: "24px",
                           height: "24px"
                         }), React.createElement("span", {
                           className: "mx-2"
                         }, "Form")), React.createElement("button", {
                       className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
-                        openedTab === "save" ? " bg-blue-400" : ""
+                        openedTab === "save" ? " text-blue-400" : ""
                       ),
+                      style: openedTab === "save" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "save";
                                       }));
                         })
-                    }, React.createElement(Icons.Save.make, {
-                          color: "white",
+                    }, React.createElement(Icons.OpenInNew.make, {
+                          color: openedTab === "save" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
                           width: "24px",
                           height: "24px"
                         }), React.createElement("span", {
@@ -1890,11 +1939,11 @@ function Inspector(Props) {
               style: {
                 backgroundColor: "rgb(27,29,31)"
               }
-            }, React.createElement("div", undefined, React.createElement("nav", {
-                      className: "flex flex-row py-1 px-2 mb-2"
-                    }, React.createElement("button", {
-                          className: "text-left text-gray-600 hover:text-blue-500 focus:outline-none text-blue-500 flex-grow"
-                        }, tmp), tmp$1)), React.createElement("div", {
+            }, React.createElement("nav", {
+                  className: "flex flex-row py-1 px-2 mb-2 justify-between"
+                }, React.createElement(Comps.Header.make, {
+                      children: tmp
+                    }), tmp$1), React.createElement("div", {
                   className: "max-h-screen overflow-y-scroll"
                 }, tmp$2));
 }

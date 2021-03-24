@@ -136,7 +136,7 @@ function ChainEditor$BlockSearch(Props) {
         }), [blocks.length]);
   var match$1 = state.search;
   return React.createElement("div", {
-              className: "flex w-full m-0 max-h-full block",
+              className: "flex w-full m-0 max-h-full block select-none",
               style: {
                 backgroundColor: "#1D1F22"
               }
@@ -266,7 +266,6 @@ function ChainEditor$BlockSearch(Props) {
                                               }, block.title), React.createElement("div", {
                                                 className: "px-2 rounded-r-md py-2",
                                                 style: {
-                                                  backgroundColor: Comps.colors["gray-2"],
                                                   minWidth: "40px"
                                                 }
                                               }, Belt_Array.keepMap(block.services, (function (service) {
@@ -276,6 +275,9 @@ function ChainEditor$BlockSearch(Props) {
                                                                                 key: friendlyServiceName,
                                                                                 className: "rounded-full",
                                                                                 style: {
+                                                                                  border: "2px",
+                                                                                  borderColor: Comps.colors["gray-6"],
+                                                                                  borderStyle: "solid",
                                                                                   opacity: "0.80",
                                                                                   pointerEvents: "none"
                                                                                 },
