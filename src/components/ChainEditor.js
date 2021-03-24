@@ -895,6 +895,7 @@ function ChainEditor$Script(Props) {
         }), [types]);
   var filename = "file:///main.tsx";
   var tmp = {
+    height: "100%",
     defaultValue: content,
     language: "typescript",
     theme: "vs-dark",
@@ -949,7 +950,13 @@ function ChainEditor$Script(Props) {
   if (className !== undefined) {
     tmp.className = Caml_option.valFromOption(className);
   }
-  return React.createElement(BsReactMonaco.Editor.make, tmp);
+  return React.createElement("div", {
+              style: {
+                background: "black",
+                height: "calc(100vh - 40px - 384px - 56px)",
+                overflowY: "hidden"
+              }
+            }, React.createElement(BsReactMonaco.Editor.make, tmp));
 }
 
 var Script = {

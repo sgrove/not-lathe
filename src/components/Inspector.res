@@ -2196,7 +2196,7 @@ let make = (
     </nav>
     <div
       className="overflow-y-scroll"
-      style={ReactDOMStyle.make(~height="calc(100vh - 48px - 56px)", ())}>
+      style={ReactDOMStyle.make(~height="calc(100vh - 56px - 56px)", ())}>
       {switch inspected {
       | Nothing(chain) =>
         <Nothing

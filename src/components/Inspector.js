@@ -1989,7 +1989,7 @@ function Inspector(Props) {
                     }), tmp$1), React.createElement("div", {
                   className: "overflow-y-scroll",
                   style: {
-                    height: "calc(100vh - 48px - 56px)"
+                    height: "calc(100vh - 56px - 56px)"
                   }
                 }, tmp$2));
 }

@@ -1061,65 +1061,74 @@ ${chain.script}`
 
     let filename = "file:///main.tsx"
 
-    <BsReactMonaco.Editor
-      ?className
-      theme="vs-dark"
-      language="typescript"
-      defaultValue={content}
-      options={
-        "minimap": {"enabled": false},
-      }
-      path=filename
-      onChange={(newScript, _) => {
-        onChange(newScript)
-      }}
-      onMount={(editorHandle, monacoInstance) => {
-        Debug.assignToWindowForDeveloperDebug(~name="myEditor", editorHandle)
-        Debug.assignToWindowForDeveloperDebug(~name="myMonaco", monacoInstance)
-        Debug.assignToWindowForDeveloperDebug(~name="ts", TypeScript.ts)
+    <div
+      style={ReactDOMStyle.make(
+        ~height="calc(100vh - 40px - 384px - 56px)",
+        ~overflowY="hidden",
+        ~background="black",
+        (),
+      )}>
+      <BsReactMonaco.Editor
+        ?className
+        theme="vs-dark"
+        language="typescript"
+        defaultValue={content}
+        options={
+          "minimap": {"enabled": false},
+        }
+        height="100%"
+        path=filename
+        onChange={(newScript, _) => {
+          onChange(newScript)
+        }}
+        onMount={(editorHandle, monacoInstance) => {
+          Debug.assignToWindowForDeveloperDebug(~name="myEditor", editorHandle)
+          Debug.assignToWindowForDeveloperDebug(~name="myMonaco", monacoInstance)
+          Debug.assignToWindowForDeveloperDebug(~name="ts", TypeScript.ts)
 
-        let _disposable = editorHandle->BsReactMonaco.onMouseUp(mouseEvent => {
-          Debug.assignToWindowForDeveloperDebug(~name="editorMouseEvent", mouseEvent)
+          let _disposable = editorHandle->BsReactMonaco.onMouseUp(mouseEvent => {
+            Debug.assignToWindowForDeveloperDebug(~name="editorMouseEvent", mouseEvent)
 
-          open ConnectionContext
+            open ConnectionContext
 
-          switch connectionDragRef.current {
-          | Empty
-          | Completed(_)
-          | StartedTarget(_) => ()
-          | StartedSource({sourceRequest, sourceDom}) =>
-            let position = mouseEvent["target"]["position"]
-            let lineNumber = position["lineNumber"]
-            let column = position["column"]
+            switch connectionDragRef.current {
+            | Empty
+            | Completed(_)
+            | StartedTarget(_) => ()
+            | StartedSource({sourceRequest, sourceDom}) =>
+              let position = mouseEvent["target"]["position"]
+              let lineNumber = position["lineNumber"]
+              let column = position["column"]
 
-            let event = mouseEvent["event"]
-            let mousePositionX = event["posx"]
-            let mousePositionY = event["posy"]
-            let mousePosition = (mousePositionX, mousePositionY)
+              let event = mouseEvent["event"]
+              let mousePositionX = event["posx"]
+              let mousePositionY = event["posy"]
+              let mousePosition = (mousePositionX, mousePositionY)
 
-            onPotentialScriptSourceConnect(
-              ~sourceRequest,
-              ~sourceDom,
-              ~scriptPosition={lineNumber: lineNumber, column: column},
-              ~mousePosition,
-            )
-          }
-        })
+              onPotentialScriptSourceConnect(
+                ~sourceRequest,
+                ~sourceDom,
+                ~scriptPosition={lineNumber: lineNumber, column: column},
+                ~mousePosition,
+              )
+            }
+          })
 
-        let () = BsReactMonaco.TypeScript.addLib(. monacoInstance, types, content)
-        let () = BsReactMonaco.registerPrettier(monacoInstance)
-        let modelOptions = BsReactMonaco.Model.modelOptions(~tabSize=2, ())
+          let () = BsReactMonaco.TypeScript.addLib(. monacoInstance, types, content)
+          let () = BsReactMonaco.registerPrettier(monacoInstance)
+          let modelOptions = BsReactMonaco.Model.modelOptions(~tabSize=2, ())
 
-        editor.current = Some(editorHandle)
-        monaco.current = Some(monacoInstance)
+          editor.current = Some(editorHandle)
+          monaco.current = Some(monacoInstance)
 
-        editorHandle
-        ->BsReactMonaco.getModel(filename)
-        ->BsReactMonaco.Model.updateOptions(modelOptions)
+          editorHandle
+          ->BsReactMonaco.getModel(filename)
+          ->BsReactMonaco.Model.updateOptions(modelOptions)
 
-        onMount(~editor=editorHandle, ~monaco=monacoInstance)
-      }}
-    />
+          onMount(~editor=editorHandle, ~monaco=monacoInstance)
+        }}
+      />
+    </div>
   }
 }
 
@@ -2076,91 +2085,97 @@ ${newScript}`
                     </div>
                   </Comps.Header>
                 </div>
-                <Script
-                  schema={state.schema}
-                  chain={state.chain}
-                  className=?{switch state.scriptEditor.isOpen {
-                  | false => Some("none")
-                  | true => None
-                  }}
-                  onPotentialScriptSourceConnect={(
-                    ~sourceRequest,
-                    ~sourceDom,
-                    ~scriptPosition: ConnectionContext.scriptPosition,
-                    ~mousePosition as (x, y): (int, int),
-                  ) => {
-                    setState(oldState => {
-                      let connectionDrag = ConnectionContext.Completed({
-                        sourceRequest: sourceRequest,
-                        target: Script({scriptPosition: scriptPosition}),
-                        windowPosition: (x, y),
-                        sourceDom: sourceDom,
-                      })
+                {false
+                  ? React.null
+                  : <Script
+                      schema={state.schema}
+                      chain={state.chain}
+                      className=?{switch state.scriptEditor.isOpen {
+                      | false => Some("none")
+                      | true => None
+                      }}
+                      onPotentialScriptSourceConnect={(
+                        ~sourceRequest,
+                        ~sourceDom,
+                        ~scriptPosition: ConnectionContext.scriptPosition,
+                        ~mousePosition as (x, y): (int, int),
+                      ) => {
+                        setState(oldState => {
+                          let connectionDrag = ConnectionContext.Completed({
+                            sourceRequest: sourceRequest,
+                            target: Script({scriptPosition: scriptPosition}),
+                            windowPosition: (x, y),
+                            sourceDom: sourceDom,
+                          })
 
-                      {
-                        ...oldState,
-                        connectionDrag: connectionDrag,
-                      }
-                    })
-                  }}
-                  onMount={(~editor, ~monaco) => {
-                    setState(oldState => {
-                      ...oldState,
-                      scriptEditor: {
-                        ...oldState.scriptEditor,
-                        editor: Some(editor),
-                        monaco: Some(monaco),
-                      },
-                    })
-                  }}
-                  onChange={newScript => {
-                    try {
-                      let newChain = {
-                        ...state.chain,
-                        script: newScript,
-                      }
-
-                      // let parsedScript = Acorn.parse(
-                      //   newChain.script,
-                      //   Acorn.parseOptions(~ecmaVersion=2020, ~sourceType=#"module", ()),
-                      // )
-
-                      let functionNames = []
-
-                      let inspected: Inspector.inspectable = switch state.inspected {
-                      | Nothing(_) => Nothing(newChain)
-                      | Block(block) => Block(block)
-                      | Request(v) =>
-                        let request =
-                          newChain.requests
-                          ->Belt.Array.getBy(existingRequest => existingRequest.id == v.request.id)
-                          ->Belt.Option.getWithDefault(v.request)
-                        Request({request: request, chain: newChain})
-                      | RequestArgument({request, variableName}) =>
-                        let request =
-                          newChain.requests
-                          ->Belt.Array.getBy(existingRequest => existingRequest.id == request.id)
-                          ->Belt.Option.getWithDefault(request)
-                        RequestArgument({
-                          variableName: variableName,
-                          chain: newChain,
-                          request: request,
+                          {
+                            ...oldState,
+                            connectionDrag: connectionDrag,
+                          }
                         })
-                      }
-
-                      setState(oldState => {
-                        {
+                      }}
+                      onMount={(~editor, ~monaco) => {
+                        setState(oldState => {
                           ...oldState,
-                          scriptFunctions: functionNames,
-                          chain: newChain,
-                          inspected: inspected,
+                          scriptEditor: {
+                            ...oldState.scriptEditor,
+                            editor: Some(editor),
+                            monaco: Some(monaco),
+                          },
+                        })
+                      }}
+                      onChange={newScript => {
+                        try {
+                          let newChain = {
+                            ...state.chain,
+                            script: newScript,
+                          }
+
+                          // let parsedScript = Acorn.parse(
+                          //   newChain.script,
+                          //   Acorn.parseOptions(~ecmaVersion=2020, ~sourceType=#"module", ()),
+                          // )
+
+                          let functionNames = []
+
+                          let inspected: Inspector.inspectable = switch state.inspected {
+                          | Nothing(_) => Nothing(newChain)
+                          | Block(block) => Block(block)
+                          | Request(v) =>
+                            let request =
+                              newChain.requests
+                              ->Belt.Array.getBy(existingRequest =>
+                                existingRequest.id == v.request.id
+                              )
+                              ->Belt.Option.getWithDefault(v.request)
+                            Request({request: request, chain: newChain})
+                          | RequestArgument({request, variableName}) =>
+                            let request =
+                              newChain.requests
+                              ->Belt.Array.getBy(existingRequest =>
+                                existingRequest.id == request.id
+                              )
+                              ->Belt.Option.getWithDefault(request)
+                            RequestArgument({
+                              variableName: variableName,
+                              chain: newChain,
+                              request: request,
+                            })
+                          }
+
+                          setState(oldState => {
+                            {
+                              ...oldState,
+                              scriptFunctions: functionNames,
+                              chain: newChain,
+                              inspected: inspected,
+                            }
+                          })
+                        } catch {
+                        | err => Js.Console.error2("Error updating script from editor: ", err)
                         }
-                      })
-                    } catch {
-                    | err => Js.Console.error2("Error updating script from editor: ", err)
-                    }
-                  }}
-                />
+                      }}
+                    />}
               </div>
             </div>
             <div className="w-1/3 2xl:w-1/6"> {sidebar} </div>
