@@ -459,6 +459,12 @@ function windowLocationOrigin(param) {
               }));
 }
 
+function windowScrollY(param) {
+  return Belt_Option.map(Caml_option.undefined_to_opt(typeof window === "undefined" ? undefined : window), (function ($$window) {
+                return $$window.scrollY;
+              }));
+}
+
 export {
   capitalizeFirstLetter ,
   distinctStrings ,
@@ -466,6 +472,7 @@ export {
   services ,
   serviceImageUrl ,
   windowLocationOrigin ,
+  windowScrollY ,
   
 }
 /* services Not a pure module */
