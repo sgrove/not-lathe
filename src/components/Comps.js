@@ -107,29 +107,21 @@ var Pre = {
   make: Comps$Pre
 };
 
-var defaultStyle$3 = {
-  backgroundColor: colors["gray-7"],
-  color: colors["gray-4"],
-  padding: "6px",
-  paddingRight: "40px",
-  width: "unset",
-  borderRadius: "6px"
-};
+var defaultStyle$3 = {};
 
 function Comps$Select(Props) {
   var children = Props.children;
   var disabled = Props.disabled;
-  var className = Props.className;
+  var classNameOpt = Props.className;
   var onChange = Props.onChange;
   var styleOpt = Props.style;
   var value = Props.value;
+  var className = classNameOpt !== undefined ? classNameOpt : "comp-select";
   var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : ({});
   var tmp = {
+    className: className,
     style: Object.assign({}, defaultStyle$3, style)
   };
-  if (className !== undefined) {
-    tmp.className = Caml_option.valFromOption(className);
-  }
   if (disabled !== undefined) {
     tmp.disabled = Caml_option.valFromOption(disabled);
   }

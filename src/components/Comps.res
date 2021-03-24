@@ -75,26 +75,18 @@ module Pre = {
 }
 
 module Select = {
-  let defaultStyle = ReactDOMStyle.make(
-    ~backgroundColor=colors["gray-7"],
-    ~padding="6px",
-    ~paddingRight="40px",
-    ~color=colors["gray-4"],
-    ~width="unset",
-    ~borderRadius="6px",
-    (),
-  )
+  let defaultStyle = ReactDOMStyle.make()
+
   @react.component
   let make = (
     ~children,
     ~disabled=?,
-    ~className=?,
+    ~className="comp-select",
     ~onChange=?,
     ~style=ReactDOMStyle.make(),
     ~value=?,
   ) => {
-    <select
-      ?value ?disabled ?onChange ?className style={ReactDOMStyle.combine(defaultStyle, style)}>
+    <select ?value ?disabled ?onChange className style={ReactDOMStyle.combine(defaultStyle, style)}>
       {children}
     </select>
   }

@@ -196,7 +196,7 @@ module BlockSearch = {
             />
             <div className="flex items-center rounded-md inline ">
               <Comps.Select
-                style={ReactDOMStyle.make(~maxWidth="1ch", ())}
+                style={ReactDOMStyle.make(~width="3ch", ~backgroundImage="none", ())}
                 value="never"
                 onChange={event => {
                   let kind = switch ReactEvent.Form.target(event)["value"] {
@@ -209,7 +209,7 @@ module BlockSearch = {
 
                   kind->Belt.Option.forEach(kind => onCreate(kind))
                 }}>
-                <option value="+"> {""->React.string} </option>
+                <option value="+"> {"+"->React.string} </option>
                 <option value="query"> {"+ New Query Block"->React.string} </option>
                 <option value="mutation"> {"+ New Mutation Block"->React.string} </option>
                 <option value="subscription"> {"+ New Subscription Block"->React.string} </option>
@@ -1065,7 +1065,6 @@ ${chain.script}`
       style={ReactDOMStyle.make(
         ~height="calc(100vh - 40px - 384px - 56px)",
         ~overflowY="hidden",
-        ~background="black",
         (),
       )}>
       <BsReactMonaco.Editor
@@ -1138,7 +1137,9 @@ module Modal = {
     <div
       style={ReactDOMStyle.make(~zIndex="9999", ())}
       className="flex items-center justify-center absolute left-0 bottom-0 w-full h-full bg-gray-800 bg-opacity-60">
-      <div className="bg-white rounded-lg w-4/5 h-4/5">
+      <div
+        className="rounded-lg w-4/5 h-4/5"
+        style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-8"], ())}>
         <div className="flex flex-col p-1 h-full">
           <div className="flex h-full"> {children} </div>
         </div>

@@ -46,6 +46,40 @@ function formInput(prim, prim$1, prim$2, prim$3) {
   return GraphQLFormJs.formInput(prim, prim$1, prim$2, prim$3);
 }
 
+function Inspector$CollapsableSection(Props) {
+  var title = Props.title;
+  var children = Props.children;
+  var match = React.useState(function () {
+        return true;
+      });
+  var setIsOpen = match[1];
+  var isOpen = match[0];
+  return React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+                  onClick: (function (param) {
+                      return Curry._1(setIsOpen, (function (isOpen) {
+                                    return !isOpen;
+                                  }));
+                    }),
+                  style: {
+                    color: Comps.colors["gray-6"],
+                    cursor: "pointer"
+                  },
+                  children: null
+                }, isOpen ? React.createElement(Icons.CaretUp.make, {
+                        className: "inline mr-2",
+                        color: Comps.colors["gray-6"]
+                      }) : React.createElement(Icons.CaretRight.make, {
+                        className: "inline mr-2",
+                        color: Comps.colors["gray-6"]
+                      }), title), React.createElement("div", {
+                  className: isOpen ? "" : "hidden"
+                }, children));
+}
+
+var CollapsableSection = {
+  make: Inspector$CollapsableSection
+};
+
 function transpileFullChainScript(chain) {
   var baseTranspiled = Typescript.transpile(chain.script, {
         target: "ES2020"
@@ -549,24 +583,33 @@ function Inspector$GitHub(Props) {
                 var match = state.selectedRepo;
                 var match$1 = state.repoProjectGuess;
                 var tmp;
-                if (match !== undefined) {
-                  if (match$1 !== undefined) {
-                    var target = typeof match$1 === "number" ? (
-                        match$1 !== 0 ? "next.js project" : "repo"
-                      ) : (
-                        match$1._0 === "any" ? "Netlify functions" : "next.js project"
-                      );
-                    tmp = React.createElement(React.Fragment, undefined, React.createElement(Icons.Login.make, {
-                              className: "inline-block",
-                              color: Comps.colors["gray-6"]
-                            }), "  Push chain to " + target + " on GitHub");
+                if (savedChainId !== undefined) {
+                  if (match !== undefined) {
+                    if (match$1 !== undefined) {
+                      var target = typeof match$1 === "number" ? (
+                          match$1 !== 0 ? "next.js project" : "repo"
+                        ) : (
+                          match$1._0 === "any" ? "Netlify functions" : "next.js project"
+                        );
+                      tmp = React.createElement(React.Fragment, undefined, React.createElement(Icons.Login.make, {
+                                className: "inline-block",
+                                color: Comps.colors["gray-6"]
+                              }), "  Push chain to " + target + " on GitHub");
+                    } else {
+                      tmp = "Determining project type...";
+                    }
                   } else {
-                    tmp = "Determining project type...";
+                    tmp = "Select a GitHub repository";
                   }
                 } else {
-                  tmp = "Select a GitHub repository";
+                  tmp = "Save chain to push to GitHub";
                 }
-                return React.createElement(React.Fragment, undefined, React.createElement(Comps.Select.make, {
+                return React.createElement(React.Fragment, undefined, React.createElement("div", {
+                                className: " text-center",
+                                style: {
+                                  color: Comps.colors["gray-4"]
+                                }
+                              }, "- OR -"), React.createElement(Comps.Select.make, {
                                 children: null,
                                 onChange: (function ($$event) {
                                     var id = $$event.target.value;
@@ -1035,7 +1078,6 @@ function Inspector$Request(Props) {
   var chain = Props.chain;
   var onChainUpdated = Props.onChainUpdated;
   var schema = Props.schema;
-  var onRequestCodeInspected = Props.onRequestCodeInspected;
   var cachedResult = Props.cachedResult;
   var onExecuteRequest = Props.onExecuteRequest;
   var onLogin = Props.onLogin;
@@ -1248,16 +1290,8 @@ function Inspector$Request(Props) {
                               style: {
                                 color: Comps.colors["green-4"]
                               }
-                            }, "\$" + varDep.name), React.createElement("select", {
-                              style: {
-                                backgroundColor: Comps.colors["gray-7"],
-                                color: Comps.colors["gray-4"],
-                                padding: "6px",
-                                paddingRight: "40px",
-                                width: "unset",
-                                borderRadius: "6px"
-                              },
-                              value: tmp,
+                            }, "\$" + varDep.name), React.createElement(Comps.Select.make, {
+                              children: null,
                               onChange: (function ($$event) {
                                   var match = $$event.target.value;
                                   var newDependency;
@@ -1356,7 +1390,11 @@ function Inspector$Request(Props) {
                                   return Curry._1(setOpenedTabs, (function (oldOpenedTabs) {
                                                 return Belt_SetString.add(oldOpenedTabs, varDep.name);
                                               }));
-                                })
+                                }),
+                              style: {
+                                paddingRight: "40px"
+                              },
+                              value: tmp
                             }, React.createElement("option", {
                                   value: "variable"
                                 }, "Variable Input"), React.createElement("option", {
@@ -1407,10 +1445,7 @@ function Inspector$Request(Props) {
                                                 $$event.preventDefault();
                                                 return Curry._2(onDeleteEdge, request.id, upstreamRequestId);
                                               }),
-                                            style: {
-                                              backgroundColor: Comps.colors["gray-7"],
-                                              color: Comps.colors["gray-4"]
-                                            },
+                                            className: "og-secodary-button",
                                             children: null
                                           }, React.createElement(Icons.Trash.make, {
                                                 className: "inline mr-2",
@@ -1512,67 +1547,49 @@ function Inspector$Request(Props) {
                           height: "24px"
                         }), React.createElement("span", {
                           className: "mx-2"
-                        }, "Form"))), openedTab === "inspector" ? React.createElement(React.Fragment, undefined, variables.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                              children: null
-                            }, React.createElement(Icons.Caret.make, {
-                                  className: "inline mr-2",
-                                  color: Comps.colors["gray-6"]
-                                }), "Variable Settings"), variables) : null, variables.length !== 0 ? React.createElement("div", undefined, React.createElement(Comps.Header.make, {
-                              onClick: (function (param) {
-                                  return Curry._1(onRequestCodeInspected, request);
-                                }),
-                              children: null
-                            }, React.createElement(Icons.Caret.make, {
-                                  className: "inline mr-2",
-                                  color: Comps.colors["gray-6"]
-                                }), "Computed Variable Preview", React.createElement(Icons.Export.make, {
-                                  className: "inline-block ml-2"
-                                })), React.createElement(Comps.Pre.make, {
-                              children: Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
-                                          var tmp;
-                                          tmp = r._0;
-                                          return JSON.stringify(tmp, null, 2);
-                                        })), "Nothing")
-                            })) : null, request.dependencyRequestIds.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                              children: null
-                            }, React.createElement(Icons.Caret.make, {
-                                  className: "inline mr-2",
-                                  color: Comps.colors["gray-6"]
-                                }), "Upstream Requests"), upstreamRequests) : null, React.createElement(Comps.Header.make, {
-                        children: null
-                      }, React.createElement(Icons.Caret.make, {
-                            className: "inline mr-2",
-                            color: Comps.colors["gray-6"]
-                          }), "GraphQL Structure"), React.createElement("div", {
-                        className: "my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
-                        style: {
-                          backgroundColor: Comps.colors["gray-8"],
-                          maxHeight: "150px"
-                        }
-                      }, React.createElement(make, {
-                            requestId: request.id,
-                            schema: schema,
-                            definition: definition,
-                            fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
-                                  operationDoc: chainFragmentsDoc
-                                }),
-                            onCopy: (function (param) {
-                                var dataPath = param.path.join("?.");
-                                var fullPath = "payload." + dataPath;
-                                CopyToClipboard(fullPath);
-                                
+                        }, "Form"))), openedTab === "inspector" ? React.createElement(React.Fragment, undefined, variables.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
+                          title: "Variable Settings",
+                          children: variables
+                        }) : null, variables.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
+                          title: React.createElement(React.Fragment, undefined, "Computed Variable Preview", React.createElement(Icons.Export.make, {
+                                    className: "inline-block ml-2"
+                                  })),
+                          children: React.createElement(Comps.Pre.make, {
+                                children: Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
+                                            var tmp;
+                                            tmp = r._0;
+                                            return JSON.stringify(tmp, null, 2);
+                                          })), "Nothing")
                               })
-                          }))) : React.createElement("div", undefined, React.createElement(Comps.Header.make, {
-                        onClick: (function (param) {
-                            return Curry._2(onExecuteRequest, request, formVariables);
-                          }),
-                        children: null
-                      }, React.createElement(Icons.Caret.make, {
-                            className: "inline mr-2",
-                            color: Comps.colors["gray-6"]
-                          }), "Execute block", React.createElement(Icons.Play.make, {
-                            className: "inline-block ml-2"
-                          })), form, authButtons, React.createElement(Comps.Pre.make, {
+                        }) : null, request.dependencyRequestIds.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
+                          title: "Upstream Requests",
+                          children: upstreamRequests
+                        }) : null, React.createElement(Inspector$CollapsableSection, {
+                        title: "GraphQL Structure",
+                        children: React.createElement("div", {
+                              className: "my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
+                              style: {
+                                backgroundColor: Comps.colors["gray-8"],
+                                maxHeight: "150px"
+                              }
+                            }, React.createElement(make, {
+                                  requestId: request.id,
+                                  schema: schema,
+                                  definition: definition,
+                                  fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
+                                        operationDoc: chainFragmentsDoc
+                                      }),
+                                  onCopy: (function (param) {
+                                      var dataPath = param.path.join("?.");
+                                      var fullPath = "payload." + dataPath;
+                                      CopyToClipboard(fullPath);
+                                      
+                                    })
+                                }))
+                      })) : React.createElement(Inspector$CollapsableSection, {
+                    title: "Execute block",
+                    children: null
+                  }, form, authButtons, React.createElement(Comps.Pre.make, {
                         children: Belt_Option.mapWithDefault(cachedResult, "Nothing", (function (json) {
                                 return JSON.stringify(json, null, 2);
                               }))
@@ -1708,7 +1725,7 @@ function Inspector$Nothing(Props) {
         }));
   var formTab = React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
             children: null
-          }, React.createElement(Icons.Caret.make, {
+          }, React.createElement(Icons.CaretRight.make, {
                 className: "inline mr-2",
                 color: Comps.colors["gray-6"]
               }), "Chain Form"), form, authButtons, React.createElement(Comps.Button.make, {
@@ -1755,7 +1772,7 @@ function Inspector$Nothing(Props) {
           }), React.createElement(Comps.Select.make, {
             children: null,
             disabled: Belt_Option.isNone(savedChainId),
-            className: "w-full select-button",
+            className: "w-full select-button comp-select",
             onChange: (function ($$event) {
                 return Belt_Option.forEach(savedChainId, (function (chainId) {
                               var chain = Chain.loadFromLocalStorage(chainId);
@@ -1802,27 +1819,20 @@ function Inspector$Nothing(Props) {
                 value: "netlify"
               }, "Copy Netlify function usage"), React.createElement("option", {
                 value: "scriptkit"
-              }, "Copy ScriptKit usage")), React.createElement("div", {
-            className: " text-center",
-            style: {
-              color: Comps.colors["gray-4"]
-            }
-          }, "- OR -"), React.createElement(Inspector$GitHub, {
+              }, "Copy ScriptKit usage")), React.createElement(Inspector$GitHub, {
             chain: chain,
             savedChainId: savedChainId,
             oneGraphAuth: oneGraphAuth
           }));
   var inspectorTab = React.createElement(React.Fragment, undefined, isChainViable ? null : React.createElement("div", {
-              className: "m-2",
+              className: "m-2 w-full text-center flex-1 flex-grow justify-center align-middle",
               style: {
                 color: Comps.colors["gray-4"]
               }
-            }, "Add some blocks to get started"), requests.length !== 0 ? React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-                  children: null
-                }, React.createElement(Icons.Caret.make, {
-                      className: "inline mr-2",
-                      color: Comps.colors["gray-6"]
-                    }), "Chain Requests"), requests) : null);
+            }, "Add some blocks to get started"), requests.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
+              title: "Chain Requests",
+              children: requests
+            }) : null);
   return React.createElement(React.Fragment, undefined, React.createElement("div", {
                   className: "w-full flex ml-2 border-b justify-around",
                   style: {
@@ -1922,7 +1932,7 @@ function Inspector(Props) {
   }
   var tmp$1;
   tmp$1 = inspected.TAG === /* Nothing */0 ? null : React.createElement("span", {
-          className: "text-white",
+          className: "text-white cursor-pointer",
           onClick: (function (param) {
               return Curry._1(onReset, undefined);
             })
@@ -2008,6 +2018,7 @@ export {
   Clipboard ,
   GraphQLPreview ,
   formInput ,
+  CollapsableSection ,
   transpileFullChainScript ,
   patchRequestArgDeps ,
   patchChainRequestsArgDeps ,

@@ -76,6 +76,26 @@ type mockRequestValues = {
   graphQLResult: GraphQLJs.queryResult,
 }
 
+module CollapsableSection = {
+  @react.component
+  let make = (~title, ~children) => {
+    open React
+    let (isOpen, setIsOpen) = useState(() => true)
+
+    <>
+      <Comps.Header
+        onClick={_ => setIsOpen(isOpen => !isOpen)}
+        style={ReactDOMStyle.make(~cursor="pointer", ~color=Comps.colors["gray-6"], ())}>
+        {isOpen
+          ? <Icons.CaretUp className="inline mr-2" color={Comps.colors["gray-6"]} />
+          : <Icons.CaretRight className="inline mr-2" color={Comps.colors["gray-6"]} />}
+        title
+      </Comps.Header>
+      <div className={isOpen ? "" : "hidden"}> {children} </div>
+    </>
+  }
+}
+
 let transpileFullChainScript = (chain: Chain.t): string => {
   let baseTranspiled = BsReactMonaco.TypeScript.tsTranspile(chain.script, {"target": "ES2020"})
 
@@ -745,6 +765,10 @@ module GitHub = {
     {
       state.repoList->Belt.Option.mapWithDefault(React.null, repoList => {
         <>
+          <div
+            className=" text-center" style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
+            {"- OR -"->React.string}
+          </div>
           <Comps.Select
             style={ReactDOMStyle.make(~width="100%", ~margin="10px", ())}
             value={state.selectedRepo->Belt.Option.mapWithDefault("", repo => repo.node.id)}
@@ -865,10 +889,11 @@ module GitHub = {
                   })
                 })
               })}>
-            {switch (state.selectedRepo, state.repoProjectGuess) {
-            | (None, _) => "Select a GitHub repository"->string
-            | (_, None) => "Determining project type..."->string
-            | (Some(_), Some(projectGuess)) =>
+            {switch (savedChainId, state.selectedRepo, state.repoProjectGuess) {
+            | (None, _, _) => "Save chain to push to GitHub"->string
+            | (_, None, _) => "Select a GitHub repository"->string
+            | (_, _, None) => "Determining project type..."->string
+            | (Some(_), Some(_), Some(projectGuess)) =>
               let target = switch projectGuess {
               | Unknown => "repo"
               | Netlify(#nextjs)
@@ -1495,16 +1520,8 @@ module Request = {
             className=" font-semibold text-sm font-mono inline-block flex-grow">
             {(j`\\$` ++ varDep.name)->string}
           </div>
-          <select
-            style={ReactDOMStyle.make(
-              ~backgroundColor=Comps.colors["gray-7"],
-              ~padding="6px",
-              ~paddingRight="40px",
-              ~color=Comps.colors["gray-4"],
-              ~width="unset",
-              ~borderRadius="6px",
-              (),
-            )}
+          <Comps.Select
+            style={ReactDOMStyle.make(~paddingRight="40px", ())}
             value={switch varDep.dependency {
             | ArgumentDependency(_) => "argument"
             | Direct({value: Variable(_)}) => "variable"
@@ -1560,7 +1577,7 @@ module Request = {
             <option value={"variable"}> {"Variable Input"->string} </option>
             <option value={"argument"}> {"Computed Value"->string} </option>
             <option disabled=true value={"probe"}> {"GraphQL Probe"->string} </option>
-          </select>
+          </Comps.Select>
         </div>
         <div
           className={"text-grey-darkest p-2 bg-gray-600 text-gray-200 overflow-scroll rounded-b-sm " ++ (
@@ -1599,11 +1616,7 @@ module Request = {
               {upstreamRequest.id->string}
             </span>
             <Comps.Button
-              style={ReactDOMStyle.make(
-                ~backgroundColor=Comps.colors["gray-7"],
-                ~color=Comps.colors["gray-4"],
-                (),
-              )}
+              className="og-secodary-button"
               onClick={event => {
                 event->ReactEvent.Mouse.stopPropagation
                 event->ReactEvent.Mouse.preventDefault
@@ -1724,21 +1737,16 @@ module Request = {
       {switch openedTab {
       | #inspector => <>
           {variables->Belt.Array.length > 0
-            ? <>
-                <Comps.Header>
-                  <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-                  {"Variable Settings"->React.string}
-                </Comps.Header>
+            ? <CollapsableSection title={"Variable Settings"->React.string}>
                 {variables->array}
-              </>
+              </CollapsableSection>
             : React.null}
           {variables->Belt.Array.length > 0
-            ? <div>
-                <Comps.Header onClick={_ => onRequestCodeInspected(~request)}>
-                  <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+            ? <CollapsableSection
+                title={<>
                   {"Computed Variable Preview"->string}
                   <Icons.Export className="inline-block ml-2" />
-                </Comps.Header>
+                </>}>
                 <Comps.Pre>
                   {mockedEvalResults
                   ->Belt.Option.map(r =>
@@ -1752,54 +1760,40 @@ module Request = {
                   ->Belt.Option.getWithDefault("Nothing")
                   ->string}
                 </Comps.Pre>
-              </div>
+              </CollapsableSection>
             : React.null}
           {request.dependencyRequestIds->Belt.Array.length > 0
-            ? <>
-                <Comps.Header>
-                  <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-                  {"Upstream Requests"->React.string}
-                </Comps.Header>
+            ? <CollapsableSection title={"Upstream Requests"->React.string}>
                 {upstreamRequests->array}
-              </>
+              </CollapsableSection>
             : React.null}
-          <Comps.Header>
-            <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-            {"GraphQL Structure"->React.string}
-          </Comps.Header>
-          <div
-            className="my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"
-            style={ReactDOMStyle.make(
-              ~backgroundColor=Comps.colors["gray-8"],
-              ~maxHeight="150px",
-              (),
-            )}>
-            <GraphQLPreview
-              requestId=request.id
-              schema
-              definition
-              fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
-                "operationDoc": chainFragmentsDoc,
-              })}
-              onCopy={({path}) => {
-                let dataPath = path->Js.Array2.joinWith("?.")
-                let fullPath = "payload." ++ dataPath
+          <CollapsableSection title={"GraphQL Structure"->React.string}>
+            <div
+              className="my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"
+              style={ReactDOMStyle.make(
+                ~backgroundColor=Comps.colors["gray-8"],
+                ~maxHeight="150px",
+                (),
+              )}>
+              <GraphQLPreview
+                requestId=request.id
+                schema
+                definition
+                fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                  "operationDoc": chainFragmentsDoc,
+                })}
+                onCopy={({path}) => {
+                  let dataPath = path->Js.Array2.joinWith("?.")
+                  let fullPath = "payload." ++ dataPath
 
-                fullPath->Clipboard.copy
-              }}
-            />
-          </div>
+                  fullPath->Clipboard.copy
+                }}
+              />
+            </div>
+          </CollapsableSection>
         </>
       | #form =>
-        <div>
-          <Comps.Header
-            onClick={_ => {
-              onExecuteRequest(~request, ~variables=formVariables)
-            }}>
-            <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-            {"Execute block"->string}
-            <Icons.Play className="inline-block ml-2" />
-          </Comps.Header>
+        <CollapsableSection title={"Execute block"->string}>
           {form}
           {authButtons->array}
           <Comps.Pre>
@@ -1807,7 +1801,7 @@ module Request = {
             ->Belt.Option.mapWithDefault("Nothing", json => json->Js.Json.stringifyWithSpace(2))
             ->string}
           </Comps.Pre>
-        </div>
+        </CollapsableSection>
       }}
     </div>
   }
@@ -1951,7 +1945,7 @@ module Nothing = {
     let formTab =
       <>
         <Comps.Header>
-          <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
+          <Icons.CaretRight className="inline mr-2" color={Comps.colors["gray-6"]} />
           {"Chain Form"->React.string}
         </Comps.Header>
         {form}
@@ -1988,7 +1982,7 @@ module Nothing = {
         <Comps.Header> {"Step 2:"->React.string} </Comps.Header>
         <Comps.Select
           value=""
-          className="w-full select-button"
+          className="w-full select-button comp-select"
           disabled={savedChainId->Belt.Option.isNone}
           style={ReactDOMStyle.make(
             ~backgroundColor=?{
@@ -2035,9 +2029,6 @@ ${remoteChainCalls.netlify.code}
           <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
           <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
         </Comps.Select>
-        <div className=" text-center" style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
-          {"- OR -"->React.string}
-        </div>
         {<GitHub chain savedChainId oneGraphAuth />}
         // <div>
         //   <Comps.Select style={ReactDOMStyle.make(~width="100%", ~margin="10px", ())}>
@@ -2063,18 +2054,16 @@ ${remoteChainCalls.netlify.code}
           // </pre>
           isChainViable
             ? React.null
-            : <div className="m-2" style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
+            : <div
+                className="m-2 w-full text-center flex-1 flex-grow justify-center align-middle"
+                style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
                 {"Add some blocks to get started"->React.string}
               </div>
         }
         {requests->Belt.Array.length > 0
-          ? <>
-              <Comps.Header>
-                <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-                {"Chain Requests"->React.string}
-              </Comps.Header>
+          ? <CollapsableSection title={"Chain Requests"->React.string}>
               {requests->array}
-            </>
+            </CollapsableSection>
           : React.null}
         // <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
         // <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
@@ -2191,7 +2180,10 @@ let make = (
       </Comps.Header>
       {switch inspected {
       | Nothing(_) => null
-      | _ => <span className="text-white" onClick={_ => onReset()}> {"X"->React.string} </span>
+      | _ =>
+        <span className="text-white cursor-pointer" onClick={_ => onReset()}>
+          {"X"->React.string}
+        </span>
       }}
     </nav>
     <div

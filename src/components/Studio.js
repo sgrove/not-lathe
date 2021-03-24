@@ -24,7 +24,7 @@ function Studio(Props) {
   var schema = Props.schema;
   var config = Props.config;
   var match = React.useState(function () {
-        return Chain.emptyChain;
+        return devJsonChain;
       });
   var setInitialChain = match[1];
   var initialChain = match[0];

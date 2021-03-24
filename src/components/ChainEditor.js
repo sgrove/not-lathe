@@ -204,12 +204,13 @@ function ChainEditor$BlockSearch(Props) {
                                       return Belt_Option.forEach(kind, Curry.__1(onCreate));
                                     }),
                                   style: {
-                                    maxWidth: "1ch"
+                                    backgroundImage: "none",
+                                    width: "3ch"
                                   },
                                   value: "never"
                                 }, React.createElement("option", {
                                       value: "+"
-                                    }, ""), React.createElement("option", {
+                                    }, "+"), React.createElement("option", {
                                       value: "query"
                                     }, "+ New Query Block"), React.createElement("option", {
                                       value: "mutation"
@@ -952,7 +953,6 @@ function ChainEditor$Script(Props) {
   }
   return React.createElement("div", {
               style: {
-                background: "black",
                 height: "calc(100vh - 40px - 384px - 56px)",
                 overflowY: "hidden"
               }
@@ -971,7 +971,10 @@ function ChainEditor$Modal(Props) {
                 zIndex: "9999"
               }
             }, React.createElement("div", {
-                  className: "bg-white rounded-lg w-4/5 h-4/5"
+                  className: "rounded-lg w-4/5 h-4/5",
+                  style: {
+                    backgroundColor: Comps.colors["gray-8"]
+                  }
                 }, React.createElement("div", {
                       className: "flex flex-col p-1 h-full"
                     }, React.createElement("div", {

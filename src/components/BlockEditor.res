@@ -58,16 +58,16 @@ let make = (~schema: GraphQLJs.schema, ~block as initialBlock: Card.block, ~onCl
   <div className="flex w-full flex-col">
     <div className="flex flex-grow flex-row h-full"> {explorer} {editor} </div>
     <div className="w-full ml-auto flex">
-      <button
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex-grow"
-        onClick={_ => onSave(~initial=block, ~modified=block)}>
+      <Comps.Button
+      // className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex-grow"
+        className="flex-grow" onClick={_ => onSave(~initial=block, ~modified=block)}>
         {j`Save`->string}
-      </button>
-      <button
-        className="bg-transparent hover:bg-gray-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded flex-grow"
-        onClick={_ => onClose()}>
+      </Comps.Button>
+      <Comps.Button
+      // className="bg-transparent hover:bg-gray-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded flex-grow"
+        className="flex-grow" onClick={_ => onClose()}>
         {j`Cancel`->string}
-      </button>
+      </Comps.Button>
     </div>
   </div>
 }
