@@ -473,14 +473,25 @@ function Inspector$Block(Props) {
           }
           
         }), [match[0] === block.body]);
-  return React.createElement(React.Fragment, undefined, React.createElement(Comps.Pre.make, {
-                  children: block.body
+  return React.createElement("div", {
+              className: "flex flex-col"
+            }, React.createElement(Comps.Pre.make, {
+                  children: block.body,
+                  className: "flex-1",
+                  style: {
+                    maxHeight: "unset",
+                    whiteSpace: "pre"
+                  }
                 }), React.createElement(Comps.Button.make, {
                   onClick: (function (param) {
                       return Curry._1(onAddBlock, block);
                     }),
-                  children: "Add block to chain"
-                }));
+                  className: "w-full",
+                  children: null
+                }, React.createElement(Icons.Mediation.make, {
+                      className: "inline-block",
+                      color: Comps.colors["gray-6"]
+                    }), "Add block to chain"));
 }
 
 var Block = {
@@ -491,9 +502,11 @@ function Inspector$GitHub(Props) {
   var chain = Props.chain;
   var savedChainId = Props.savedChainId;
   var oneGraphAuth = Props.oneGraphAuth;
-  var loadedChain = Chain.loadFromLocalStorage(savedChainId);
+  var loadedChain = Belt_Option.flatMap(savedChainId, Chain.loadFromLocalStorage);
   var appId = oneGraphAuth.appId;
-  var remoteChainCalls$1 = remoteChainCalls(appId, savedChainId, Belt_Option.getExn(loadedChain));
+  var remoteChainCalls$1 = Belt_Option.map(savedChainId, (function (chainId) {
+          return remoteChainCalls(appId, chainId, Belt_Option.getExn(loadedChain));
+        }));
   var match = React.useState(function () {
         return {
                 repoList: undefined,
@@ -543,7 +556,10 @@ function Inspector$GitHub(Props) {
                       ) : (
                         match$1._0 === "any" ? "Netlify functions" : "next.js project"
                       );
-                    tmp = "Push chain to " + target + " on GitHub";
+                    tmp = React.createElement(React.Fragment, undefined, React.createElement(Icons.Login.make, {
+                              className: "inline-block",
+                              color: Comps.colors["gray-6"]
+                            }), "  Push chain to " + target + " on GitHub");
                   } else {
                     tmp = "Determining project type...";
                   }
@@ -586,6 +602,10 @@ function Inspector$GitHub(Props) {
                                                   
                                                 }));
                                   }),
+                                style: {
+                                  margin: "10px",
+                                  width: "100%"
+                                },
                                 value: Belt_Option.mapWithDefault(state.selectedRepo, "", (function (repo) {
                                         return repo.node.id;
                                       }))
@@ -597,89 +617,92 @@ function Inspector$GitHub(Props) {
                                                 }, repoEdge.node.nameWithOwner);
                                     }))), React.createElement(Comps.Button.make, {
                                 onClick: (function (param) {
-                                    return Belt_Option.forEach(state.repoProjectGuess, (function (repoProjectGuess) {
-                                                  return Belt_Option.forEach(state.selectedRepo, (function (repo) {
-                                                                var match = repo.node.nameWithOwner.split("/");
-                                                                if (match.length !== 2) {
-                                                                  return ;
-                                                                }
-                                                                var owner = match[0];
-                                                                var name = match[1];
-                                                                var content;
-                                                                var exit = 0;
-                                                                if (typeof repoProjectGuess === "number") {
-                                                                  if (repoProjectGuess !== 0) {
-                                                                    exit = 1;
-                                                                  } else {
-                                                                    content = Prettier.format(remoteChainCalls$1.fetch, {
-                                                                          parser: "babel",
-                                                                          plugins: [ParserBabel],
-                                                                          singleQuote: true
-                                                                        });
-                                                                  }
-                                                                } else if (repoProjectGuess._0 === "any") {
-                                                                  var code = remoteChainCalls$1.netlify.code;
-                                                                  var fmt = function (s) {
-                                                                    return Prettier.format(s, {
-                                                                                parser: "babel",
-                                                                                plugins: [ParserBabel],
-                                                                                singleQuote: true
-                                                                              });
-                                                                  };
-                                                                  Debug.assignToWindowForDeveloperDebug("nextjscode", code);
-                                                                  Debug.assignToWindowForDeveloperDebug("pfmt", fmt);
-                                                                  content = Prettier.format(code, {
-                                                                        parser: "babel",
-                                                                        plugins: [ParserBabel],
-                                                                        singleQuote: true
-                                                                      });
-                                                                } else {
-                                                                  exit = 1;
-                                                                }
-                                                                if (exit === 1) {
-                                                                  var code$1 = remoteChainCalls$1.nextjs.code;
-                                                                  var fmt$1 = function (s) {
-                                                                    return Prettier.format(s, {
-                                                                                parser: "babel",
-                                                                                plugins: [ParserBabel],
-                                                                                singleQuote: true
-                                                                              });
-                                                                  };
-                                                                  Debug.assignToWindowForDeveloperDebug("nextjscode", code$1);
-                                                                  Debug.assignToWindowForDeveloperDebug("pfmt", fmt$1);
-                                                                  content = Prettier.format(code$1, {
-                                                                        parser: "babel",
-                                                                        plugins: [ParserBabel],
-                                                                        singleQuote: true
-                                                                      });
-                                                                }
-                                                                var path = typeof repoProjectGuess === "number" ? (
-                                                                    repoProjectGuess !== 0 ? remoteChainCalls$1.nextjs.path : "src/" + chain.name + ".js"
-                                                                  ) : (
-                                                                    repoProjectGuess._0 === "any" ? remoteChainCalls$1.netlify.path : remoteChainCalls$1.nextjs.path
-                                                                  );
-                                                                var file = {
-                                                                  path: path,
-                                                                  content: content,
-                                                                  mode: "100644"
-                                                                };
-                                                                var __x = Curry._1(OneGraphRe.GitHub.pushToRepo, {
-                                                                      owner: owner,
-                                                                      name: name,
-                                                                      branch: "onegraph-studio",
-                                                                      treeFiles: [file],
-                                                                      message: "Automated push for " + chain.name,
-                                                                      acceptOverrides: true
-                                                                    });
-                                                                __x.then(function (result) {
-                                                                      return Promise.resolve((console.log("Got push result: ", result), undefined));
-                                                                    });
-                                                                
+                                    return Belt_Option.forEach(remoteChainCalls$1, (function (remoteChainCalls) {
+                                                  return Belt_Option.forEach(state.repoProjectGuess, (function (repoProjectGuess) {
+                                                                return Belt_Option.forEach(state.selectedRepo, (function (repo) {
+                                                                              var match = repo.node.nameWithOwner.split("/");
+                                                                              if (match.length !== 2) {
+                                                                                return ;
+                                                                              }
+                                                                              var owner = match[0];
+                                                                              var name = match[1];
+                                                                              var content;
+                                                                              var exit = 0;
+                                                                              if (typeof repoProjectGuess === "number") {
+                                                                                if (repoProjectGuess !== 0) {
+                                                                                  exit = 1;
+                                                                                } else {
+                                                                                  content = Prettier.format(remoteChainCalls.fetch, {
+                                                                                        parser: "babel",
+                                                                                        plugins: [ParserBabel],
+                                                                                        singleQuote: true
+                                                                                      });
+                                                                                }
+                                                                              } else if (repoProjectGuess._0 === "any") {
+                                                                                var code = remoteChainCalls.netlify.code;
+                                                                                var fmt = function (s) {
+                                                                                  return Prettier.format(s, {
+                                                                                              parser: "babel",
+                                                                                              plugins: [ParserBabel],
+                                                                                              singleQuote: true
+                                                                                            });
+                                                                                };
+                                                                                Debug.assignToWindowForDeveloperDebug("nextjscode", code);
+                                                                                Debug.assignToWindowForDeveloperDebug("pfmt", fmt);
+                                                                                content = Prettier.format(code, {
+                                                                                      parser: "babel",
+                                                                                      plugins: [ParserBabel],
+                                                                                      singleQuote: true
+                                                                                    });
+                                                                              } else {
+                                                                                exit = 1;
+                                                                              }
+                                                                              if (exit === 1) {
+                                                                                var code$1 = remoteChainCalls.nextjs.code;
+                                                                                var fmt$1 = function (s) {
+                                                                                  return Prettier.format(s, {
+                                                                                              parser: "babel",
+                                                                                              plugins: [ParserBabel],
+                                                                                              singleQuote: true
+                                                                                            });
+                                                                                };
+                                                                                Debug.assignToWindowForDeveloperDebug("nextjscode", code$1);
+                                                                                Debug.assignToWindowForDeveloperDebug("pfmt", fmt$1);
+                                                                                content = Prettier.format(code$1, {
+                                                                                      parser: "babel",
+                                                                                      plugins: [ParserBabel],
+                                                                                      singleQuote: true
+                                                                                    });
+                                                                              }
+                                                                              var path = typeof repoProjectGuess === "number" ? (
+                                                                                  repoProjectGuess !== 0 ? remoteChainCalls.nextjs.path : "src/" + chain.name + ".js"
+                                                                                ) : (
+                                                                                  repoProjectGuess._0 === "any" ? remoteChainCalls.netlify.path : remoteChainCalls.nextjs.path
+                                                                                );
+                                                                              var file = {
+                                                                                path: path,
+                                                                                content: content,
+                                                                                mode: "100644"
+                                                                              };
+                                                                              var __x = Curry._1(OneGraphRe.GitHub.pushToRepo, {
+                                                                                    owner: owner,
+                                                                                    name: name,
+                                                                                    branch: "onegraph-studio",
+                                                                                    treeFiles: [file],
+                                                                                    message: "Automated push for " + chain.name,
+                                                                                    acceptOverrides: true
+                                                                                  });
+                                                                              __x.then(function (result) {
+                                                                                    return Promise.resolve((console.log("Got push result: ", result), undefined));
+                                                                                  });
+                                                                              
+                                                                            }));
                                                               }));
                                                 }));
                                   }),
+                                className: "w-full",
                                 children: tmp,
-                                disabled: Belt_Option.isNone(state.repoProjectGuess)
+                                disabled: Belt_Option.isNone(state.repoProjectGuess) || Belt_Option.isNone(savedChainId)
                               }));
               }));
 }
@@ -1429,6 +1452,7 @@ function Inspector$Request(Props) {
               return Curry._2(onExecuteRequest, request, formVariables);
             })
         }, inputs, React.createElement(Comps.Button.make, {
+              className: "w-full",
               type_: "submit",
               children: "Execute"
             })) : null;
@@ -1459,9 +1483,8 @@ function Inspector$Request(Props) {
                   }
                 }, React.createElement("button", {
                       className: "flex justify-center flex-grow cursor-pointer p-1 " + (
-                        openedTab === "inspector" ? " text-blue-400" : ""
+                        openedTab === "inspector" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
-                      style: openedTab === "inspector" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "inspector";
@@ -1476,9 +1499,8 @@ function Inspector$Request(Props) {
                           className: "mx-2"
                         }, "Request")), React.createElement("button", {
                       className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
-                        openedTab === "form" ? " text-blue-400" : ""
+                        openedTab === "form" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
-                      style: openedTab === "form" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "form";
@@ -1677,10 +1699,7 @@ function Inspector$Nothing(Props) {
                                   }
                                   
                                 }),
-                              style: {
-                                backgroundColor: Comps.colors["gray-7"],
-                                color: Comps.colors["gray-4"]
-                              },
+                              className: "og-secodary-button",
                               children: null
                             }, React.createElement(Icons.Trash.make, {
                                   className: "inline mr-2",
@@ -1696,77 +1715,103 @@ function Inspector$Nothing(Props) {
             onClick: (function (param) {
                 return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
               }),
-            children: "Run chain"
-          }), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
+            className: "w-full",
+            children: null
+          }, React.createElement(Icons.AddLink.make, {
+                className: "inline-block",
+                color: Comps.colors["gray-6"]
+              }), "  Run chain"), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
                   return React.createElement(Inspector$ChainResultsViewer, {
                               chain: chain,
                               chainExecutionResults: Caml_option.some(chainExecutionResults)
                             });
                 })), null));
+  var tmp = {
+    margin: "10px",
+    textAlign: "center",
+    width: "100%"
+  };
+  var tmp$1 = Belt_Option.isNone(savedChainId) ? undefined : Comps.colors["blue-1"];
+  if (tmp$1 !== undefined) {
+    tmp.backgroundColor = Caml_option.valFromOption(tmp$1);
+  }
+  var tmp$2 = Belt_Option.isNone(savedChainId) ? undefined : Comps.colors["gray-6"];
+  if (tmp$2 !== undefined) {
+    tmp.color = Caml_option.valFromOption(tmp$2);
+  }
   var saveTab = React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
-            children: null
-          }, React.createElement(Icons.Caret.make, {
-                className: "inline mr-2",
-                color: Comps.colors["gray-6"]
-              }), "Export"), React.createElement(Comps.Button.make, {
+            children: "Step 1:"
+          }), React.createElement(Comps.Button.make, {
             onClick: (function (param) {
                 return Curry._1(onPersistChain, undefined);
               }),
-            children: "Save Chain"
-          }), Belt_Option.getWithDefault(Belt_Option.map(savedChainId, (function (chainId) {
-                  return React.createElement(Comps.Select.make, {
-                              children: null,
-                              onChange: (function ($$event) {
-                                  var chain = Chain.loadFromLocalStorage(chainId);
-                                  var appId = oneGraphAuth.appId;
-                                  var remoteChainCalls$1 = remoteChainCalls(appId, chainId, Belt_Option.getExn(chain));
-                                  var match = $$event.target.value;
-                                  var value;
-                                  switch (match) {
-                                    case "curl" :
-                                        value = remoteChainCalls$1.curl;
-                                        break;
-                                    case "fetch" :
-                                        value = remoteChainCalls$1.fetch;
-                                        break;
-                                    case "form" :
-                                        value = "http://localhost:3003/form?form_id=" + chainId;
-                                        break;
-                                    case "netlify" :
-                                        value = "/** HTML form for this function\n" + remoteChainCalls$1.netlify.form + "\n**/\n\n" + remoteChainCalls$1.netlify.code + "\n";
-                                        break;
-                                    case "scriptkit" :
-                                        value = remoteChainCalls$1.scriptKit;
-                                        break;
-                                    default:
-                                      value = undefined;
-                                  }
-                                  return Belt_Option.forEach(value, (function (prim) {
-                                                CopyToClipboard(prim);
-                                                
-                                              }));
-                                }),
-                              value: ""
-                            }, React.createElement("option", {
-                                  value: ""
-                                }, "> Copy usage"), React.createElement("option", {
-                                  value: "form"
-                                }, "Copy link to form"), React.createElement("option", {
-                                  value: "fetch"
-                                }, "Copy fetch call"), React.createElement("option", {
-                                  value: "curl"
-                                }, "Copy cURL call"), React.createElement("option", {
-                                  value: "netlify"
-                                }, "Copy Netlify function usage"), React.createElement("option", {
-                                  value: "scriptkit"
-                                }, "Copy ScriptKit usage"));
-                })), null), Belt_Option.mapWithDefault(savedChainId, null, (function (savedChainId) {
-              return React.createElement(Inspector$GitHub, {
-                          chain: chain,
-                          savedChainId: savedChainId,
-                          oneGraphAuth: oneGraphAuth
-                        });
-            })));
+            className: "w-full",
+            children: null
+          }, React.createElement(Icons.AddLink.make, {
+                className: "inline-block",
+                color: Comps.colors["gray-6"]
+              }), Belt_Option.isNone(savedChainId) ? "  Save Chain" : "  Saved!"), React.createElement(Comps.Header.make, {
+            children: "Step 2:"
+          }), React.createElement(Comps.Select.make, {
+            children: null,
+            disabled: Belt_Option.isNone(savedChainId),
+            className: "w-full select-button",
+            onChange: (function ($$event) {
+                return Belt_Option.forEach(savedChainId, (function (chainId) {
+                              var chain = Chain.loadFromLocalStorage(chainId);
+                              var appId = oneGraphAuth.appId;
+                              var remoteChainCalls$1 = remoteChainCalls(appId, chainId, Belt_Option.getExn(chain));
+                              var match = $$event.target.value;
+                              var value;
+                              switch (match) {
+                                case "curl" :
+                                    value = remoteChainCalls$1.curl;
+                                    break;
+                                case "fetch" :
+                                    value = remoteChainCalls$1.fetch;
+                                    break;
+                                case "form" :
+                                    value = "http://localhost:3003/form?form_id=" + chainId;
+                                    break;
+                                case "netlify" :
+                                    value = "/** HTML form for this function\n" + remoteChainCalls$1.netlify.form + "\n**/\n\n" + remoteChainCalls$1.netlify.code + "\n";
+                                    break;
+                                case "scriptkit" :
+                                    value = remoteChainCalls$1.scriptKit;
+                                    break;
+                                default:
+                                  value = undefined;
+                              }
+                              return Belt_Option.forEach(value, (function (prim) {
+                                            CopyToClipboard(prim);
+                                            
+                                          }));
+                            }));
+              }),
+            style: tmp,
+            value: ""
+          }, React.createElement("option", {
+                value: ""
+              }, "📋 Copy usage"), React.createElement("option", {
+                value: "form"
+              }, "Copy link to form"), React.createElement("option", {
+                value: "fetch"
+              }, "Copy fetch call"), React.createElement("option", {
+                value: "curl"
+              }, "Copy cURL call"), React.createElement("option", {
+                value: "netlify"
+              }, "Copy Netlify function usage"), React.createElement("option", {
+                value: "scriptkit"
+              }, "Copy ScriptKit usage")), React.createElement("div", {
+            className: " text-center",
+            style: {
+              color: Comps.colors["gray-4"]
+            }
+          }, "- OR -"), React.createElement(Inspector$GitHub, {
+            chain: chain,
+            savedChainId: savedChainId,
+            oneGraphAuth: oneGraphAuth
+          }));
   var inspectorTab = React.createElement(React.Fragment, undefined, isChainViable ? null : React.createElement("div", {
               className: "m-2",
               style: {
@@ -1784,10 +1829,9 @@ function Inspector$Nothing(Props) {
                     borderColor: Comps.colors["gray-1"]
                   }
                 }, React.createElement("button", {
-                      className: "flex justify-center flex-grow cursor-pointer p-1 " + (
-                        openedTab === "inspector" ? " text-blue-400" : ""
+                      className: "flex justify-center flex-grow cursor-pointer p-1 outline-none " + (
+                        openedTab === "inspector" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
-                      style: openedTab === "inspector" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "inspector";
@@ -1801,10 +1845,9 @@ function Inspector$Nothing(Props) {
                         }), React.createElement("span", {
                           className: "mx-2"
                         }, "Chain")), React.createElement("button", {
-                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
-                        openedTab === "form" ? " text-blue-400" : ""
+                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " + (
+                        openedTab === "form" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
-                      style: openedTab === "form" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "form";
@@ -1817,10 +1860,9 @@ function Inspector$Nothing(Props) {
                         }), React.createElement("span", {
                           className: "mx-2"
                         }, "Form")), React.createElement("button", {
-                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm " + (
-                        openedTab === "save" ? " text-blue-400" : ""
+                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " + (
+                        openedTab === "save" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
-                      style: openedTab === "save" ? Comps.activeTabStyle : Comps.inactiveTabStyle,
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
                                         return "save";
@@ -1865,13 +1907,13 @@ function Inspector(Props) {
   var tmp;
   switch (inspected.TAG | 0) {
     case /* Nothing */0 :
-        tmp = "Inspector";
+        tmp = "Chain Inspector";
         break;
     case /* Block */1 :
-        tmp = "Block." + inspected._0.title;
+        tmp = "Block: " + inspected._0.title;
         break;
     case /* Request */2 :
-        tmp = inspected.request.id;
+        tmp = "Request: " + inspected.request.id;
         break;
     case /* RequestArgument */3 :
         tmp = "Request Argument";
@@ -1935,16 +1977,20 @@ function Inspector(Props) {
         });
   }
   return React.createElement("div", {
-              className: "h-screen text-white border-l border-gray-800",
+              className: " text-white border-l border-gray-800",
               style: {
-                backgroundColor: "rgb(27,29,31)"
+                backgroundColor: "rgb(27,29,31)",
+                height: "calc(100vh - 56px)"
               }
             }, React.createElement("nav", {
                   className: "flex flex-row py-1 px-2 mb-2 justify-between"
                 }, React.createElement(Comps.Header.make, {
                       children: tmp
                     }), tmp$1), React.createElement("div", {
-                  className: "max-h-screen overflow-y-scroll"
+                  className: "overflow-y-scroll",
+                  style: {
+                    height: "calc(100vh - 48px - 56px)"
+                  }
                 }, tmp$2));
 }
 

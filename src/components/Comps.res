@@ -39,11 +39,7 @@ module Header = {
 }
 
 module Button = {
-  let defaultStyle = ReactDOMStyle.make(
-    ~backgroundColor=colors["blue-1"],
-    ~color=colors["gray-6"],
-    (),
-  )
+  let defaultStyle = ReactDOMStyle.make()
 
   @react.component
   let make = (
@@ -59,18 +55,20 @@ module Button = {
       ?onClick
       ?disabled
       style={ReactDOMStyle.combine(defaultStyle, style)}
-      className={className ++ " focus:outline-none text-white text-sm py-2.5 px-5 rounded-md m-2"}>
+      className={className ++ " og-primary-button active:outline-none focus:outline-none text-white text-sm py-2.5 px-5 rounded-md m-2"}>
       {children}
     </button>
   }
 }
 
 module Pre = {
+  let defaultStyle = ReactDOMStyle.make(~backgroundColor=colors["gray-8"], ~maxHeight="150px", ())
+
   @react.component
-  let make = (~children) => {
+  let make = (~children, ~className="", ~style=defaultStyle) => {
     <pre
-      className="my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"
-      style={ReactDOMStyle.make(~backgroundColor=colors["gray-8"], ~maxHeight="150px", ())}>
+      className={className ++ " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"}
+      style={style}>
       {children}
     </pre>
   }
@@ -87,8 +85,16 @@ module Select = {
     (),
   )
   @react.component
-  let make = (~children, ~onChange=?, ~style=ReactDOMStyle.make(), ~value=?) => {
-    <select ?value ?onChange style={ReactDOMStyle.combine(defaultStyle, style)}>
+  let make = (
+    ~children,
+    ~disabled=?,
+    ~className=?,
+    ~onChange=?,
+    ~style=ReactDOMStyle.make(),
+    ~value=?,
+  ) => {
+    <select
+      ?value ?disabled ?onChange ?className style={ReactDOMStyle.combine(defaultStyle, style)}>
       {children}
     </select>
   }

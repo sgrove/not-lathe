@@ -655,12 +655,16 @@ module Block = {
       None
     }, [originalContent == block.body])
 
-    <>
-      <Comps.Pre> {block.body->React.string} </Comps.Pre>
-      <Comps.Button onClick={_ => onAddBlock(block)}>
+    <div className="flex flex-col">
+      <Comps.Pre
+        style={ReactDOMStyle.make(~maxHeight="unset", ~whiteSpace="pre", ())} className="flex-1">
+        {block.body->React.string}
+      </Comps.Pre>
+      <Comps.Button onClick={_ => onAddBlock(block)} className="w-full">
+        <Icons.Mediation color={Comps.colors["gray-6"]} className="inline-block" />
         {"Add block to chain"->React.string}
       </Comps.Button>
-    </>
+    </div>
   }
 }
 
@@ -682,15 +686,14 @@ module GitHub = {
 
   @react.component
   let make = (~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
-    let loadedChain = savedChainId->Chain.loadFromLocalStorage
+    let loadedChain = savedChainId->Belt.Option.flatMap(Chain.loadFromLocalStorage)
 
     let appId = oneGraphAuth->OneGraphAuth.appId
 
-    let remoteChainCalls = remoteChainCalls(
-      ~appId,
-      ~chainId=savedChainId,
-      loadedChain->Belt.Option.getExn,
-    )
+    let remoteChainCalls =
+      savedChainId->Belt.Option.map(chainId =>
+        remoteChainCalls(~appId, ~chainId, loadedChain->Belt.Option.getExn)
+      )
 
     open React
 
@@ -743,6 +746,7 @@ module GitHub = {
       state.repoList->Belt.Option.mapWithDefault(React.null, repoList => {
         <>
           <Comps.Select
+            style={ReactDOMStyle.make(~width="100%", ~margin="10px", ())}
             value={state.selectedRepo->Belt.Option.mapWithDefault("", repo => repo.node.id)}
             onChange={event => {
               let id = ReactEvent.Form.target(event)["value"]
@@ -775,91 +779,95 @@ module GitHub = {
             ->array}
           </Comps.Select>
           <Comps.Button
-            disabled={state.repoProjectGuess->Belt.Option.isNone}
+            disabled={state.repoProjectGuess->Belt.Option.isNone ||
+              savedChainId->Belt.Option.isNone}
+            className="w-full"
             onClick={_ =>
-              state.repoProjectGuess->Belt.Option.forEach(repoProjectGuess => {
-                state.selectedRepo->Belt.Option.forEach(repo => {
-                  switch repo.node.nameWithOwner->Js.String2.split("/") {
-                  | [owner, name] =>
-                    let content = switch repoProjectGuess {
-                    | Unknown =>
-                      remoteChainCalls.fetch->Prettier.format({
-                        "parser": "babel",
-                        "plugins": [Prettier.babel],
-                        "singleQuote": true,
-                      })
-                    | Netlify(#any) =>
-                      let code = remoteChainCalls.netlify.code
-
-                      let fmt = s =>
-                        s->Prettier.format({
+              remoteChainCalls->Belt.Option.forEach(remoteChainCalls => {
+                state.repoProjectGuess->Belt.Option.forEach(repoProjectGuess => {
+                  state.selectedRepo->Belt.Option.forEach(repo => {
+                    switch repo.node.nameWithOwner->Js.String2.split("/") {
+                    | [owner, name] =>
+                      let content = switch repoProjectGuess {
+                      | Unknown =>
+                        remoteChainCalls.fetch->Prettier.format({
                           "parser": "babel",
                           "plugins": [Prettier.babel],
                           "singleQuote": true,
                         })
+                      | Netlify(#any) =>
+                        let code = remoteChainCalls.netlify.code
 
-                      Debug.assignToWindowForDeveloperDebug(~name="nextjscode", code)
-                      Debug.assignToWindowForDeveloperDebug(~name="pfmt", fmt)
+                        let fmt = s =>
+                          s->Prettier.format({
+                            "parser": "babel",
+                            "plugins": [Prettier.babel],
+                            "singleQuote": true,
+                          })
 
-                      code->Prettier.format({
-                        "parser": "babel",
-                        "plugins": [Prettier.babel],
-                        "singleQuote": true,
-                      })
-                    | Netlify(#nextjs)
-                    | Nextjs =>
-                      let code = remoteChainCalls.nextjs.code
+                        Debug.assignToWindowForDeveloperDebug(~name="nextjscode", code)
+                        Debug.assignToWindowForDeveloperDebug(~name="pfmt", fmt)
 
-                      let fmt = s =>
-                        s->Prettier.format({
+                        code->Prettier.format({
                           "parser": "babel",
                           "plugins": [Prettier.babel],
                           "singleQuote": true,
                         })
+                      | Netlify(#nextjs)
+                      | Nextjs =>
+                        let code = remoteChainCalls.nextjs.code
 
-                      Debug.assignToWindowForDeveloperDebug(~name="nextjscode", code)
-                      Debug.assignToWindowForDeveloperDebug(~name="pfmt", fmt)
+                        let fmt = s =>
+                          s->Prettier.format({
+                            "parser": "babel",
+                            "plugins": [Prettier.babel],
+                            "singleQuote": true,
+                          })
 
-                      code->Prettier.format({
-                        "parser": "babel",
-                        "plugins": [Prettier.babel],
-                        "singleQuote": true,
+                        Debug.assignToWindowForDeveloperDebug(~name="nextjscode", code)
+                        Debug.assignToWindowForDeveloperDebug(~name="pfmt", fmt)
+
+                        code->Prettier.format({
+                          "parser": "babel",
+                          "plugins": [Prettier.babel],
+                          "singleQuote": true,
+                        })
+                      }
+
+                      let path = switch repoProjectGuess {
+                      | Unknown => j`src/${chain.name}.js`
+                      | Netlify(#any) => remoteChainCalls.netlify.path
+                      | Netlify(#nextjs)
+                      | Nextjs =>
+                        remoteChainCalls.nextjs.path
+                      }
+
+                      let file = {
+                        OneGraphRe.GitHub.path: path,
+                        content: content,
+                        mode: "100644",
+                      }
+
+                      OneGraphRe.GitHub.pushToRepo({
+                        "owner": owner,
+                        "name": name,
+                        "branch": "onegraph-studio",
+                        "treeFiles": [file],
+                        "message": "Automated push for " ++ chain.name,
+                        "acceptOverrides": true,
                       })
+                      ->Js.Promise.then_(result => {
+                        Js.log2("Got push result: ", result)->Js.Promise.resolve
+                      }, _)
+                      ->ignore
+                    | _ => ()
                     }
-
-                    let path = switch repoProjectGuess {
-                    | Unknown => j`src/${chain.name}.js`
-                    | Netlify(#any) => remoteChainCalls.netlify.path
-                    | Netlify(#nextjs)
-                    | Nextjs =>
-                      remoteChainCalls.nextjs.path
-                    }
-
-                    let file = {
-                      OneGraphRe.GitHub.path: path,
-                      content: content,
-                      mode: "100644",
-                    }
-
-                    OneGraphRe.GitHub.pushToRepo({
-                      "owner": owner,
-                      "name": name,
-                      "branch": "onegraph-studio",
-                      "treeFiles": [file],
-                      "message": "Automated push for " ++ chain.name,
-                      "acceptOverrides": true,
-                    })
-                    ->Js.Promise.then_(result => {
-                      Js.log2("Got push result: ", result)->Js.Promise.resolve
-                    }, _)
-                    ->ignore
-                  | _ => ()
-                  }
+                  })
                 })
               })}>
             {switch (state.selectedRepo, state.repoProjectGuess) {
-            | (None, _) => "Select a GitHub repository"
-            | (_, None) => "Determining project type..."
+            | (None, _) => "Select a GitHub repository"->string
+            | (_, None) => "Determining project type..."->string
             | (Some(_), Some(projectGuess)) =>
               let target = switch projectGuess {
               | Unknown => "repo"
@@ -867,8 +875,11 @@ module GitHub = {
               | Nextjs => "next.js project"
               | Netlify(#any) => "Netlify functions"
               }
-              j`Push chain to ${target} on GitHub`
-            }->React.string}
+              <>
+                <Icons.Login className="inline-block" color={Comps.colors["gray-6"]} />
+                {j`  Push chain to ${target} on GitHub`->string}
+              </>
+            }}
           </Comps.Button>
         </>
       })
@@ -1652,7 +1663,9 @@ module Request = {
               onExecuteRequest(~request, ~variables=formVariables)
             }}>
             {inputs->React.array}
-            <Comps.Button type_="submit"> {"Execute"->React.string} </Comps.Button>
+            <Comps.Button className="w-full" type_="submit">
+              {"Execute"->React.string}
+            </Comps.Button>
           </form>
         : React.null
 
@@ -1683,9 +1696,8 @@ module Request = {
             setOpenedTab(_ => #inspector)
           }}
           className={"flex justify-center flex-grow cursor-pointer p-1 " ++ {
-            openedTab == #inspector ? " text-blue-400" : ""
-          }}
-          style={openedTab == #inspector ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+            openedTab == #inspector ? " inspector-tab-active" : " inspector-tab-inactive"
+          }}>
           <Icons.Link
             className=""
             width="24px"
@@ -1699,9 +1711,8 @@ module Request = {
             setOpenedTab(_ => #form)
           }}
           className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
-            openedTab == #form ? " text-blue-400" : ""
-          }}
-          style={openedTab == #form ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+            openedTab == #form ? " inspector-tab-active" : " inspector-tab-inactive"
+          }}>
           <Icons.List
             width="24px"
             height="24px"
@@ -1919,11 +1930,7 @@ module Nothing = {
             {request.id->string}
           </span>
           <Comps.Button
-            style={ReactDOMStyle.make(
-              ~backgroundColor=Comps.colors["gray-7"],
-              ~color=Comps.colors["gray-4"],
-              (),
-            )}
+            className="og-secodary-button"
             onClick={event => {
               event->ReactEvent.Mouse.stopPropagation
               event->ReactEvent.Mouse.preventDefault
@@ -1954,8 +1961,10 @@ module Nothing = {
             let variables = Some(formVariables->Obj.magic)
 
             transformAndExecuteChain(~variables)
-          }}>
-          {"Run chain"->React.string}
+          }}
+          className="w-full">
+          <Icons.AddLink className="inline-block" color={Comps.colors["gray-6"]} />
+          {"  Run chain"->React.string}
         </Comps.Button>
         {chainExecutionResults
         ->Belt.Option.map(chainExecutionResults =>
@@ -1965,21 +1974,36 @@ module Nothing = {
       </>
     let saveTab =
       <>
-        <Comps.Header>
-          <Icons.Caret className="inline mr-2" color={Comps.colors["gray-6"]} />
-          {"Export"->React.string}
-        </Comps.Header>
+        <Comps.Header> {"Step 1:"->React.string} </Comps.Header>
         <Comps.Button
           onClick={_ => {
             onPersistChain()
-          }}>
-          {"Save Chain"->React.string}
+          }}
+          className="w-full">
+          <Icons.AddLink className="inline-block" color={Comps.colors["gray-6"]} />
+          {{
+            savedChainId->Belt.Option.isNone ? "  Save Chain" : "  Saved!"
+          }->React.string}
         </Comps.Button>
-        {savedChainId
-        ->Belt.Option.map(chainId => {
-          <Comps.Select
-            value=""
-            onChange={event => {
+        <Comps.Header> {"Step 2:"->React.string} </Comps.Header>
+        <Comps.Select
+          value=""
+          className="w-full select-button"
+          disabled={savedChainId->Belt.Option.isNone}
+          style={ReactDOMStyle.make(
+            ~backgroundColor=?{
+              savedChainId->Belt.Option.isNone ? None : Some(Comps.colors["blue-1"])
+            },
+            ~color=?{
+              savedChainId->Belt.Option.isNone ? None : Some(Comps.colors["gray-6"])
+            },
+            ~width="100%",
+            ~margin="10px",
+            ~textAlign="center",
+            (),
+          )}
+          onChange={event =>
+            savedChainId->Belt.Option.forEach(chainId => {
               let chain = chainId->Chain.loadFromLocalStorage
 
               let appId = oneGraphAuth->OneGraphAuth.appId
@@ -2003,19 +2027,32 @@ ${remoteChainCalls.netlify.code}
               | _ => None
               }
               value->Belt.Option.forEach(Clipboard.copy)
-            }}>
-            <option value=""> {"> Copy usage"->React.string} </option>
-            <option value={"form"}> {"Copy link to form"->React.string} </option>
-            <option value={"fetch"}> {"Copy fetch call"->React.string} </option>
-            <option value={"curl"}> {"Copy cURL call"->React.string} </option>
-            <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
-            <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
-          </Comps.Select>
-        })
-        ->Belt.Option.getWithDefault(React.null)}
-        {savedChainId->Belt.Option.mapWithDefault(React.null, savedChainId => {
-          <GitHub chain savedChainId oneGraphAuth />
-        })}
+            })}>
+          <option value=""> {j`📋 Copy usage`->React.string} </option>
+          <option value={"form"}> {"Copy link to form"->React.string} </option>
+          <option value={"fetch"}> {"Copy fetch call"->React.string} </option>
+          <option value={"curl"}> {"Copy cURL call"->React.string} </option>
+          <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
+          <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
+        </Comps.Select>
+        <div className=" text-center" style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
+          {"- OR -"->React.string}
+        </div>
+        {<GitHub chain savedChainId oneGraphAuth />}
+        // <div>
+        //   <Comps.Select style={ReactDOMStyle.make(~width="100%", ~margin="10px", ())}>
+        //     <option> {"sgrove/blog"->React.string} </option>
+        //   </Comps.Select>
+        //   <Comps.Button
+        //     onClick={_ => {
+        //       onPersistChain()
+        //     }}
+        //     disabled=true
+        //     className="w-full">
+        //     <Icons.Login className="inline-block" color={Comps.colors["gray-6"]} />
+        //     {"  Push"->React.string}
+        //   </Comps.Button>
+        // </div>
       </>
 
     let inspectorTab =
@@ -2063,10 +2100,9 @@ ${remoteChainCalls.netlify.code}
           onClick={_ => {
             setOpenedTab(_ => #inspector)
           }}
-          className={"flex justify-center flex-grow cursor-pointer p-1 " ++ {
-            openedTab == #inspector ? " text-blue-400" : ""
-          }}
-          style={openedTab == #inspector ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          className={"flex justify-center flex-grow cursor-pointer p-1 outline-none " ++ {
+            openedTab == #inspector ? " inspector-tab-active" : " inspector-tab-inactive"
+          }}>
           <Icons.Link
             className=""
             width="24px"
@@ -2079,10 +2115,9 @@ ${remoteChainCalls.netlify.code}
           onClick={_ => {
             setOpenedTab(_ => #form)
           }}
-          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
-            openedTab == #form ? " text-blue-400" : ""
-          }}
-          style={openedTab == #form ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " ++ {
+            openedTab == #form ? " inspector-tab-active" : " inspector-tab-inactive"
+          }}>
           <Icons.List
             width="24px"
             height="24px"
@@ -2094,10 +2129,9 @@ ${remoteChainCalls.netlify.code}
           onClick={_ => {
             setOpenedTab(_ => #save)
           }}
-          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm " ++ {
-            openedTab == #save ? " text-blue-400" : ""
-          }}
-          style={openedTab == #save ? Comps.activeTabStyle : Comps.inactiveTabStyle}>
+          className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " ++ {
+            openedTab == #save ? " inspector-tab-active" : " inspector-tab-inactive"
+          }}>
           <Icons.OpenInNew
             width="24px"
             height="24px"
@@ -2144,14 +2178,14 @@ let make = (
   open React
 
   <div
-    className="h-screen text-white border-l border-gray-800"
-    style={ReactDOMStyle.make(~backgroundColor="rgb(27,29,31)", ())}>
+    className=" text-white border-l border-gray-800"
+    style={ReactDOMStyle.make(~backgroundColor="rgb(27,29,31)", ~height="calc(100vh - 56px)", ())}>
     <nav className="flex flex-row py-1 px-2 mb-2 justify-between">
       <Comps.Header>
         {switch inspected {
-        | Nothing(_) => "Inspector"
-        | Block({title}) => "Block." ++ title
-        | Request({request}) => request.id
+        | Nothing(_) => "Chain Inspector"
+        | Block({title}) => "Block: " ++ title
+        | Request({request}) => "Request: " ++ request.id
         | RequestArgument(_) => "Request Argument"
         }->string}
       </Comps.Header>
@@ -2160,7 +2194,9 @@ let make = (
       | _ => <span className="text-white" onClick={_ => onReset()}> {"X"->React.string} </span>
       }}
     </nav>
-    <div className="max-h-screen overflow-y-scroll">
+    <div
+      className="overflow-y-scroll"
+      style={ReactDOMStyle.make(~height="calc(100vh - 48px - 56px)", ())}>
       {switch inspected {
       | Nothing(chain) =>
         <Nothing

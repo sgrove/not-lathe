@@ -136,20 +136,23 @@ function ChainEditor$BlockSearch(Props) {
         }), [blocks.length]);
   var match$1 = state.search;
   return React.createElement("div", {
-              className: "flex w-full m-0 max-h-full block select-none",
+              className: "flex w-full m-0 h-full block select-none",
               style: {
-                backgroundColor: "#1D1F22"
+                backgroundColor: Comps.colors["gray-9"]
               }
             }, React.createElement("div", {
                   className: "w-full max-h-full"
                 }, React.createElement(Comps.Header.make, {
                       children: "Block Library"
                     }), React.createElement("div", {
-                      className: "shadow-md rounded-lg px-3 py-2 h-full overflow-y-hidden"
+                      className: "rounded-lg px-3 py-2 overflow-y-hidden",
+                      style: {
+                        height: "calc(100% - 40px)"
+                      }
                     }, React.createElement("div", {
                           className: "flex items-center  rounded-md inline-block",
                           style: {
-                            backgroundColor: "#282B30"
+                            backgroundColor: Comps.colors["gray-7"]
                           }
                         }, React.createElement("div", {
                               className: "pl-2"
@@ -159,7 +162,7 @@ function ChainEditor$BlockSearch(Props) {
                               className: "w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white",
                               id: "search",
                               style: {
-                                backgroundColor: "#282B30"
+                                backgroundColor: Comps.colors["gray-7"]
                               },
                               spellCheck: false,
                               placeholder: "Search for blocks",
@@ -241,10 +244,7 @@ function ChainEditor$BlockSearch(Props) {
                                 }
                                 return React.createElement("div", {
                                             key: block.title,
-                                            className: "flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2",
-                                            style: {
-                                              backgroundColor: "#282C31"
-                                            },
+                                            className: "block-search-item flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2",
                                             onClick: (function (param) {
                                                 return Curry._1(onInspect, block);
                                               }),
@@ -283,7 +283,8 @@ function ChainEditor$BlockSearch(Props) {
                                                                                 },
                                                                                 title: friendlyServiceName,
                                                                                 alt: friendlyServiceName,
-                                                                                src: param[0]
+                                                                                src: param[0],
+                                                                                width: "24px"
                                                                               });
                                                                   }));
                                                     }))));
@@ -958,7 +959,7 @@ var Script = {
 function ChainEditor$Modal(Props) {
   var children = Props.children;
   return React.createElement("div", {
-              className: "flex items-center justify-center fixed left-0 bottom-0 w-full h-full bg-gray-800 bg-opacity-60",
+              className: "flex items-center justify-center absolute left-0 bottom-0 w-full h-full bg-gray-800 bg-opacity-60",
               style: {
                 zIndex: "9999"
               }
@@ -990,8 +991,8 @@ function ChainEditor$ConnectorLine(Props) {
       });
   var setState = match[1];
   var onMouseMove = function ($$event) {
-    var x = $$event.clientX;
-    var y = $$event.clientY;
+    var x = $$event.pageX;
+    var y = $$event.pageY;
     return Curry._1(setState, (function (_oldState) {
                   return {
                           mousePosition: [
@@ -1019,8 +1020,9 @@ function ChainEditor$ConnectorLine(Props) {
   var mouseY = match$1[1];
   var mouseX = match$1[0];
   var rect = source.getBoundingClientRect();
+  var scrollY = Belt_Option.getWithDefault(Utils.windowScrollY(undefined), 0);
   var anchorX = rect.x + (rect.width / 2 | 0) | 0;
-  var anchorY = rect.y + (rect.height / 2 | 0) | 0;
+  var anchorY = (rect.y + (rect.height / 2 | 0) | 0) + scrollY | 0;
   var match$2 = invert ? [
       mouseX,
       mouseY,
@@ -3081,7 +3083,11 @@ function ChainEditor$Main(Props) {
       
     }
   }
-  return React.createElement("div", undefined, React.createElement(ChainEditor$InspectedContextProvider, {
+  return React.createElement("div", {
+              style: {
+                height: "calc(100vh - 56px)"
+              }
+            }, React.createElement(ChainEditor$InspectedContextProvider, {
                   value: state.inspected,
                   children: React.createElement(ConnectionContext.Provider.make, {
                         value: state.connectionDrag,
@@ -3089,11 +3095,17 @@ function ChainEditor$Main(Props) {
                       }, React.createElement("div", {
                             className: "flex"
                           }, React.createElement("div", {
-                                className: "w-1/6 h-screen m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 bg-gray-800"
+                                className: "w-1/6 m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 ",
+                                style: {
+                                  backgroundColor: Comps.colors["gray-9"],
+                                  height: "calc(100vh - 56px)"
+                                }
                               }, blockSearch), React.createElement("div", {
                                 className: "w-1/2 m:w-1/2 xl:w-1/2 2xl:w-10/12"
                               }, React.createElement("div", {
-                                    className: "h-1/2"
+                                    style: {
+                                      height: "calc(50vh - 28px)"
+                                    }
                                   }, Belt_Option.mapWithDefault(state.diagram, null, (function (diagram) {
                                           return React.createElement(ChainEditor$Diagram, {
                                                       setState: setState,
@@ -3104,7 +3116,9 @@ function ChainEditor$Main(Props) {
                                                       diagramFromChain: diagramFromChain$1
                                                     });
                                         }))), React.createElement("div", {
-                                    className: "h-1/2"
+                                    style: {
+                                      height: "calc(50vh - 67px)"
+                                    }
                                   }, React.createElement("div", {
                                         className: "",
                                         onClick: (function (param) {
@@ -3134,59 +3148,59 @@ function ChainEditor$Main(Props) {
                                                                 };
                                                         }));
                                           })
-                                      }, React.createElement("nav", undefined, React.createElement(Comps.Header.make, {
-                                                style: {
-                                                  backgroundColor: Comps.colors["gray-9"],
-                                                  display: "flex",
-                                                  marginRight: "0px",
-                                                  marginLeft: "0px"
-                                                },
-                                                children: null
-                                              }, React.createElement("div", {
-                                                    className: "flex-grow"
-                                                  }, "Chain JavaScript"), React.createElement("div", undefined, React.createElement("button", {
-                                                        title: "Format code",
-                                                        onClick: (function (param) {
-                                                            return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
-                                                                          var script = editor.getValue();
-                                                                          var newScript = Prettier.format(script, {
-                                                                                parser: "babel",
-                                                                                plugins: [ParserBabel],
-                                                                                singleQuote: true
-                                                                              });
-                                                                          return Curry._1(setState, (function (oldState) {
-                                                                                        var init = oldState.chain;
-                                                                                        return {
-                                                                                                diagram: oldState.diagram,
-                                                                                                card: oldState.card,
-                                                                                                schema: oldState.schema,
-                                                                                                chain: {
-                                                                                                  name: init.name,
-                                                                                                  script: newScript,
-                                                                                                  scriptDependencies: init.scriptDependencies,
-                                                                                                  requests: init.requests,
-                                                                                                  blocks: init.blocks
-                                                                                                },
-                                                                                                compiledChain: oldState.compiledChain,
-                                                                                                chainResult: oldState.chainResult,
-                                                                                                scriptFunctions: oldState.scriptFunctions,
-                                                                                                chainExecutionResults: oldState.chainExecutionResults,
-                                                                                                blocks: oldState.blocks,
-                                                                                                inspected: oldState.inspected,
-                                                                                                blockEdit: oldState.blockEdit,
-                                                                                                scriptEditor: oldState.scriptEditor,
-                                                                                                savedChainId: oldState.savedChainId,
-                                                                                                requestValueCache: oldState.requestValueCache,
-                                                                                                debugUIItems: oldState.debugUIItems,
-                                                                                                connectionDrag: oldState.connectionDrag
-                                                                                              };
-                                                                                      }));
-                                                                        }));
-                                                          })
-                                                      }, React.createElement(Icons.Prettier.Dark.make, {
-                                                            width: "16px",
-                                                            height: "16px"
-                                                          })))))), React.createElement(ChainEditor$Script, tmp))), React.createElement("div", {
+                                      }, React.createElement(Comps.Header.make, {
+                                            style: {
+                                              backgroundColor: Comps.colors["gray-9"],
+                                              display: "flex",
+                                              marginRight: "0px",
+                                              marginLeft: "0px"
+                                            },
+                                            children: null
+                                          }, React.createElement("div", {
+                                                className: "flex-grow"
+                                              }, "Chain JavaScript"), React.createElement("div", undefined, React.createElement("button", {
+                                                    title: "Format code",
+                                                    onClick: (function (param) {
+                                                        return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
+                                                                      var script = editor.getValue();
+                                                                      var newScript = Prettier.format(script, {
+                                                                            parser: "babel",
+                                                                            plugins: [ParserBabel],
+                                                                            singleQuote: true
+                                                                          });
+                                                                      return Curry._1(setState, (function (oldState) {
+                                                                                    var init = oldState.chain;
+                                                                                    return {
+                                                                                            diagram: oldState.diagram,
+                                                                                            card: oldState.card,
+                                                                                            schema: oldState.schema,
+                                                                                            chain: {
+                                                                                              name: init.name,
+                                                                                              script: newScript,
+                                                                                              scriptDependencies: init.scriptDependencies,
+                                                                                              requests: init.requests,
+                                                                                              blocks: init.blocks
+                                                                                            },
+                                                                                            compiledChain: oldState.compiledChain,
+                                                                                            chainResult: oldState.chainResult,
+                                                                                            scriptFunctions: oldState.scriptFunctions,
+                                                                                            chainExecutionResults: oldState.chainExecutionResults,
+                                                                                            blocks: oldState.blocks,
+                                                                                            inspected: oldState.inspected,
+                                                                                            blockEdit: oldState.blockEdit,
+                                                                                            scriptEditor: oldState.scriptEditor,
+                                                                                            savedChainId: oldState.savedChainId,
+                                                                                            requestValueCache: oldState.requestValueCache,
+                                                                                            debugUIItems: oldState.debugUIItems,
+                                                                                            connectionDrag: oldState.connectionDrag
+                                                                                          };
+                                                                                  }));
+                                                                    }));
+                                                      })
+                                                  }, React.createElement(Icons.Prettier.Dark.make, {
+                                                        width: "16px",
+                                                        height: "16px"
+                                                      }))))), React.createElement(ChainEditor$Script, tmp))), React.createElement("div", {
                                 className: "w-1/3 2xl:w-1/6"
                               }, sidebar)), tmp$2, tmp$3)
                 }));

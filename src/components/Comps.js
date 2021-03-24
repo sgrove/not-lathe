@@ -54,10 +54,7 @@ var Header = {
   make: Comps$Header
 };
 
-var defaultStyle$1 = {
-  backgroundColor: colors["blue-1"],
-  color: colors["gray-6"]
-};
+var defaultStyle$1 = {};
 
 function Comps$Button(Props) {
   var onClick = Props.onClick;
@@ -70,7 +67,7 @@ function Comps$Button(Props) {
   var className = classNameOpt !== undefined ? classNameOpt : "";
   var type_ = type_Opt !== undefined ? type_Opt : "button";
   var tmp = {
-    className: className + " focus:outline-none text-white text-sm py-2.5 px-5 rounded-md m-2",
+    className: className + " og-primary-button active:outline-none focus:outline-none text-white text-sm py-2.5 px-5 rounded-md m-2",
     style: Object.assign({}, defaultStyle$1, style),
     type: type_
   };
@@ -88,22 +85,29 @@ var Button = {
   make: Comps$Button
 };
 
+var defaultStyle$2 = {
+  backgroundColor: colors["gray-8"],
+  maxHeight: "150px"
+};
+
 function Comps$Pre(Props) {
   var children = Props.children;
+  var classNameOpt = Props.className;
+  var styleOpt = Props.style;
+  var className = classNameOpt !== undefined ? classNameOpt : "";
+  var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : defaultStyle$2;
   return React.createElement("pre", {
-              className: "my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
-              style: {
-                backgroundColor: colors["gray-8"],
-                maxHeight: "150px"
-              }
+              className: className + " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
+              style: style
             }, children);
 }
 
 var Pre = {
+  defaultStyle: defaultStyle$2,
   make: Comps$Pre
 };
 
-var defaultStyle$2 = {
+var defaultStyle$3 = {
   backgroundColor: colors["gray-7"],
   color: colors["gray-4"],
   padding: "6px",
@@ -114,13 +118,21 @@ var defaultStyle$2 = {
 
 function Comps$Select(Props) {
   var children = Props.children;
+  var disabled = Props.disabled;
+  var className = Props.className;
   var onChange = Props.onChange;
   var styleOpt = Props.style;
   var value = Props.value;
   var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : ({});
   var tmp = {
-    style: Object.assign({}, defaultStyle$2, style)
+    style: Object.assign({}, defaultStyle$3, style)
   };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  if (disabled !== undefined) {
+    tmp.disabled = Caml_option.valFromOption(disabled);
+  }
   if (value !== undefined) {
     tmp.value = Caml_option.valFromOption(value);
   }
@@ -131,7 +143,7 @@ function Comps$Select(Props) {
 }
 
 var Select = {
-  defaultStyle: defaultStyle$2,
+  defaultStyle: defaultStyle$3,
   make: Comps$Select
 };
 

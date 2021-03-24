@@ -161,18 +161,20 @@ module BlockSearch = {
     }, [blocks->Belt.Array.length])
 
     <div
-      className="flex w-full m-0 max-h-full block select-none"
-      style={ReactDOMStyle.make(~backgroundColor="#1D1F22", ())}>
+      className="flex w-full m-0 h-full block select-none"
+      style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-9"], ())}>
       <div className="w-full max-h-full">
         <Comps.Header> {"Block Library"->React.string} </Comps.Header>
-        <div className="shadow-md rounded-lg px-3 py-2 h-full overflow-y-hidden">
+        <div
+          className="rounded-lg px-3 py-2 overflow-y-hidden"
+          style={ReactDOMStyle.make(~height="calc(100% - 40px)", ())}>
           <div
             className="flex items-center  rounded-md inline-block"
-            style={ReactDOMStyle.make(~backgroundColor="#282B30", ())}>
+            style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}>
             <div className="pl-2"> <Icons.Search color={Comps.colors["gray-4"]} /> </div>
             <input
               className="w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white"
-              style={ReactDOMStyle.make(~backgroundColor="#282B30", ())}
+              style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}
               id="search"
               spellCheck=false
               type_="text"
@@ -234,8 +236,7 @@ module BlockSearch = {
             ->Belt.Array.map((block: Card.block) => {
               <div
                 key={block.title}
-                style={ReactDOMStyle.make(~backgroundColor="#282C31", ())}
-                className="flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2"
+                className="block-search-item flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2"
                 onDoubleClick={_ => onAdd(block)}
                 onClick={_ => onInspect(block)}>
                 <div
@@ -282,6 +283,7 @@ module BlockSearch = {
                           ~borderColor=Comps.colors["gray-6"],
                           (),
                         )}
+                        width="24px"
                         src=url
                         className="rounded-full"
                       />
@@ -1059,68 +1061,65 @@ ${chain.script}`
 
     let filename = "file:///main.tsx"
 
-    let editor =
-      <BsReactMonaco.Editor
-        ?className
-        theme="vs-dark"
-        language="typescript"
-        defaultValue={content}
-        options={
-          "minimap": {"enabled": false},
-        }
-        path=filename
-        onChange={(newScript, _) => {
-          onChange(newScript)
-        }}
-        onMount={(editorHandle, monacoInstance) => {
-          Debug.assignToWindowForDeveloperDebug(~name="myEditor", editorHandle)
-          Debug.assignToWindowForDeveloperDebug(~name="myMonaco", monacoInstance)
-          Debug.assignToWindowForDeveloperDebug(~name="ts", TypeScript.ts)
+    <BsReactMonaco.Editor
+      ?className
+      theme="vs-dark"
+      language="typescript"
+      defaultValue={content}
+      options={
+        "minimap": {"enabled": false},
+      }
+      path=filename
+      onChange={(newScript, _) => {
+        onChange(newScript)
+      }}
+      onMount={(editorHandle, monacoInstance) => {
+        Debug.assignToWindowForDeveloperDebug(~name="myEditor", editorHandle)
+        Debug.assignToWindowForDeveloperDebug(~name="myMonaco", monacoInstance)
+        Debug.assignToWindowForDeveloperDebug(~name="ts", TypeScript.ts)
 
-          let _disposable = editorHandle->BsReactMonaco.onMouseUp(mouseEvent => {
-            Debug.assignToWindowForDeveloperDebug(~name="editorMouseEvent", mouseEvent)
+        let _disposable = editorHandle->BsReactMonaco.onMouseUp(mouseEvent => {
+          Debug.assignToWindowForDeveloperDebug(~name="editorMouseEvent", mouseEvent)
 
-            open ConnectionContext
+          open ConnectionContext
 
-            switch connectionDragRef.current {
-            | Empty
-            | Completed(_)
-            | StartedTarget(_) => ()
-            | StartedSource({sourceRequest, sourceDom}) =>
-              let position = mouseEvent["target"]["position"]
-              let lineNumber = position["lineNumber"]
-              let column = position["column"]
+          switch connectionDragRef.current {
+          | Empty
+          | Completed(_)
+          | StartedTarget(_) => ()
+          | StartedSource({sourceRequest, sourceDom}) =>
+            let position = mouseEvent["target"]["position"]
+            let lineNumber = position["lineNumber"]
+            let column = position["column"]
 
-              let event = mouseEvent["event"]
-              let mousePositionX = event["posx"]
-              let mousePositionY = event["posy"]
-              let mousePosition = (mousePositionX, mousePositionY)
+            let event = mouseEvent["event"]
+            let mousePositionX = event["posx"]
+            let mousePositionY = event["posy"]
+            let mousePosition = (mousePositionX, mousePositionY)
 
-              onPotentialScriptSourceConnect(
-                ~sourceRequest,
-                ~sourceDom,
-                ~scriptPosition={lineNumber: lineNumber, column: column},
-                ~mousePosition,
-              )
-            }
-          })
+            onPotentialScriptSourceConnect(
+              ~sourceRequest,
+              ~sourceDom,
+              ~scriptPosition={lineNumber: lineNumber, column: column},
+              ~mousePosition,
+            )
+          }
+        })
 
-          let () = BsReactMonaco.TypeScript.addLib(. monacoInstance, types, content)
-          let () = BsReactMonaco.registerPrettier(monacoInstance)
-          let modelOptions = BsReactMonaco.Model.modelOptions(~tabSize=2, ())
+        let () = BsReactMonaco.TypeScript.addLib(. monacoInstance, types, content)
+        let () = BsReactMonaco.registerPrettier(monacoInstance)
+        let modelOptions = BsReactMonaco.Model.modelOptions(~tabSize=2, ())
 
-          editor.current = Some(editorHandle)
-          monaco.current = Some(monacoInstance)
+        editor.current = Some(editorHandle)
+        monaco.current = Some(monacoInstance)
 
-          editorHandle
-          ->BsReactMonaco.getModel(filename)
-          ->BsReactMonaco.Model.updateOptions(modelOptions)
+        editorHandle
+        ->BsReactMonaco.getModel(filename)
+        ->BsReactMonaco.Model.updateOptions(modelOptions)
 
-          onMount(~editor=editorHandle, ~monaco=monacoInstance)
-        }}
-      />
-
-    editor
+        onMount(~editor=editorHandle, ~monaco=monacoInstance)
+      }}
+    />
   }
 }
 
@@ -1129,7 +1128,7 @@ module Modal = {
   let make = (~children) => {
     <div
       style={ReactDOMStyle.make(~zIndex="9999", ())}
-      className="flex items-center justify-center fixed left-0 bottom-0 w-full h-full bg-gray-800 bg-opacity-60">
+      className="flex items-center justify-center absolute left-0 bottom-0 w-full h-full bg-gray-800 bg-opacity-60">
       <div className="bg-white rounded-lg w-4/5 h-4/5">
         <div className="flex flex-col p-1 h-full">
           <div className="flex h-full"> {children} </div>
@@ -1157,8 +1156,8 @@ module ConnectorLine = {
     })
 
     let onMouseMove = event => {
-      let x = event["clientX"]
-      let y = event["clientY"]
+      let x = event["pageX"]
+      let y = event["pageY"]
       setState(_oldState => {mousePosition: (x, y)})
     }
 
@@ -1186,7 +1185,9 @@ module ConnectorLine = {
     let (anchorX, anchorY) = {
       let rect = Obj.magic(getBoundingClientRect(source))
 
-      (rect["x"] + rect["width"] / 2, rect["y"] + rect["height"] / 2)
+      let scrollY = Utils.windowScrollY()->Belt.Option.getWithDefault(0)
+
+      (rect["x"] + rect["width"] / 2, rect["y"] + rect["height"] / 2 + scrollY)
     }
     let (startX, startY, endX, endY) = switch invert {
     | false => (anchorX, anchorY, mouseX, mouseY)
@@ -2010,22 +2011,28 @@ ${newScript}`
       />
     }
 
-    <div>
+    <div style={ReactDOMStyle.make(~height="calc(100vh - 56px)", ())}>
       <InspectedContextProvider value={Some(state.inspected)}>
         <ConnectionContext.Provider value={state.connectionDrag}>
           <div className="flex">
-            <div className="w-1/6 h-screen m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 bg-gray-800">
+            <div
+              className="w-1/6 m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 "
+              style={ReactDOMStyle.make(
+                ~backgroundColor=Comps.colors["gray-9"],
+                ~height="calc(100vh - 56px)",
+                (),
+              )}>
               {blockSearch}
             </div>
             <div className="w-1/2 m:w-1/2 xl:w-1/2 2xl:w-10/12">
-              <div className="h-1/2">
+              <div style={ReactDOMStyle.make(~height="calc(50vh - 28px)", ())}>
                 {state.diagram->Belt.Option.mapWithDefault(React.null, diagram =>
                   <Diagram
                     setState diagram chain=state.chain removeEdge removeRequest diagramFromChain
                   />
                 )}
               </div>
-              <div className="h-1/2">
+              <div style={ReactDOMStyle.make(~height="calc(50vh - 67px)", ())}>
                 <div
                   className=""
                   onClick={_ => {
@@ -2037,39 +2044,37 @@ ${newScript}`
                       },
                     })
                   }}>
-                  <nav>
-                    <Comps.Header
-                      style={ReactDOMStyle.make(
-                        ~backgroundColor=Comps.colors["gray-9"],
-                        ~marginLeft="0px",
-                        ~marginRight="0px",
-                        ~display="flex",
-                        (),
-                      )}>
-                      <div className="flex-grow"> {"Chain JavaScript"->React.string} </div>
-                      <div>
-                        <button
-                          onClick={_ => {
-                            state.scriptEditor.editor->Belt.Option.forEach(editor => {
-                              let script = editor->BsReactMonaco.getValue
-                              let newScript = script->Prettier.format({
-                                "parser": "babel",
-                                "plugins": [Prettier.babel],
-                                "singleQuote": true,
-                              })
-
-                              setState(oldState => {
-                                ...oldState,
-                                chain: {...oldState.chain, script: newScript},
-                              })
+                  <Comps.Header
+                    style={ReactDOMStyle.make(
+                      ~backgroundColor=Comps.colors["gray-9"],
+                      ~marginLeft="0px",
+                      ~marginRight="0px",
+                      ~display="flex",
+                      (),
+                    )}>
+                    <div className="flex-grow"> {"Chain JavaScript"->React.string} </div>
+                    <div>
+                      <button
+                        onClick={_ => {
+                          state.scriptEditor.editor->Belt.Option.forEach(editor => {
+                            let script = editor->BsReactMonaco.getValue
+                            let newScript = script->Prettier.format({
+                              "parser": "babel",
+                              "plugins": [Prettier.babel],
+                              "singleQuote": true,
                             })
-                          }}
-                          title="Format code">
-                          <Icons.Prettier.Dark height="16px" width="16px" />
-                        </button>
-                      </div>
-                    </Comps.Header>
-                  </nav>
+
+                            setState(oldState => {
+                              ...oldState,
+                              chain: {...oldState.chain, script: newScript},
+                            })
+                          })
+                        }}
+                        title="Format code">
+                        <Icons.Prettier.Dark height="16px" width="16px" />
+                      </button>
+                    </div>
+                  </Comps.Header>
                 </div>
                 <Script
                   schema={state.schema}
