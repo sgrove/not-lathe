@@ -11,7 +11,7 @@ let make = (~schema, ~config) => {
 
     // let initialChain = DevTimeJson.simpleChain
 
-    // let initialChain = DevTimeJson.spotifyChain
+    // let initialChain = DevTimeJson.devJsonChain
 
     initialChain
   })

@@ -2011,8 +2011,10 @@ ${newScript}`
       <InspectedContextProvider value={Some(state.inspected)}>
         <ConnectionContext.Provider value={state.connectionDrag}>
           <div className="flex">
-            <div className="w-1/6 h-screen 2xl:w-1/6 bg-gray-800"> {blockSearch} </div>
-            <div className="w-1/2">
+            <div className="w-1/6 h-screen m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 bg-gray-800">
+              {blockSearch}
+            </div>
+            <div className="w-1/2 m:w-1/2 xl:w-1/2 2xl:w-10/12">
               <div className="h-1/2">
                 {state.diagram->Belt.Option.mapWithDefault(React.null, diagram =>
                   <Diagram
@@ -2153,7 +2155,7 @@ ${newScript}`
                 />
               </div>
             </div>
-            <div className="w-1/3"> {sidebar} </div>
+            <div className="w-1/3 2xl:w-1/6"> {sidebar} </div>
           </div>
           {switch state.blockEdit {
           | Nothing => React.null

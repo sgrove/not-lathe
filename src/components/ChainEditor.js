@@ -3087,9 +3087,9 @@ function ChainEditor$Main(Props) {
                       }, React.createElement("div", {
                             className: "flex"
                           }, React.createElement("div", {
-                                className: "w-1/6 h-screen 2xl:w-1/6 bg-gray-800"
+                                className: "w-1/6 h-screen m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 bg-gray-800"
                               }, blockSearch), React.createElement("div", {
-                                className: "w-1/2"
+                                className: "w-1/2 m:w-1/2 xl:w-1/2 2xl:w-10/12"
                               }, React.createElement("div", {
                                     className: "h-1/2"
                                   }, Belt_Option.mapWithDefault(state.diagram, null, (function (diagram) {
@@ -3185,7 +3185,7 @@ function ChainEditor$Main(Props) {
                                                             width: "16px",
                                                             height: "16px"
                                                           })))))), React.createElement(ChainEditor$Script, tmp))), React.createElement("div", {
-                                className: "w-1/3"
+                                className: "w-1/3 2xl:w-1/6"
                               }, sidebar)), tmp$2, tmp$3)
                 }));
 }
