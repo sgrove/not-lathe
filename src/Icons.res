@@ -349,6 +349,21 @@ module Link = {
   }
 }
 
+module RunLink = {
+  @react.component
+  let make = (~className=?, ~color="white", ~width="24", ~height="24") => {
+    <svg ?className width height viewBox="0 0 17 10">
+      <path
+        d="M5 3.33333H11.6667V5H5V3.33333ZM15.0833 4.16667H16.6667C16.6667 1.86667 14.8 0 12.5 0H9.16667V1.58333H12.5C13.925 1.58333 15.0833 2.74167 15.0833 4.16667ZM1.58333 4.16667C1.58333 2.74167 2.74167 1.58333 4.16667 1.58333H7.5V0H4.16667C1.86667 0 0 1.86667 0 4.16667C0 6.46667 1.86667 8.33333 4.16667 8.33333H7.5V6.75H4.16667C2.74167 6.75 1.58333 5.59167 1.58333 4.16667Z"
+        fill=color
+      />
+      <path d="M12.5 4.33335V9.16667L16.6667 6.75L12.5 4.33335Z" fill=color />
+      <path d="M9.16667 6.75H11.3333V8.33333H9.16667V6.75Z" fill=color />
+      <path d="M16.6667 4.16667H15.0833L16.6667 5.34026V4.16667Z" fill=color />
+    </svg>
+  }
+}
+
 module List = {
   @react.component
   let make = (~className=?, ~color="white", ~width="24", ~height="24") => {

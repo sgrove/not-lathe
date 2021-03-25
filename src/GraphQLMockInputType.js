@@ -280,7 +280,11 @@ export function typeScriptDefinitionObjectForOperation(
 
     let nestingLevel = isList ? listCount(gqlType) : 0;
 
-    let basicType = scalarMap[namedType.name];
+    let isEnum = isEnumType(namedType);
+
+    let basicType = isEnum
+      ? new Set(namedType.getValues().map((gqlEnum) => gqlEnum.value))
+      : scalarMap[namedType.name];
 
     let returnType;
     if (isObjectLike) {
@@ -348,6 +352,8 @@ export function typeScriptForOperation(
     } else if (Array.isArray(value)) {
       let subType = valueHelper(value[0]);
       return `Array<${subType}>`;
+    } else if (value instanceof Set) {
+      return [...value.values()].map((value) => `"${value}"`).join(" | ");
     } else if (typeof value === "object") {
       let fields = objectHelper(value);
       return `{

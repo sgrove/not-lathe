@@ -1951,22 +1951,20 @@ module Nothing = {
 
     let formTab =
       <>
-        <Comps.Header>
-          <Icons.CaretRight className="inline mr-2" color={Comps.colors["gray-6"]} />
-          {"Chain Form"->React.string}
-        </Comps.Header>
-        {form}
-        {authButtons->React.array}
-        <Comps.Button
-          onClick={_ => {
-            let variables = Some(formVariables->Obj.magic)
+        <CollapsableSection title={"Chain Form"->React.string}>
+          {form}
+          {authButtons->React.array}
+          <Comps.Button
+            onClick={_ => {
+              let variables = Some(formVariables->Obj.magic)
 
-            transformAndExecuteChain(~variables)
-          }}
-          className="w-full">
-          <Icons.AddLink className="inline-block" color={Comps.colors["gray-6"]} />
-          {"  Run chain"->React.string}
-        </Comps.Button>
+              transformAndExecuteChain(~variables)
+            }}
+            className="w-full">
+            <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
+            {"  Run chain"->React.string}
+          </Comps.Button>
+        </CollapsableSection>
         {chainExecutionResults
         ->Belt.Option.map(chainExecutionResults =>
           <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
@@ -2014,6 +2012,7 @@ module Nothing = {
               let value = switch ReactEvent.Form.target(event)["value"] {
               | "form" => Some(j`http://localhost:3003/form?form_id=${chainId}`)
               | "fetch" => Some(remoteChainCalls.fetch)
+              | "id" => Some(chainId)
               | "curl" => Some(remoteChainCalls.curl)
               | "netlify" =>
                 Some(
@@ -2035,6 +2034,7 @@ ${remoteChainCalls.netlify.code}
           <option value={"curl"}> {"Copy cURL call"->React.string} </option>
           <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
           <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
+          <option value={"id"}> {"Copy Chain Id"->React.string} </option>
         </Comps.Select>
         {<GitHub chain savedChainId oneGraphAuth />}
         // <div>

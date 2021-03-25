@@ -1732,21 +1732,19 @@ function Inspector$Nothing(Props) {
                                   color: Comps.colors["gray-4"]
                                 }), "Delete Request")));
         }));
-  var formTab = React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+  var formTab = React.createElement(React.Fragment, undefined, React.createElement(Inspector$CollapsableSection, {
+            title: "Chain Form",
             children: null
-          }, React.createElement(Icons.CaretRight.make, {
-                className: "inline mr-2",
-                color: Comps.colors["gray-6"]
-              }), "Chain Form"), form, authButtons, React.createElement(Comps.Button.make, {
-            onClick: (function (param) {
-                return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
-              }),
-            className: "w-full",
-            children: null
-          }, React.createElement(Icons.AddLink.make, {
-                className: "inline-block",
-                color: Comps.colors["gray-6"]
-              }), "  Run chain"), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
+          }, form, authButtons, React.createElement(Comps.Button.make, {
+                onClick: (function (param) {
+                    return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
+                  }),
+                className: "w-full",
+                children: null
+              }, React.createElement(Icons.RunLink.make, {
+                    className: "inline-block",
+                    color: Comps.colors["gray-6"]
+                  }), "  Run chain")), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
                   return React.createElement(Inspector$ChainResultsViewer, {
                               chain: chain,
                               chainExecutionResults: Caml_option.some(chainExecutionResults)
@@ -1799,6 +1797,9 @@ function Inspector$Nothing(Props) {
                                 case "form" :
                                     value = "http://localhost:3003/form?form_id=" + chainId;
                                     break;
+                                case "id" :
+                                    value = chainId;
+                                    break;
                                 case "netlify" :
                                     value = "/** HTML form for this function\n" + remoteChainCalls$1.netlify.form + "\n**/\n\n" + remoteChainCalls$1.netlify.code + "\n";
                                     break;
@@ -1828,7 +1829,9 @@ function Inspector$Nothing(Props) {
                 value: "netlify"
               }, "Copy Netlify function usage"), React.createElement("option", {
                 value: "scriptkit"
-              }, "Copy ScriptKit usage")), React.createElement(Inspector$GitHub, {
+              }, "Copy ScriptKit usage"), React.createElement("option", {
+                value: "id"
+              }, "Copy Chain Id")), React.createElement(Inspector$GitHub, {
             chain: chain,
             savedChainId: savedChainId,
             oneGraphAuth: oneGraphAuth
