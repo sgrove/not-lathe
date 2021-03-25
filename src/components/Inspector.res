@@ -78,9 +78,9 @@ type mockRequestValues = {
 
 module CollapsableSection = {
   @react.component
-  let make = (~title, ~children) => {
+  let make = (~title, ~defaultOpen=true, ~children) => {
     open React
-    let (isOpen, setIsOpen) = useState(() => true)
+    let (isOpen, setIsOpen) = useState(() => defaultOpen)
 
     <>
       <Comps.Header
@@ -1440,7 +1440,7 @@ module Request = {
       <article
         key={variableName}
         id={"inspector-variable-" ++ variableName}
-        className="m-2"
+        className="m-2 variable-settings"
         onMouseEnter={event => {
           switch connectionDrag {
           | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.add(variableName))
@@ -2072,20 +2072,22 @@ ${remoteChainCalls.netlify.code}
               {requests->array}
             </CollapsableSection>
           : React.null}
-        // <Comps.Header> {"Internal Debug info"->React.string} </Comps.Header>
-        // <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
-        // <Comps.Header> {"Compiled Executable Chain"->React.string} </Comps.Header>
-        // <Comps.Pre>
-        //   {
-        //     let transformed = chain->internallyPatchChain
-        //     let script = transformed.script
+        <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
+          <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
+        </CollapsableSection>
+        <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
+          <Comps.Pre>
+            {
+              let transformed = chain->internallyPatchChain
+              let script = transformed.script
 
-        //     // let script = Obj.magic(transformed)["script"]
+              // let script = Obj.magic(transformed)["script"]
 
-        //     // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
-        //     script->React.string
-        //   }
-        // </Comps.Pre>
+              // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
+              script->React.string
+            }
+          </Comps.Pre>
+        </CollapsableSection>
       </>
 
     <>

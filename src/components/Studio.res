@@ -2,6 +2,7 @@ module DevTimeJson = {
   @module("../DevTime_Json.js") external devJsonChain: Chain.t = "devJsonChain"
   @module("../DevTime_Json.js") external simpleChain: Chain.t = "simpleChain"
   @module("../DevTime_Json.js") external spotifyChain: Chain.t = "spotifyChain"
+  @module("../DevTime_Json.js") external descuriChain: Chain.t = "descuriChain"
 }
 
 @react.component

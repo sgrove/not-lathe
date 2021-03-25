@@ -56,7 +56,6 @@ export const formInput = (schema, def, setFormVariables, options) => {
   const name = def.variable.name.value;
 
   function helper(path, type, subfield) {
-    console.log("formInput: ", path, type, subfield);
     const isList = isListType(type);
 
     const namedType = getNamedType(type);

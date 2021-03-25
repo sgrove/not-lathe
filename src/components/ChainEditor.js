@@ -2488,6 +2488,8 @@ function ChainEditor$Main(Props) {
   if (typeof match$3 === "number") {
     tmp$2 = null;
   } else {
+    var isCreateAction;
+    isCreateAction = typeof match$3 === "number" || match$3.TAG !== /* Create */0 ? false : true;
     var editor = React.createElement(BlockEditor.make, {
           schema: state.schema,
           block: match$3._0,
@@ -2681,61 +2683,88 @@ function ChainEditor$Main(Props) {
                               var newInitialBlock = Belt_Option.getWithDefault(Belt_Array.getBy(newChain.blocks, (function (block) {
                                           return Caml_obj.caml_equal(block.id, initial.id);
                                         })), Caml_array.get(blocks, 0));
-                              var match = oldState.inspected;
                               var inspected;
-                              switch (match.TAG | 0) {
-                                case /* Nothing */0 :
-                                    inspected = {
+                              if (isCreateAction) {
+                                var request = Belt_Array.getBy(newChain.requests, (function (req) {
+                                        return Caml_obj.caml_equal(req.operation.id, newInitialBlock.id);
+                                      }));
+                                inspected = Belt_Option.mapWithDefault(request, {
                                       TAG: 0,
                                       _0: newChain,
                                       [Symbol.for("name")]: "Nothing"
-                                    };
-                                    break;
-                                case /* Block */1 :
-                                    inspected = {
-                                      TAG: 1,
-                                      _0: newInitialBlock,
-                                      [Symbol.for("name")]: "Block"
-                                    };
-                                    break;
-                                case /* Request */2 :
-                                    var request = match.request;
-                                    var newRequest_id = request.id;
-                                    var newRequest_variableDependencies = request.variableDependencies;
-                                    var newRequest_dependencyRequestIds = request.dependencyRequestIds;
-                                    var newRequest = {
-                                      id: newRequest_id,
-                                      variableDependencies: newRequest_variableDependencies,
-                                      operation: newInitialBlock,
-                                      dependencyRequestIds: newRequest_dependencyRequestIds
-                                    };
-                                    inspected = {
-                                      TAG: 2,
-                                      chain: newChain,
-                                      request: newRequest,
-                                      [Symbol.for("name")]: "Request"
-                                    };
-                                    break;
-                                case /* RequestArgument */3 :
-                                    var request$1 = match.request;
-                                    var newRequest_id$1 = request$1.id;
-                                    var newRequest_variableDependencies$1 = request$1.variableDependencies;
-                                    var newRequest_dependencyRequestIds$1 = request$1.dependencyRequestIds;
-                                    var newRequest$1 = {
-                                      id: newRequest_id$1,
-                                      variableDependencies: newRequest_variableDependencies$1,
-                                      operation: newInitialBlock,
-                                      dependencyRequestIds: newRequest_dependencyRequestIds$1
-                                    };
-                                    inspected = {
-                                      TAG: 3,
-                                      chain: newChain,
-                                      request: newRequest$1,
-                                      variableName: match.variableName,
-                                      [Symbol.for("name")]: "RequestArgument"
-                                    };
-                                    break;
-                                
+                                    }, (function (request) {
+                                        var newRequest_id = request.id;
+                                        var newRequest_variableDependencies = request.variableDependencies;
+                                        var newRequest_dependencyRequestIds = request.dependencyRequestIds;
+                                        var newRequest = {
+                                          id: newRequest_id,
+                                          variableDependencies: newRequest_variableDependencies,
+                                          operation: newInitialBlock,
+                                          dependencyRequestIds: newRequest_dependencyRequestIds
+                                        };
+                                        return {
+                                                TAG: 2,
+                                                chain: newChain,
+                                                request: newRequest,
+                                                [Symbol.for("name")]: "Request"
+                                              };
+                                      }));
+                              } else {
+                                var match = oldState.inspected;
+                                switch (match.TAG | 0) {
+                                  case /* Nothing */0 :
+                                      inspected = {
+                                        TAG: 0,
+                                        _0: newChain,
+                                        [Symbol.for("name")]: "Nothing"
+                                      };
+                                      break;
+                                  case /* Block */1 :
+                                      inspected = {
+                                        TAG: 1,
+                                        _0: newInitialBlock,
+                                        [Symbol.for("name")]: "Block"
+                                      };
+                                      break;
+                                  case /* Request */2 :
+                                      var request$1 = match.request;
+                                      var newRequest_id = request$1.id;
+                                      var newRequest_variableDependencies = request$1.variableDependencies;
+                                      var newRequest_dependencyRequestIds = request$1.dependencyRequestIds;
+                                      var newRequest = {
+                                        id: newRequest_id,
+                                        variableDependencies: newRequest_variableDependencies,
+                                        operation: newInitialBlock,
+                                        dependencyRequestIds: newRequest_dependencyRequestIds
+                                      };
+                                      inspected = {
+                                        TAG: 2,
+                                        chain: newChain,
+                                        request: newRequest,
+                                        [Symbol.for("name")]: "Request"
+                                      };
+                                      break;
+                                  case /* RequestArgument */3 :
+                                      var request$2 = match.request;
+                                      var newRequest_id$1 = request$2.id;
+                                      var newRequest_variableDependencies$1 = request$2.variableDependencies;
+                                      var newRequest_dependencyRequestIds$1 = request$2.dependencyRequestIds;
+                                      var newRequest$1 = {
+                                        id: newRequest_id$1,
+                                        variableDependencies: newRequest_variableDependencies$1,
+                                        operation: newInitialBlock,
+                                        dependencyRequestIds: newRequest_dependencyRequestIds$1
+                                      };
+                                      inspected = {
+                                        TAG: 3,
+                                        chain: newChain,
+                                        request: newRequest$1,
+                                        variableName: match.variableName,
+                                        [Symbol.for("name")]: "RequestArgument"
+                                      };
+                                      break;
+                                  
+                                }
                               }
                               var allBlocks = Belt_Array.concat(oldState.blocks, blocks);
                               var diagram = diagramFromChain$1(newChain);

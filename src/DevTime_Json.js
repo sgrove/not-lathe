@@ -557,95 +557,81 @@ export const devJsonChain = {
 };
 
 export const simpleChain = {
-  name: "hello_onegraph_its_netlify",
+  name: "new_chain",
   script:
-    "import { SearchInput, SearchVariables, SpotifyPlayTrackInput, SpotifyPlayTrackVariables } from 'oneGraphStudio';\n\nexport function makeVariablesForSearch (payload : SearchInput) : SearchVariables {\n  return {}\n}\n\nexport function makeVariablesForSpotifyPlayTrack (payload : SpotifyPlayTrackInput) : SpotifyPlayTrackVariables {\n  return {}\n}",
+    "import { MyQueryInput, MyQueryVariables, ComputeTypeInput, ComputeTypeVariables } from 'oneGraphStudio';\n\n\n\nexport function makeVariablesForMyQuery (payload : MyQueryInput) : MyQueryVariables {\n  return {}\n}\n\nexport function makeVariablesForComputeType (payload : ComputeTypeInput) : ComputeTypeVariables {\n\tlet updatedAt = payload?.MyQuery?.data?.gitHub?.user?.gists?.edges[0]?.node?.updatedAt\n  return {}\n}",
   scriptDependencies: [],
   requests: [
     {
-      id: "Search",
-      variableDependencies: [
-        {
-          name: "query",
-          dependency: {
-            TAG: 1,
-            _0: {
-              name: "query",
-              value: {
-                TAG: 1,
-                _0: "query",
-              },
-            },
-          },
-        },
-      ],
+      id: "MyQuery",
+      variableDependencies: [],
       operation: {
-        id: "bee3f623-21ca-4f1a-a7e3-8fa0ddbda295",
-        title: "Search",
+        id: "c45ceb4c-d811-45a6-8ba2-befb9de88a48",
+        title: "MyQuery",
         description: "TODO",
         body:
-          "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+          'query MyQuery {\n  gitHub {\n    user(login: "") {\n      bio\n      bioHTML\n      email\n      id\n      gists(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) {\n        edges {\n          node {\n            createdAt\n            description\n            id\n            ... on GitHubGist {\n              url\n              updatedAt\n            }\n          }\n        }\n      }\n      issues(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) {\n        ...GitHubIssueConnectionFragment\n      }\n    }\n  }\n}',
         kind: 0,
-        services: ["spotify"],
+        services: ["github"],
       },
       dependencyRequestIds: [],
     },
     {
-      id: "SpotifyPlayTrack",
+      id: "ComputeType",
       variableDependencies: [
         {
-          name: "trackId",
+          name: "name",
           dependency: {
-            TAG: 2,
+            TAG: 0,
             _0: {
-              name: "trackId",
+              functionFromScript: "INITIAL_UNKNOWN",
               ifMissing: "SKIP",
               ifList: "FIRST",
-              fromRequestId: "Search",
-              path: [
-                "payload",
-                "Search",
-                "data",
-                "spotify",
-                "search",
-                "tracks[0]",
-                "id",
-              ],
-              functionFromScript: "TBD",
+              fromRequestIds: ["MyQuery"],
+              name: "name",
             },
           },
         },
       ],
       operation: {
-        id: "2cfd3e9c-da4a-4cd4-81e3-20cfa4a77a79",
-        title: "SpotifyPlayTrack",
+        id: "0081bf79-a06e-4edb-a4a8-1703c415fa17",
+        title: "ComputeType",
         description: "TODO",
         body:
-          'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: 69500}) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}',
-        kind: 1,
-        services: ["spotify"],
+          "query ComputeType($name: String!) {\n  oneGraph {\n    name: identity(input: $name)\n  }\n}",
+        kind: 4,
+        services: ["onegraph"],
       },
-      dependencyRequestIds: ["SpotifyPlayTrack", "Search"],
+      dependencyRequestIds: ["MyQuery"],
     },
   ],
   blocks: [
     {
-      id: "bee3f623-21ca-4f1a-a7e3-8fa0ddbda295",
-      title: "Search",
+      id: "c45ceb4c-d811-45a6-8ba2-befb9de88a48",
+      title: "MyQuery",
       description: "TODO",
       body:
-        "query Search($query: String!) {\n  spotify {\n    search(data: {query: $query}) {\n      tracks {\n        name\n        id\n        album {\n          name\n          id\n          images {\n            height\n            url\n            width\n          }\n          href\n        }\n        href\n      }\n    }\n  }\n}",
+        'query MyQuery {\n  gitHub {\n    user(login: "") {\n      bio\n      bioHTML\n      email\n      id\n      gists(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) {\n        edges {\n          node {\n            createdAt\n            description\n            id\n            ... on GitHubGist {\n              url\n              updatedAt\n            }\n          }\n        }\n      }\n      issues(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) {\n        ...GitHubIssueConnectionFragment\n      }\n    }\n  }\n}',
       kind: 0,
-      services: ["spotify"],
+      services: ["github"],
     },
     {
-      id: "2cfd3e9c-da4a-4cd4-81e3-20cfa4a77a79",
-      title: "SpotifyPlayTrack",
+      id: "177a4f9f-0600-4366-8022-17551e83602e",
+      title: "GitHubIssueConnectionFragment",
       description: "TODO",
       body:
-        'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: 69500}) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}',
-      kind: 1,
-      services: ["spotify"],
+        "fragment GitHubIssueConnectionFragment on GitHubIssueConnection {\n  edges {\n    node {\n      activeLockReason\n      body\n      bodyHTML\n    }\n  }\n}",
+      kind: 3,
+      services: ["github"],
+    },
+    {
+      id: "0081bf79-a06e-4edb-a4a8-1703c415fa17",
+      title: "ComputeType",
+      description: "TODO",
+      body:
+        "query ComputeType($name: String!) {\n  oneGraph {\n    name: identity(input: $name)\n  }\n}",
+      kind: 4,
+      services: ["onegraph"],
     },
   ],
 };
@@ -860,6 +846,91 @@ export const spotifyChain = {
         'mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy", $positionMs: Int = 0) {\n  spotify {\n    playTrack(input: {trackIds: [$trackId], positionMs: $positionMs}) {\n      player {\n        isPlaying\n        item {\n          name\n          album {\n            name\n          }\n        }\n      }\n    }\n  }\n}',
       kind: 1,
       services: ["spotify"],
+    },
+  ],
+};
+
+export const descuriChain = {
+  name: "new_chain",
+  script:
+    "import {\n  CheckSiteLinksInput,\n  CheckSiteLinksVariables,\n  ComputeTypeInput,\n  ComputeTypeVariables,\n} from 'oneGraphStudio';\n\nexport function makeVariablesForCheckSiteLinks(\n  payload: CheckSiteLinksInput\n): CheckSiteLinksVariables {\n  return {};\n}\n\nexport function makeVariablesForComputeType(\n  payload: ComputeTypeInput\n): ComputeTypeVariables {\n  let uris = payload?.CheckSiteLinks?.data?.descuri?.other[0];\n  let hasEventilLink = uris?.some((node) => node.uri === 'hi');\n\n  const message = hasEventilLink ? null : 'Uhoh!';\n  return { message };\n}\n",
+  scriptDependencies: [],
+  requests: [
+    {
+      id: "CheckSiteLinks",
+      variableDependencies: [
+        {
+          name: "url",
+          dependency: {
+            TAG: 1,
+            _0: {
+              name: "url",
+              value: {
+                TAG: 1,
+                _0: "url",
+              },
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "afce7ecb-50c3-43d7-99c9-821e7e832079",
+        title: "CheckSiteLinks",
+        description: "TODO",
+        body:
+          'query CheckSiteLinks($url: String = "") {\n  descuri(url: $url) {\n    other(first: 100) {\n      uri\n    }\n  }\n}',
+        kind: 0,
+        services: [],
+      },
+      dependencyRequestIds: [],
+    },
+    {
+      id: "ComputeType",
+      variableDependencies: [
+        {
+          name: "message",
+          dependency: {
+            TAG: 0,
+            _0: {
+              functionFromScript: "INITIAL_UNKNOWN",
+              ifMissing: "SKIP",
+              ifList: "FIRST",
+              fromRequestIds: [],
+              name: "message",
+            },
+          },
+        },
+      ],
+      operation: {
+        id: "674578e6-ab2d-4eb5-ab40-2463ea1afade",
+        title: "ComputeType",
+        description: "TODO",
+        body:
+          "query ComputeType($message: String!) {\n  oneGraph {\n    message: identity(input: $message)\n  }\n}",
+        kind: 4,
+        services: ["onegraph"],
+      },
+      dependencyRequestIds: ["CheckSiteLinks"],
+    },
+  ],
+  blocks: [
+    {
+      id: "afce7ecb-50c3-43d7-99c9-821e7e832079",
+      title: "CheckSiteLinks",
+      description: "TODO",
+      body:
+        'query CheckSiteLinks($url: String = "") {\n  descuri(url: $url) {\n    other(first: 100) {\n      uri\n    }\n  }\n}',
+      kind: 0,
+      services: [],
+    },
+    {
+      id: "674578e6-ab2d-4eb5-ab40-2463ea1afade",
+      title: "ComputeType",
+      description: "TODO",
+      body:
+        "query ComputeType($message: String!) {\n  oneGraph {\n    message: identity(input: $message)\n  }\n}",
+      kind: 4,
+      services: ["onegraph"],
     },
   ],
 };

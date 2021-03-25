@@ -97,7 +97,7 @@ function Comps$Pre(Props) {
   var className = classNameOpt !== undefined ? classNameOpt : "";
   var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : defaultStyle$2;
   return React.createElement("pre", {
-              className: className + " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll",
+              className: className + " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll select-all",
               style: style
             }, children);
 }

@@ -2183,7 +2183,12 @@ ${newScript}`
           </div>
           {switch state.blockEdit {
           | Nothing => React.null
-          | Create(block) | Edit(block) =>
+          | Create(block) as action | Edit(block) as action =>
+            let isCreateAction = switch action {
+            | Create(_) => true
+            | _ => false
+            }
+
             let editor =
               <BlockEditor
                 schema={state.schema}
@@ -2414,19 +2419,35 @@ ${newScript}`
                         ->Belt.Array.getBy(block => block.id == initial.id)
                         ->Belt.Option.getWithDefault(blocks[0])
 
-                      let inspected: Inspector.inspectable = switch oldState.inspected {
-                      | Block(_) => Block(newInitialBlock)
-                      | Nothing(_) => Nothing(newChain)
-                      | Request({request}) =>
-                        let newRequest = {...request, operation: newInitialBlock}
-                        Request({request: newRequest, chain: newChain})
-                      | RequestArgument({request, variableName}) =>
-                        let newRequest = {...request, operation: newInitialBlock}
-                        RequestArgument({
-                          variableName: variableName,
-                          chain: newChain,
-                          request: newRequest,
-                        })
+                      let inspected: Inspector.inspectable = switch isCreateAction {
+                      | true =>
+                        let request =
+                          newChain.requests->Belt.Array.getBy(req =>
+                            req.operation.id == newInitialBlock.id
+                          )
+
+                        request->Belt.Option.mapWithDefault(
+                          Inspector.Nothing(newChain),
+                          request => {
+                            let newRequest = {...request, operation: newInitialBlock}
+                            Request({request: newRequest, chain: newChain})
+                          },
+                        )
+                      | false =>
+                        switch oldState.inspected {
+                        | Block(_) => Block(newInitialBlock)
+                        | Nothing(_) => Nothing(newChain)
+                        | Request({request}) =>
+                          let newRequest = {...request, operation: newInitialBlock}
+                          Request({request: newRequest, chain: newChain})
+                        | RequestArgument({request, variableName}) =>
+                          let newRequest = {...request, operation: newInitialBlock}
+                          RequestArgument({
+                            variableName: variableName,
+                            chain: newChain,
+                            request: newRequest,
+                          })
+                        }
                       }
 
                       let newBlocks = blocks

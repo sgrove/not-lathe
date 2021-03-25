@@ -67,7 +67,7 @@ module Pre = {
   @react.component
   let make = (~children, ~className="", ~style=defaultStyle) => {
     <pre
-      className={className ++ " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll"}
+      className={className ++ " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll select-all"}
       style={style}>
       {children}
     </pre>

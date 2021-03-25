@@ -14,10 +14,13 @@ var simpleChain = DevTime_JsonJs.simpleChain;
 
 var spotifyChain = DevTime_JsonJs.spotifyChain;
 
+var descuriChain = DevTime_JsonJs.descuriChain;
+
 var DevTimeJson = {
   devJsonChain: devJsonChain,
   simpleChain: simpleChain,
-  spotifyChain: spotifyChain
+  spotifyChain: spotifyChain,
+  descuriChain: descuriChain
 };
 
 function Studio(Props) {

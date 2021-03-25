@@ -48,9 +48,11 @@ function formInput(prim, prim$1, prim$2, prim$3) {
 
 function Inspector$CollapsableSection(Props) {
   var title = Props.title;
+  var defaultOpenOpt = Props.defaultOpen;
   var children = Props.children;
+  var defaultOpen = defaultOpenOpt !== undefined ? defaultOpenOpt : true;
   var match = React.useState(function () {
-        return true;
+        return defaultOpen;
       });
   var setIsOpen = match[1];
   var isOpen = match[0];
@@ -1189,7 +1191,7 @@ function Inspector$Request(Props) {
           }
           return React.createElement("article", {
                       key: variableName,
-                      className: "m-2",
+                      className: "m-2 variable-settings",
                       id: "inspector-variable-" + variableName,
                       onMouseDown: (function ($$event) {
                           if (!$$event.altKey) {
@@ -1839,7 +1841,19 @@ function Inspector$Nothing(Props) {
             }, "Add some blocks to get started"), requests.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
               title: "Chain Requests",
               children: requests
-            }) : null);
+            }) : null, React.createElement(Inspector$CollapsableSection, {
+            title: "Internal Debug info",
+            defaultOpen: false,
+            children: React.createElement(Comps.Pre.make, {
+                  children: JSON.stringify(chain, null, 2)
+                })
+          }), React.createElement(Inspector$CollapsableSection, {
+            title: "Compiled Executable Chain",
+            defaultOpen: false,
+            children: React.createElement(Comps.Pre.make, {
+                  children: internallyPatchChain(chain).script
+                })
+          }));
   return React.createElement(React.Fragment, undefined, React.createElement("div", {
                   className: "w-full flex ml-2 border-b justify-around",
                   style: {

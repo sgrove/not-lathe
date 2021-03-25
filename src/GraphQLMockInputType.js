@@ -121,6 +121,7 @@ export function listCount(gqlType) {
     totalCount = totalCount + 1;
 
     if (totalCount > 30) {
+      console.warn("Bailing on potential infinite recursion");
       return -99;
     }
 
@@ -191,11 +192,8 @@ export function typeScriptDefinitionObjectForOperation(
   schema,
   operationDefinition,
   fragmentDefinitions,
-  shouldLog = false
+  shouldLog = true
 ) {
-  let values = [];
-  let typeInfo = new TypeInfo(schema);
-
   let scalarMap = {
     String: "string",
     ID: "string",
@@ -206,134 +204,131 @@ export function typeScriptDefinitionObjectForOperation(
     // JSON: "JSON",
   };
 
-  var typeMap = {};
+  let helper = (parentGqlType, selection) => {
+    if (!parentGqlType) {
+      return;
+    }
 
-  visit(
-    operationDefinition,
-    visitWithTypeInfo(typeInfo, {
-      FragmentSpread: {
-        leave: (node, key, parent, path, ancestors) => {
-          const fragmentName = [node.name.value];
-          const fragmentDefinition = fragmentDefinitions[fragmentName];
+    let parentNamedType =
+      getNamedType(parentGqlType) || getNamedType(parentGqlType.type);
 
-          const parentName = parent?.alias?.value || parent?.name?.value;
+    let alias = selection.alias?.value;
 
-          let namedPath = namedPathOfAncestors(ancestors);
+    let name = selection?.name?.value;
+    let displayedName = alias || name;
 
-          if (!fragmentDefinition) {
-            console.warn("No fragDef for ", fragmentName, fragmentDefinitions);
-            return;
+    let field = parentNamedType.getFields()[name];
+    let gqlType = field?.type;
+    let namedType = getNamedType(gqlType);
+    let isNullable = !isNonNullType(gqlType);
+
+    let isList =
+      isListType(gqlType) || (!isNullable && isListType(gqlType.ofType));
+
+    let isObjectLike =
+      isObjectType(namedType) ||
+      isUnionType(namedType) ||
+      isInterfaceType(namedType);
+
+    let sub = selection.selectionSet?.selections
+      .map(function innerHelper(selection) {
+        if (selection.kind === "Field") {
+          return helper(namedType, selection);
+        } else if (selection.kind === "InlineFragment") {
+          const fragmentGqlType = typeFromAST(schema, selection.typeCondition);
+
+          if (!fragmentGqlType) {
+            return null;
           }
 
-          const fullFragmentTypeScriptType = typeScriptDefinitionObjectForOperation(
-            schema,
-            fragmentDefinition,
-            fragmentDefinitions,
-            false
-          );
-
-          const fragmentTypeScriptType = fullFragmentTypeScriptType?.data;
-
-          if (fragmentTypeScriptType) {
-            modifyIn(typeMap, namedPath, (object, path) => {
-              Object.entries(fragmentTypeScriptType).forEach(([key, value]) => {
-                const property = object[path[0]] || {};
-                property[key] = value;
-                object[path[0]] = property;
-              });
-              return object;
-            });
-          }
-        },
-      },
-      InlineFragment: {
-        leave: (node, key, parent, path, ancestors) => {
-          const fragmentDefinition = node.selectionSet;
-          let copiedAncestors = [...ancestors];
-          copiedAncestors.pop();
-
-          let namedPath = namedPathOfAncestors(copiedAncestors).filter(
-            (step) => !step.startsWith("$inlineFragment")
-          );
-
-          if (!fragmentDefinition) {
-            console.warn("No inlineFragDef for ", node, fragmentDefinitions);
-            return;
-          }
-
-          const fragmentTypeScriptType = typeScriptDefinitionObjectForOperation(
-            schema,
-            fragmentDefinition,
-            fragmentDefinitions,
-            false
-          )?.data;
-
-          if (fragmentTypeScriptType) {
-            modifyIn(typeMap, namedPath, (object, path) => {
-              Object.entries(fragmentTypeScriptType).forEach((key, value) => {
-                object[key] = value;
-              });
-
-              return object;
-            });
-          }
-        },
-      },
-      Field: {
-        leave: (node, key, parent, path, ancestors) => {
-          let name = node.alias?.value || node.name.value;
-          let namedPath = [...namedPathOfAncestors(ancestors), name].filter(
-            (step) => {
-              return !step.startsWith("$inlineFragment");
+          const fragmentSelections = selection.selectionSet.selections.map(
+            (subSelection) => {
+              let subSel = helper(fragmentGqlType, subSelection);
+              return subSel;
             }
           );
-          if (shouldLog) {
-            if (namedPath.length === 0) {
-              console.warn(
-                "Empty path: ",
-                [...ancestors],
-                namedPathOfAncestors(ancestors),
-                name
-              );
-            }
-          }
-          let gqlType = typeInfo.getType();
-          let namedType = getNamedType(gqlType);
-          let nestingLevel = listCount(gqlType);
 
-          let isObject = isObjectType(namedType);
+          return fragmentSelections;
+        } else if (selection.kind === "FragmentSpread") {
+          const fragmentName = [selection.name.value];
+          const fragment = fragmentDefinitions[fragmentName];
 
-          if (isObject) return;
-
-          if (gqlType) {
-            let basicType = scalarMap[namedType.name];
-
-            if (!basicType) {
-              // console.warn(
-              //   "Couldn't find scalar for ",
-              //   namedType.name,
-              //   "on",
-              //   namedPath.join(".")
-              // );
-              basicType = "any";
+          if (fragment) {
+            const fragmentGqlType = typeFromAST(schema, fragment.typeCondition);
+            if (!fragmentGqlType) {
+              return null;
             }
 
-            let tsType = basicToTypeScript(basicType, nestingLevel);
+            const fragmentSelections = fragment.selectionSet.selections.map(
+              innerHelper
+            );
 
-            modifyIn(typeMap, namedPath, (object, path) => {
-              if (typeof object[path[0]] === "undefined") {
-                object[path[0]] = tsType;
-              } else {
-              }
-              return object;
-            });
+            return fragmentSelections;
           }
-        },
-      },
-    })
-  );
+        }
 
-  return { data: typeMap, errors: ["any"] };
+        return null;
+      })
+      .filter(Boolean)
+      .reduce((acc, next) => {
+        if (Array.isArray(next[0])) {
+          return acc.concat(next);
+        } else {
+          return [...acc, next];
+        }
+      }, []);
+
+    let nestingLevel = isList ? listCount(gqlType) : 0;
+
+    let basicType = scalarMap[namedType.name];
+
+    let returnType;
+    if (isObjectLike) {
+      returnType = !!sub ? Object.fromEntries(sub) : null;
+    } else if (basicType) {
+      returnType = basicType;
+    } else {
+      returnType = "any";
+    }
+
+    if (returnType) {
+      let finalType = returnType;
+      for (var i = 0; i < nestingLevel; i++) {
+        finalType = [finalType];
+      }
+      const entry = [displayedName, finalType];
+      return entry;
+    }
+
+    console.warn("No returnType!", basicType, namedType.name, selection);
+  };
+
+  let baseGqlType =
+    operationDefinition.kind === "OperationDefinition"
+      ? operationDefinition.operation === "query"
+        ? schema.getQueryType()
+        : operationDefinition.operation === "mutation"
+        ? schema.getMutationType()
+        : operationDefinition.operation === "subscription"
+        ? schema.getSubscriptionType()
+        : null
+      : operationDefinition.kind === "FragmentDefinition"
+      ? schema.getType(operationDefinition.typeCondition.name.value)
+      : null;
+
+  let selections = operationDefinition.selectionSet?.selections;
+
+  let sub = selections?.map((selection) => {
+    return helper(baseGqlType, selection);
+  });
+
+  if (!!sub) {
+    const object = Object.fromEntries(sub);
+    const result = { data: object, errors: ["any"] };
+    return result;
+  } else {
+    return { data: typeMap, errors: ["any"] };
+  }
 }
 
 export function typeScriptForOperation(
@@ -592,13 +587,6 @@ function PreviewForAst({
 
     let typeNameMatches =
       printedType && nullableTypes === nullableTargetGqlType;
-
-    console.log(
-      "TypeNameMatches: ",
-      printedType,
-      nullableTypes,
-      nullableTargetGqlType
-    );
 
     let mock = isScalarType(namedType)
       ? JSON.stringify(mockInputType(schema, namedType))
