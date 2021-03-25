@@ -999,6 +999,7 @@ module Script = {
     ~onMount,
     ~onPotentialScriptSourceConnect,
   ) => {
+    let (localContent, setLocalContent) = React.useState(() => chain.script)
     let content = chain.script
 
     let editor = React.useRef(None)
@@ -1016,18 +1017,20 @@ module Script = {
     }, [connectionDrag->ConnectionContext.toSimpleString])
 
     React.useEffect1(() => {
-      editor.current->Belt.Option.forEach(editor => {
-        let position = editor->BsReactMonaco.getPosition
+      content == localContent
+        ? ()
+        : editor.current->Belt.Option.forEach(editor => {
+            let position = editor->BsReactMonaco.getPosition
 
-        let model = editor->BsReactMonaco.getModel("file:///main.tsx")
-        let fullRange = model->BsReactMonaco.Model.getFullModelRange
-        let edit = BsReactMonaco.editOperation(~range=fullRange, ~text=content, ())
-        editor->BsReactMonaco.executeEdits(
-          Js.Nullable.return("externalContentChange"),
-          ~edits=[edit],
-        )
-        editor->BsReactMonaco.setPosition(position)
-      })
+            let model = editor->BsReactMonaco.getModel("file:///main.tsx")
+            let fullRange = model->BsReactMonaco.Model.getFullModelRange
+            let edit = BsReactMonaco.editOperation(~range=fullRange, ~text=content, ())
+            editor->BsReactMonaco.executeEdits(
+              Js.Nullable.return("externalContentChange"),
+              ~edits=[edit],
+            )
+            editor->BsReactMonaco.setPosition(position)
+          })
 
       None
     }, [content])
@@ -1078,6 +1081,7 @@ ${chain.script}`
         height="100%"
         path=filename
         onChange={(newScript, _) => {
+          setLocalContent(_ => newScript)
           onChange(newScript)
         }}
         onMount={(editorHandle, monacoInstance) => {

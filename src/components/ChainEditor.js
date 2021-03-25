@@ -858,11 +858,16 @@ function ChainEditor$Script(Props) {
   var className = Props.className;
   var onMount = Props.onMount;
   var onPotentialScriptSourceConnect = Props.onPotentialScriptSourceConnect;
+  var match = React.useState(function () {
+        return chain.script;
+      });
+  var setLocalContent = match[1];
+  var localContent = match[0];
   var content = chain.script;
   var editor = React.useRef(undefined);
   var monaco = React.useRef(undefined);
-  var match = monacoTypelibForChain(schema, chain);
-  var types = match.dDotTs;
+  var match$1 = monacoTypelibForChain(schema, chain);
+  var types = match$1.dDotTs;
   var connectionDrag = React.useContext(ConnectionContext.context);
   var connectionDragRef = React.useRef(connectionDrag);
   React.useEffect((function () {
@@ -870,18 +875,22 @@ function ChainEditor$Script(Props) {
           
         }), [ConnectionContext.toSimpleString(connectionDrag)]);
   React.useEffect((function () {
-          Belt_Option.forEach(editor.current, (function (editor) {
-                  var position = editor.getPosition();
-                  var model = editor.getModel("file:///main.tsx");
-                  var fullRange = model.getFullModelRange();
-                  var edit = {
-                    range: fullRange,
-                    text: content
-                  };
-                  editor.executeEdits("externalContentChange", [edit]);
-                  editor.setPosition(position);
-                  
-                }));
+          if (content === localContent) {
+            
+          } else {
+            Belt_Option.forEach(editor.current, (function (editor) {
+                    var position = editor.getPosition();
+                    var model = editor.getModel("file:///main.tsx");
+                    var fullRange = model.getFullModelRange();
+                    var edit = {
+                      range: fullRange,
+                      text: content
+                    };
+                    editor.executeEdits("externalContentChange", [edit]);
+                    editor.setPosition(position);
+                    
+                  }));
+          }
           
         }), [content]);
   React.useEffect((function () {
@@ -906,6 +915,9 @@ function ChainEditor$Script(Props) {
       }
     },
     onChange: (function (newScript, param) {
+        Curry._1(setLocalContent, (function (param) {
+                return newScript;
+              }));
         return Curry._1(onChange, newScript);
       }),
     onMount: (function (editorHandle, monacoInstance) {
