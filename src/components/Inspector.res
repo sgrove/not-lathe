@@ -578,7 +578,7 @@ async function ${chain.name} ({${variableParams}}) {
 export default async function handler(req, res) {
   /* If not using GET, be sure to set the header "Content-Type: application/json"
      for requests to your Next.js API */
-  const { query, message, name, positionMs } = req.method === 'GET' ? req.query : req.body
+  const { query, ${variableParams} } = req.method === 'GET' ? req.query : req.body
 
   const result = await ${chain.name}({ ${variableParams} })
 
@@ -2076,22 +2076,22 @@ ${remoteChainCalls.netlify.code}
               {requests->array}
             </CollapsableSection>
           : React.null}
-        <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
-          <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
-        </CollapsableSection>
-        <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
-          <Comps.Pre>
-            {
-              let transformed = chain->internallyPatchChain
-              let script = transformed.script
+        // <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
+        //   <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
+        // </CollapsableSection>
+        // <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
+        //   <Comps.Pre>
+        //     {
+        //       let transformed = chain->internallyPatchChain
+        //       let script = transformed.script
 
-              // let script = Obj.magic(transformed)["script"]
+        //       // let script = Obj.magic(transformed)["script"]
 
-              // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
-              script->React.string
-            }
-          </Comps.Pre>
-        </CollapsableSection>
+        //       // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
+        //       script->React.string
+        //     }
+        //   </Comps.Pre>
+        // </CollapsableSection>
       </>
 
     <>

@@ -2947,6 +2947,8 @@ ${newScript}`
                     | (Some("ID"), Some("String")) => true
                     | (Some("Int"), Some("Float"))
                     | (Some("Float"), Some("Int")) => true
+                    | (Some("JSON"), _)
+                    | (_, Some("JSON")) => true
                     | _ => false
                     }
 

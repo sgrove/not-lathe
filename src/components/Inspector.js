@@ -464,7 +464,7 @@ function remoteChainCalls(appId, chainId, chain) {
             }
             return key + ": " + coerce;
           })).join(",\n\t");
-  var nextjsScript = "const fetch = require(\"node-fetch\");\n\nasync function " + chain.name + " ({" + variableParams + "}) {\n  const resp = await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      \"Content-Type\": \"application/json\",\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + nextJsVariableCoerced + "}\n        }\n      )\n    }\n  )\n\n  return resp.json()\n}\n\nexport default async function handler(req, res) {\n  /* If not using GET, be sure to set the header \"Content-Type: application/json\"\n     for requests to your Next.js API */\n  const { query, message, name, positionMs } = req.method === 'GET' ? req.query : req.body\n\n  const result = await " + chain.name + "({ " + variableParams + " })\n\n  let errors = result.errors || [];\n\n  // Gather all of the errors from the nodes in the request chain\n  result?.data?.oneGraph?.executeChain?.results?.forEach((call) => {\n    const requestId = call.request.id\n\n    const requestErrors =\n      call?.result?.flatMap((result) => result?.errors)?.filter(Boolean) || []\n\n    const callArgumentDependencyErrors =\n      call?.argumentDependencies\n        ?.filter((argumentDependency) => !!argumentDependency?.error)\n        ?.map((argumentDependency) => {\n          return {\n            name: requestId + '.' + argumentDependency.name,\n            errors: argumentDependency.error,\n          }\n        })\n        ?.filter(Boolean) || []\n\n    if (requestErrors.length > 0 || callArgumentDependencyErrors.length > 0) {\n      console.warn('Error in requestId=', requestId, requestErrors, errors)\n      errors = errors\n        .concat(requestErrors)\n        .concat(callArgumentDependencyErrors)\n        .filter(Boolean)\n    }\n  })\n\n  // No errors present means the chain executed well\n  if ((errors || []).length === 0) {\n    res.status(200).json({\n      success: true\n    })\n  } else {\n    if ((result.errors || []).length > 0) {\n      console.warning(\"Error in executing chain " + chain.name + "\", errors)\n    }\n    res.status(500).json({ message: \"Error executing chain\" })\n  }\n}";
+  var nextjsScript = "const fetch = require(\"node-fetch\");\n\nasync function " + chain.name + " ({" + variableParams + "}) {\n  const resp = await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      \"Content-Type\": \"application/json\",\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + nextJsVariableCoerced + "}\n        }\n      )\n    }\n  )\n\n  return resp.json()\n}\n\nexport default async function handler(req, res) {\n  /* If not using GET, be sure to set the header \"Content-Type: application/json\"\n     for requests to your Next.js API */\n  const { query, " + variableParams + " } = req.method === 'GET' ? req.query : req.body\n\n  const result = await " + chain.name + "({ " + variableParams + " })\n\n  let errors = result.errors || [];\n\n  // Gather all of the errors from the nodes in the request chain\n  result?.data?.oneGraph?.executeChain?.results?.forEach((call) => {\n    const requestId = call.request.id\n\n    const requestErrors =\n      call?.result?.flatMap((result) => result?.errors)?.filter(Boolean) || []\n\n    const callArgumentDependencyErrors =\n      call?.argumentDependencies\n        ?.filter((argumentDependency) => !!argumentDependency?.error)\n        ?.map((argumentDependency) => {\n          return {\n            name: requestId + '.' + argumentDependency.name,\n            errors: argumentDependency.error,\n          }\n        })\n        ?.filter(Boolean) || []\n\n    if (requestErrors.length > 0 || callArgumentDependencyErrors.length > 0) {\n      console.warn('Error in requestId=', requestId, requestErrors, errors)\n      errors = errors\n        .concat(requestErrors)\n        .concat(callArgumentDependencyErrors)\n        .filter(Boolean)\n    }\n  })\n\n  // No errors present means the chain executed well\n  if ((errors || []).length === 0) {\n    res.status(200).json({\n      success: true\n    })\n  } else {\n    if ((result.errors || []).length > 0) {\n      console.warning(\"Error in executing chain " + chain.name + "\", errors)\n    }\n    res.status(500).json({ message: \"Error executing chain\" })\n  }\n}";
   var nextjs_path = "pages/api/" + chain.name + ".js";
   var nextjs = {
     path: nextjs_path,
@@ -1851,19 +1851,7 @@ function Inspector$Nothing(Props) {
             }, "Add some blocks to get started"), requests.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
               title: "Chain Requests",
               children: requests
-            }) : null, React.createElement(Inspector$CollapsableSection, {
-            title: "Internal Debug info",
-            defaultOpen: false,
-            children: React.createElement(Comps.Pre.make, {
-                  children: JSON.stringify(chain, null, 2)
-                })
-          }), React.createElement(Inspector$CollapsableSection, {
-            title: "Compiled Executable Chain",
-            defaultOpen: false,
-            children: React.createElement(Comps.Pre.make, {
-                  children: internallyPatchChain(chain).script
-                })
-          }));
+            }) : null);
   return React.createElement(React.Fragment, undefined, React.createElement("div", {
                   className: "w-full flex ml-2 border-b justify-around",
                   style: {

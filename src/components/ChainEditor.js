@@ -2909,29 +2909,68 @@ function ChainEditor$Main(Props) {
                   var nullablePrintedType = printedType.replace(new RegExp("!", "g"), "");
                   var match = nullablePrintedType;
                   var typesMatch;
-                  if (nullableTargetVariableType !== undefined) {
-                    if (match === nullableTargetVariableType) {
-                      typesMatch = true;
-                    } else {
-                      switch (match) {
-                        case "Float" :
-                            typesMatch = nullableTargetVariableType === "Int" ? true : false;
-                            break;
-                        case "ID" :
-                            typesMatch = nullableTargetVariableType === "String" ? true : false;
-                            break;
-                        case "Int" :
-                            typesMatch = nullableTargetVariableType === "Float" ? true : false;
-                            break;
-                        case "String" :
-                            typesMatch = nullableTargetVariableType === "ID" ? true : false;
-                            break;
-                        default:
-                          typesMatch = false;
-                      }
-                    }
+                  var exit = 0;
+                  var exit$1 = 0;
+                  if (nullableTargetVariableType !== undefined && match === nullableTargetVariableType) {
+                    typesMatch = true;
                   } else {
-                    typesMatch = false;
+                    exit$1 = 2;
+                  }
+                  if (exit$1 === 2) {
+                    switch (match) {
+                      case "Float" :
+                          if (nullableTargetVariableType !== undefined) {
+                            if (nullableTargetVariableType === "Int") {
+                              typesMatch = true;
+                            } else {
+                              exit = 1;
+                            }
+                          } else {
+                            typesMatch = false;
+                          }
+                          break;
+                      case "ID" :
+                          if (nullableTargetVariableType !== undefined) {
+                            if (nullableTargetVariableType === "String") {
+                              typesMatch = true;
+                            } else {
+                              exit = 1;
+                            }
+                          } else {
+                            typesMatch = false;
+                          }
+                          break;
+                      case "Int" :
+                          if (nullableTargetVariableType !== undefined) {
+                            if (nullableTargetVariableType === "Float") {
+                              typesMatch = true;
+                            } else {
+                              exit = 1;
+                            }
+                          } else {
+                            typesMatch = false;
+                          }
+                          break;
+                      case "JSON" :
+                          typesMatch = true;
+                          break;
+                      case "String" :
+                          if (nullableTargetVariableType !== undefined) {
+                            if (nullableTargetVariableType === "ID") {
+                              typesMatch = true;
+                            } else {
+                              exit = 1;
+                            }
+                          } else {
+                            typesMatch = false;
+                          }
+                          break;
+                      default:
+                        exit = 1;
+                    }
+                  }
+                  if (exit === 1) {
+                    typesMatch = nullableTargetVariableType === "JSON" ? true : false;
                   }
                   if (typesMatch) {
                     return Curry._1(setState, (function (oldState) {

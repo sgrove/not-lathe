@@ -237,7 +237,7 @@ var blocks = [
     id: Uuid.parseExn("fc16a4bb-89ea-4685-93a1-3d42ff9d875a"),
     title: "CreateLead",
     description: "TODO",
-    body: "mutation CreateLead($lead: SalesforceLeadInput!) {\n  salesforce {\n    createLead(input: { lead: $lead }) {\n      lead {\n        id\n        oneGraphId\n        email\n        name\n      }\n    }\n  }\n}",
+    body: "mutation CreateLead(\n  $firstName: String!\n  $lastName: String!\n  $email: String!\n) {\n  salesforce {\n    createLead(\n      input: {\n        lead: {\n          firstName: $firstName\n          lastName: $lastName\n          email: $email\n          company: \"Unknown\"\n        }\n      }\n    ) {\n      lead {\n        id\n        oneGraphId\n        email\n        name\n      }\n    }\n  }\n}",
     kind: /* Mutation */1,
     contributedBy: "@sgrove",
     services: ["salesforce"]

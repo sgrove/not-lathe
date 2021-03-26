@@ -421,9 +421,22 @@ let blocks = [
     contributedBy: Some("@sgrove"),
     description: "TODO",
     services: ["salesforce"],
-    body: "mutation CreateLead($lead: SalesforceLeadInput!) {
+    body: "mutation CreateLead(
+  $firstName: String!
+  $lastName: String!
+  $email: String!
+) {
   salesforce {
-    createLead(input: { lead: $lead }) {
+    createLead(
+      input: {
+        lead: {
+          firstName: $firstName
+          lastName: $lastName
+          email: $email
+          company: \"Unknown\"
+        }
+      }
+    ) {
       lead {
         id
         oneGraphId
