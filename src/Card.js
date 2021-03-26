@@ -234,6 +234,42 @@ var addToDocMutation = {
 
 var blocks = [
   {
+    id: Uuid.parseExn("fc16a4bb-89ea-4685-93a1-3d42ff9d875a"),
+    title: "CreateLead",
+    description: "TODO",
+    body: "mutation CreateLead($lead: SalesforceLeadInput!) {\n  salesforce {\n    createLead(input: { lead: $lead }) {\n      lead {\n        id\n        oneGraphId\n        email\n        name\n      }\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["salesforce"]
+  },
+  {
+    id: Uuid.parseExn("fc26a4bb-89ca-4685-93a1-3d42ff9d875a"),
+    title: "CreateIssue",
+    description: "TODO",
+    body: "mutation CreateIssue(\n  $repositoryId: ID!\n  $title: String!\n  $labelIds: [ID!]!\n  $body: String!\n) {\n  gitHub {\n    createIssue(\n      input: {\n        repositoryId: $repositoryId\n        title: $title\n        labelIds: $labelIds\n        body: $body\n      }\n    ) {\n      issue {\n        id\n        oneGraphId\n      }\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["github"]
+  },
+  {
+    id: Uuid.parseExn("fc16a4bb-89eb-4685-93a1-3d42ff9d875a"),
+    title: "LinkNodes",
+    description: "TODO",
+    body: "mutation LinkNodes(\n  $endNodeOneGraphId: ID!\n  $startNodeOneGraphId: ID!\n) {\n  oneGraph {\n   forward: linkOneGraphNodes(\n      input: {\n        startNodeOneGraphId: $startNodeOneGraphId\n        endNodeOneGraphId: $endNodeOneGraphId\n      }\n    ) {\n      __typename\n    }\n   backward: linkOneGraphNodes(\n      input: {\n        startNodeOneGraphId: $endNodeOneGraphId\n        endNodeOneGraphId: $startNodeOneGraphId\n      }\n    ) {\n      __typename\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["onegraph"]
+  },
+  {
+    id: Uuid.parseExn("fc16a4fb-89eb-4685-93a1-3d42ff9d875a"),
+    title: "IssueEvents",
+    description: "TODO",
+    body: "subscription IssueEvents(\n  $repoOwner: String!\n  $repoName: String!\n) {\n  github {\n    issuesEvent(\n      input: { repoOwner: $repoOwner, repoName: $repoName }\n    ) {\n      issue {\n        title\n        id\n        number\n      }\n      action\n    }\n  }\n}",
+    kind: /* Subscription */2,
+    contributedBy: "@sgrove",
+    services: ["github"]
+  },
+  {
     id: Uuid.parseExn("fc16a4bb-89ea-4885-93a1-3d42ff9d875a"),
     title: "AmILoggedIntoDevTo",
     description: "Tell if a user is logged in (either via an `$apiKey` or the OAuth flow).\nNote: We'll deprecate this field in favor of `id` as with our other integrations if/when DEV adds an endpoint to retrieve information about the currently logged in user. However, this field can be safely relied on to work even after that happens.\n\nYou can find or create your DEV.to API keys in [the settings menu on dev.to](https://dev.to/settings/account)\n",

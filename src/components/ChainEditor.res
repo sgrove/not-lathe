@@ -361,15 +361,6 @@ module NodeLabel = {
     | _ => ""
     }
 
-    // let className =
-    //   className ++
-    //   request->Belt.Option.mapWithDefault("", request => {
-    //     switch inspected {
-    //     | Some(Request({request: {id}})) if id == request.id => " border-2 border-green"
-    //     | _ => ""
-    //     }
-    //   })
-
     <div
       ref={ReactDOM.Ref.domRef(domRef)}
       className={"flex align-middle items-center min-w-max flex-col " ++ className}
@@ -454,9 +445,6 @@ module NodeLabel = {
 module OperationNodeComponent = {
   @react.component
   let make = (~data) => {
-    Js.log2("OperationNode: ", data)
-    %raw(`console.log("ON Args: ", arguments)`)->ignore
-    Debug.assignToWindowForDeveloperDebug(~name="nodeData", data)
     <div className="rounded-sm node-label p-2"> <div> {data["label"]} </div> </div>
   }
 }
@@ -516,6 +504,12 @@ let diagramFromChain = (
       Js.String2.localeCompare(a.title, b.title)->Belt.Float.toInt
     )
     ->Belt.Array.mapWithIndex((idx, block) => {
+      let nodeTitleWidth = block.title->Js.String2.length->float_of_int *. 7.2
+      let nodePadding = 105.
+
+      // Right side should be at 153 to right-align with fragment label
+      let x = 160. -. nodeTitleWidth -. nodePadding
+
       let node = ReactFlow.Node.t(
         ~typ=#fragment,
         ~id=block.id->Uuid.toString,
@@ -524,7 +518,7 @@ let diagramFromChain = (
             onEditBlock request=None block schema onDragStart onPotentialVariableSourceConnect
           />,
         },
-        ~position={x: -250., y: nodeHeight *. idx->float_of_int},
+        ~position={x: x, y: nodeHeight *. idx->float_of_int +. 10. +. 30.},
         ~draggable=false,
         ~connectable=false,
         ~style=nodeStyle,
@@ -543,7 +537,7 @@ let diagramFromChain = (
       ~data={
         label: {"Reusable Fragments"->React.string},
       },
-      ~position={x: -250., y: -50.},
+      ~position={x: 5., y: 10.},
       ~draggable=false,
       ~connectable=false,
       ~style=ReactDOMStyle.make(~width="unset", ()),
@@ -1067,7 +1061,8 @@ ${chain.script}`
     <div
       style={ReactDOMStyle.make(
         ~height="calc(100vh - 40px - 384px - 56px)",
-        ~overflowY="hidden",
+        /* TODO: Figure this out: if overflowY is hidden, the page won't scroll, but the tooltips are cut off */
+        // ~overflowY="hidden",
         (),
       )}>
       <BsReactMonaco.Editor
@@ -1097,6 +1092,7 @@ ${chain.script}`
             switch connectionDragRef.current {
             | Empty
             | Completed(_)
+            | CompletedWithTypeMismatch(_)
             | StartedTarget(_) => ()
             | StartedSource({sourceRequest, sourceDom}) =>
               let position = mouseEvent["target"]["position"]
@@ -1266,7 +1262,6 @@ module Diagram = {
     <ReactFlow
       nodeTypes={
         "fragment": FragmentNodeComponent.make,
-        // "operation": OperationNodeComponent.make,
       }
       style={ReactDOMStyle.make(
         ~borderWidth="1px",
@@ -1524,7 +1519,7 @@ module Main = {
       let sourceFile = TypeScript.createSourceFile(~name="main.ts", ~source, ~target=99, true)
       let pos = TypeScript.findFnPos(sourceFile, functionName)
 
-      pos->Belt.Option.forEach(((start, end)) => {
+      pos->Belt.Option.forEach(({start, end}) => {
         state.scriptEditor.editor->Belt.Option.forEach(editor => {
           let model = editor->BsReactMonaco.getModel("file://main.tsx")
 
@@ -2231,7 +2226,6 @@ ${newScript}`
                         ~name="computedCompiled",
                         [definition->Obj.magic, compiled],
                       )
-                      Js.log2("Compiled compute: ", definition->Obj.magic->GraphQLJs.printAst)
                       compiled
                     | _ => definition
                     }
@@ -2485,6 +2479,277 @@ ${newScript}`
           }}
           {switch state.connectionDrag {
           | Empty => React.null
+          | CompletedWithTypeMismatch({
+              sourceRequest,
+              variableTarget,
+              windowPosition: (x, y),
+              potentialFunctionMatches,
+              dataPath,
+              targetVariableType,
+              sourceType,
+            }) =>
+            open React
+            let onClick: option<string> => unit = name => {
+              setState(oldState => {
+                let parsed = try {
+                  Some(
+                    TypeScript.createSourceFile(
+                      ~name="main.ts",
+                      ~source=oldState.chain.script,
+                      ~target=99,
+                      true,
+                    ),
+                  )
+                } catch {
+                | _ => None
+                }
+
+                let targetVariableDependency = variableTarget.variableDependency
+
+                let newRequests = oldState.chain.requests->Belt.Array.map(request => {
+                  switch variableTarget.targetRequest.id == request.id {
+                  | false => request
+                  | true =>
+                    let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+                      switch varDep.name == targetVariableDependency.name {
+                      | true =>
+                        let dependency = Chain.ArgumentDependency({
+                          name: targetVariableDependency.name,
+                          ifMissing: #SKIP,
+                          ifList: #FIRST,
+                          fromRequestIds: request.dependencyRequestIds,
+                          functionFromScript: "TBD",
+                          maxRecur: None,
+                        })
+
+                        {...varDep, dependency: dependency}
+
+                      | false =>
+                        let dependency = switch varDep.dependency {
+                        | ArgumentDependency(argDep) =>
+                          let newArgDep = {
+                            ...argDep,
+                            fromRequestIds: argDep.fromRequestIds
+                            ->Belt.Array.concat([sourceRequest.id])
+                            ->Utils.distinctStrings,
+                          }
+
+                          Chain.ArgumentDependency(newArgDep)
+                        | other => other
+                        }
+                        let varDep = {...varDep, dependency: dependency}
+
+                        varDep
+                      }
+                    })
+
+                    {
+                      ...request,
+                      variableDependencies: varDeps,
+                      dependencyRequestIds: request.dependencyRequestIds
+                      ->Belt.Array.concat([sourceRequest.id])
+                      ->Utils.distinctStrings,
+                    }
+                  }
+                })
+
+                let request = newRequests->Belt.Array.getBy(request => {
+                  variableTarget.targetRequest.id == request.id
+                })
+
+                let lineNumbers = request->Belt.Option.flatMap(request => {
+                  let names = request->Chain.requestScriptNames
+
+                  let target = parsed->Belt.Option.flatMap(parsed =>
+                    parsed
+                    ->TypeScript.findFnPos(names.functionName)
+                    ->Belt.Option.map(({start, firstStatementStart}) => {
+                      let {line} = parsed->TypeScript.getLineAndCharacterOfPosition(start)
+                      let firstStatementLine = firstStatementStart->Belt.Option.mapWithDefault(
+                        line,
+                        firstStatementStart => {
+                          let {line} =
+                            parsed->TypeScript.getLineAndCharacterOfPosition(firstStatementStart)
+                          line
+                        },
+                      )
+
+                      (line, firstStatementLine)
+                    })
+                  )
+                  target
+                })
+
+                let _re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
+                let binding = // Should we use the last item, or the targetVariable name?
+                // dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
+                targetVariableDependency.name
+
+                let nullableTargetVariableType =
+                  targetVariableType->Belt.Option.map(typ =>
+                    typ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+                  )
+
+                let nullablePrintedType =
+                  sourceType->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+
+                let defaultCoercerName = j`${nullablePrintedType}To${nullableTargetVariableType->Belt.Option.getWithDefault(
+                    "Unknown",
+                  )}`
+
+                let coercerName = switch name {
+                | None =>
+                  Utils.prompt(
+                    "Coercer function name: ",
+                    ~default=Some(defaultCoercerName),
+                  )->Belt.Option.getWithDefault(defaultCoercerName)
+                | Some(name) => name
+                }
+
+                let coercerExists = switch coercerName {
+                | "INTERNAL_PASSTHROUGH" => true
+                | _ =>
+                  parsed
+                  ->Belt.Option.flatMap(parsed => parsed->TypeScript.findFnPos(coercerName))
+                  ->Belt.Option.isSome
+                }
+
+                let newScript = lineNumbers->Belt.Option.map(((
+                  _fnLineNumber,
+                  fnBodyLineNumber,
+                )) => {
+                  let newBinding = switch coercerName {
+                  | "INTERNAL_PASSTHROUGH" =>
+                    j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith("?.")}`
+                  | _ => j`\tlet ${binding} = ${coercerName}(${dataPath->Js.Array2.joinWith("?.")})`
+                  }
+
+                  let temp = oldState.chain.script->Js.String2.split("\n")
+
+                  let _ =
+                    temp->Js.Array2.spliceInPlace(
+                      ~pos=fnBodyLineNumber + 1,
+                      ~remove=0,
+                      ~add=[newBinding],
+                    )
+
+                  let signatureReturnType =
+                    nullableTargetVariableType->Belt.Option.mapWithDefault("", t => j`: ${t}`)
+
+                  let newFunctionDefinition = j`function ${coercerName}(${binding} : ${nullablePrintedType}) ${signatureReturnType} {
+  return ${binding}
+}`
+
+                  coercerExists
+                    ? temp->Js.Array2.joinWith("\n")
+                    : temp->Js.Array2.joinWith("\n") ++ "\n\n" ++ newFunctionDefinition
+                })
+
+                let parsed = newScript->Belt.Option.flatMap(newScript =>
+                  try {
+                    Some(
+                      TypeScript.createSourceFile(
+                        ~name="main.ts",
+                        ~source=newScript,
+                        ~target=99,
+                        true,
+                      ),
+                    )
+                  } catch {
+                  | _ => None
+                  }
+                )
+
+                let functionObjectLiteralReturn = request->Belt.Option.flatMap(request => {
+                  let names = request->Chain.requestScriptNames
+
+                  parsed->Belt.Option.flatMap(parsed =>
+                    parsed->TypeScript.findLastReturnObjectPos(
+                      ~functionName=names.functionName,
+                      ~properyName=binding,
+                    )
+                  )
+                })
+
+                let shouldInsertPropertyInReturn =
+                  functionObjectLiteralReturn->Belt.Option.mapWithDefault(false, return =>
+                    return.property->Belt.Option.isNone
+                  )
+
+                let newScript = newScript->Belt.Option.map(newScript =>
+                  functionObjectLiteralReturn->Belt.Option.mapWithDefault(
+                    newScript,
+                    returnObjectPositions => {
+                      shouldInsertPropertyInReturn
+                        ? {
+                            Debug.assignToWindowForDeveloperDebug(~name="tNewScript", newScript)
+                            let head =
+                              newScript->Js.String2.slice(
+                                ~from=0,
+                                ~to_=returnObjectPositions.objectPosition.start + 2,
+                              )
+
+                            let tail =
+                              newScript->Js.String2.slice(
+                                ~from=returnObjectPositions.objectPosition.start + 2,
+                                ~to_=newScript->Js.String2.length,
+                              )
+
+                            j`${head} ${binding}: ${binding},${tail}`
+                          }
+                        : newScript
+                    },
+                  )
+                )
+
+                let newChain = {
+                  ...oldState.chain,
+                  script: newScript->Belt.Option.getWithDefault(oldState.chain.script),
+                  requests: newRequests,
+                }
+
+                {...oldState, chain: newChain, connectionDrag: Empty}
+              })
+            }
+
+            <div
+              className="absolute"
+              style={ReactDOMRe.Style.make(
+                ~width="500px",
+                ~top=j`${y->string_of_int}px`,
+                ~left=j`${x->string_of_int}px`,
+                ~maxHeight="200px",
+                ~overflowY="scroll",
+                (),
+              )}>
+              <div className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
+                {"Type mismatch, choose coercer: "->string}
+                <ul>
+                  <li
+                    className="cursor-pointer hover:bg-blue-400 hover:text-white"
+                    key="INTERNAL_PASSTHROUGH"
+                    onClick={_ => onClick(Some("INTERNAL_PASSTHROUGH"))}>
+                    {"Passthrough"->string}
+                  </li>
+                  {potentialFunctionMatches
+                  ->Belt.Array.map((fn: TypeScript.simpleFunctionType) => {
+                    <li
+                      className="cursor-pointer hover:bg-blue-400 hover:text-white"
+                      onClick={_ => onClick(Some(fn.name))}
+                      key=fn.name>
+                      {fn.name->string}
+                    </li>
+                  })
+                  ->array}
+                  <li
+                    className="cursor-pointer hover:bg-blue-400 hover:text-white"
+                    key="createNew"
+                    onClick={_ => onClick(None)}>
+                    {"Create new function"->string}
+                  </li>
+                </ul>
+              </div>
+            </div>
           | Completed({sourceRequest, target: Script({scriptPosition}), windowPosition: (x, y)}) =>
             let chainFragmentsDoc =
               state.chain.blocks
@@ -2611,8 +2876,11 @@ ${newScript}`
             </div>
           | Completed({
               sourceRequest,
-              target: Variable({variableDependency: targetVariableDependency, targetRequest}),
-              windowPosition: (x, y),
+              sourceDom,
+              target: Variable(
+                {variableDependency: targetVariableDependency, targetRequest} as variabletarget,
+              ),
+              windowPosition: (x, y) as windowPosition,
             }) =>
             let chainFragmentsDoc =
               state.chain.blocks
@@ -2631,17 +2899,13 @@ ${newScript}`
             let targetDefinition = targetParsedOperation.definitions->Belt.Array.getExn(0)
             let targetVariables = targetDefinition->GraphQLUtils.getOperationVariables
 
-            Js.log3("Operation variables: ", sourceRequest.operation.body, targetVariables)
-
             let targetVariableType =
               targetVariables
               ->Belt.Array.getBy(((variableName, _)) => {
-                Js.log3("Looking for ", variableName, targetVariableDependency.name)
                 targetVariableDependency.name == variableName
               })
               ->Belt.Option.map(((_, typ)) => typ)
 
-            Js.log2("targetVariableType: ", targetVariableType)
             <div
               className="absolute"
               style={ReactDOMRe.Style.make(
@@ -2660,66 +2924,160 @@ ${newScript}`
                     "operationDoc": chainFragmentsDoc,
                   })}
                   targetGqlType=?targetVariableType
-                  onCopy={({path}) => {
+                  onCopy={({printedType, path}) => {
                     let dataPath = ["payload"]->Belt.Array.concat(path)
 
-                    setState(oldState => {
-                      let newDependency = Chain.GraphQLProbe({
-                        name: targetVariableDependency.name,
-                        ifMissing: #SKIP,
-                        ifList: #FIRST,
-                        fromRequestId: sourceRequest.id,
-                        functionFromScript: "TBD",
-                        path: dataPath,
-                      })
+                    let nullableTargetVariableType =
+                      targetVariableType->Belt.Option.map(typ =>
+                        typ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+                      )
 
-                      let newRequests = oldState.chain.requests->Belt.Array.map(request => {
-                        switch targetRequest.id == request.id {
-                        | false => request
-                        | true =>
-                          let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
-                            switch varDep.name == targetVariableDependency.name {
-                            | true => {...varDep, dependency: newDependency}
-                            | false =>
-                              let dependency = switch varDep.dependency {
-                              | ArgumentDependency(argDep) =>
-                                let newArgDep = {
-                                  ...argDep,
-                                  fromRequestIds: argDep.fromRequestIds
-                                  ->Belt.Array.concat([sourceRequest.id])
-                                  ->Utils.distinctStrings,
-                                }
+                    let nullablePrintedType =
+                      printedType->Js.String2.replaceByRe(
+                        Js.Re.fromStringWithFlags("!", ~flags="g"),
+                        "",
+                      )
 
-                                Chain.ArgumentDependency(newArgDep)
-                              | other => other
+                    let typesMatch = switch (
+                      Some(nullablePrintedType),
+                      nullableTargetVariableType,
+                    ) {
+                    | (Some(a), Some(b)) if a == b => true
+                    | (Some("String"), Some("ID"))
+                    | (Some("ID"), Some("String")) => true
+                    | (Some("Int"), Some("Float"))
+                    | (Some("Float"), Some("Int")) => true
+                    | _ => false
+                    }
+
+                    switch typesMatch {
+                    | false =>
+                      setState(oldState => {
+                        let parsed = try {
+                          Some(
+                            TypeScript.createSourceFile(
+                              ~name="main.ts",
+                              ~source=oldState.chain.script,
+                              ~target=99,
+                              true,
+                            ),
+                          )
+                        } catch {
+                        | _ => None
+                        }
+
+                        let newConnectionDrag = parsed->Belt.Option.map(parsed => {
+                          let fnTypes = parsed->TypeScript.findFunctionTypes
+
+                          let existingFnMatches =
+                            fnTypes
+                            ->Js.Dict.values
+                            ->Belt.Array.keep(({firstParamType, returnType}) => {
+                              let firstParamMatches = switch (
+                                nullablePrintedType->Js.String2.toLocaleLowerCase,
+                                firstParamType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                              ) {
+                              | (a, Some(b)) if a == b => true
+                              | ("int", Some("number"))
+                              | ("float", Some("number")) => true
+                              | ("id", Some("string")) => true
+                              | _ => false
                               }
-                              let varDep = {...varDep, dependency: dependency}
 
-                              varDep
-                            }
+                              let returnTypeMatches = switch (
+                                nullableTargetVariableType->Belt.Option.map(
+                                  Js.String2.toLocaleLowerCase,
+                                ),
+                                returnType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                              ) {
+                              | (Some(a), Some(b)) if a == b => true
+                              | (Some("int"), Some("number"))
+                              | (Some("float"), Some("number")) => true
+                              | (Some("id"), Some("string")) => true
+                              | _ => false
+                              }
+
+                              firstParamMatches && returnTypeMatches
+                            })
+                            ->Belt.SortArray.stableSortBy((a, b) => String.compare(a.name, b.name))
+
+                          ConnectionContext.CompletedWithTypeMismatch({
+                            sourceRequest: sourceRequest,
+                            sourceDom: sourceDom,
+                            variableTarget: variabletarget,
+                            windowPosition: windowPosition,
+                            targetVariableType: targetVariableType,
+                            sourceType: printedType,
+                            potentialFunctionMatches: existingFnMatches,
+                            dataPath: dataPath,
                           })
+                        })
 
-                          {
-                            ...request,
-                            variableDependencies: varDeps,
-                            dependencyRequestIds: request.dependencyRequestIds
-                            ->Belt.Array.concat([sourceRequest.id])
-                            ->Utils.distinctStrings,
-                          }
+                        {
+                          ...oldState,
+                          connectionDrag: newConnectionDrag->Belt.Option.getWithDefault(Empty),
                         }
                       })
+                    | true =>
+                      setState(oldState => {
+                        let potentialProbeDependency = Chain.GraphQLProbe({
+                          name: targetVariableDependency.name,
+                          ifMissing: #SKIP,
+                          ifList: #FIRST,
+                          fromRequestId: sourceRequest.id,
+                          functionFromScript: "TBD",
+                          path: dataPath,
+                        })
 
-                      let newChain = {...oldState.chain, requests: newRequests}
+                        let newRequests = oldState.chain.requests->Belt.Array.map(request => {
+                          switch targetRequest.id == request.id {
+                          | false => request
+                          | true =>
+                            let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+                              switch varDep.name == targetVariableDependency.name {
+                              | true => {...varDep, dependency: potentialProbeDependency}
 
-                      let diagram = diagramFromChain(newChain)
+                              | false =>
+                                let dependency = switch varDep.dependency {
+                                | ArgumentDependency(argDep) =>
+                                  let newArgDep = {
+                                    ...argDep,
+                                    fromRequestIds: argDep.fromRequestIds
+                                    ->Belt.Array.concat([sourceRequest.id])
+                                    ->Utils.distinctStrings,
+                                  }
 
-                      {
-                        ...oldState,
-                        diagram: diagram,
-                        chain: newChain,
-                        connectionDrag: Empty,
-                      }
-                    })
+                                  Chain.ArgumentDependency(newArgDep)
+                                | other => other
+                                }
+                                let varDep = {...varDep, dependency: dependency}
+
+                                varDep
+                              }
+                            })
+
+                            {
+                              ...request,
+                              variableDependencies: varDeps,
+                              dependencyRequestIds: request.dependencyRequestIds
+                              ->Belt.Array.concat([sourceRequest.id])
+                              ->Utils.distinctStrings,
+                            }
+                          }
+                        })
+
+                        let newChain = {...oldState.chain, requests: newRequests}
+
+                        let diagram = diagramFromChain(newChain)
+
+                        {
+                          ...oldState,
+                          diagram: diagram,
+                          chain: newChain,
+                          connectionDrag: Empty,
+                        }
+                      })
+                    }
                   }}
                 />
               </div>

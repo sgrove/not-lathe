@@ -1,7 +1,9 @@
 type scriptPosition = {lineNumber: int, column: int}
 
+type variableTarget = {targetRequest: Chain.request, variableDependency: Chain.variableDependency}
+
 type target =
-  | Variable({targetRequest: Chain.request, variableDependency: Chain.variableDependency})
+  | Variable(variableTarget)
   | Script({scriptPosition: scriptPosition})
 
 type connectionDrag =
@@ -14,6 +16,16 @@ type connectionDrag =
       target: target,
       windowPosition: (int, int),
     })
+  | CompletedWithTypeMismatch({
+      sourceRequest: Chain.request,
+      sourceDom: Dom.element,
+      variableTarget: variableTarget,
+      sourceType: string,
+      targetVariableType: option<string>,
+      windowPosition: (int, int),
+      potentialFunctionMatches: array<TypeScript.simpleFunctionType>,
+      dataPath: array<string>,
+    })
 
 let toSimpleString = connectionDrag => {
   switch connectionDrag {
@@ -21,6 +33,7 @@ let toSimpleString = connectionDrag => {
   | StartedSource(_) => "StartedSource"
   | StartedTarget(_) => "StartedTarget"
   | Completed(_) => "Completed"
+  | CompletedWithTypeMismatch(_) => "CompletedWithTypeMismatch"
   }
 }
 

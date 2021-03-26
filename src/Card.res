@@ -416,6 +416,112 @@ let addToDocMutation = {
 
 let blocks = [
   {
+    title: "CreateLead",
+    id: "fc16a4bb-89ea-4685-93a1-3d42ff9d875a"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    description: "TODO",
+    services: ["salesforce"],
+    body: "mutation CreateLead($lead: SalesforceLeadInput!) {
+  salesforce {
+    createLead(input: { lead: $lead }) {
+      lead {
+        id
+        oneGraphId
+        email
+        name
+      }
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "CreateIssue",
+    id: "fc26a4bb-89ca-4685-93a1-3d42ff9d875a"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    description: "TODO",
+    services: ["github"],
+    body: "mutation CreateIssue(
+  $repositoryId: ID!
+  $title: String!
+  $labelIds: [ID!]!
+  $body: String!
+) {
+  gitHub {
+    createIssue(
+      input: {
+        repositoryId: $repositoryId
+        title: $title
+        labelIds: $labelIds
+        body: $body
+      }
+    ) {
+      issue {
+        id
+        oneGraphId
+      }
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "LinkNodes",
+    id: "fc16a4bb-89eb-4685-93a1-3d42ff9d875a"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    description: "TODO",
+    services: ["onegraph"],
+    body: "mutation LinkNodes(
+  $endNodeOneGraphId: ID!
+  $startNodeOneGraphId: ID!
+) {
+  oneGraph {
+   forward: linkOneGraphNodes(
+      input: {
+        startNodeOneGraphId: $startNodeOneGraphId
+        endNodeOneGraphId: $endNodeOneGraphId
+      }
+    ) {
+      __typename
+    }
+   backward: linkOneGraphNodes(
+      input: {
+        startNodeOneGraphId: $endNodeOneGraphId
+        endNodeOneGraphId: $startNodeOneGraphId
+      }
+    ) {
+      __typename
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "IssueEvents",
+    id: "fc16a4fb-89eb-4685-93a1-3d42ff9d875a"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    description: "TODO",
+    services: ["github"],
+    body: "subscription IssueEvents(
+  $repoOwner: String!
+  $repoName: String!
+) {
+  github {
+    issuesEvent(
+      input: { repoOwner: $repoOwner, repoName: $repoName }
+    ) {
+      issue {
+        title
+        id
+        number
+      }
+      action
+    }
+  }
+}",
+    kind: Subscription,
+  },
+  {
     title: "AmILoggedIntoDevTo",
     id: "fc16a4bb-89ea-4885-93a1-3d42ff9d875a"->Uuid.parseExn,
     contributedBy: Some("@sgrove"),

@@ -559,7 +559,7 @@ export const devJsonChain = {
 export const simpleChain = {
   name: "new_chain",
   script:
-    "import { MyQueryInput, MyQueryVariables, ComputeTypeInput, ComputeTypeVariables } from 'oneGraphStudio';\n\n\n\nexport function makeVariablesForMyQuery (payload : MyQueryInput) : MyQueryVariables {\n  return {}\n}\n\nexport function makeVariablesForComputeType (payload : ComputeTypeInput) : ComputeTypeVariables {\n\tlet updatedAt = payload?.MyQuery?.data?.gitHub?.user?.gists?.edges[0]?.node?.updatedAt\n  return {}\n}",
+    "import {\n  MyQueryInput,\n  MyQueryVariables,\n  ComputeTypeInput,\n  ComputeTypeVariables,\n} from 'oneGraphStudio';\n\nfunction stringOfFloat(x: GitHubURI): string {\n  return x.toString();\n}\n\nexport function makeVariablesForMyQuery(\n  payload: MyQueryInput\n): MyQueryVariables {\n  return {};\n}\n\nexport function makeVariablesForComputeType(\n  payload: ComputeTypeInput\n): ComputeTypeVariables {\n  let updatedAt =\n    payload?.MyQuery?.data?.gitHub?.user?.gists?.edges[0]?.node?.updatedAt;\n  return {};\n}\n",
   scriptDependencies: [],
   requests: [
     {

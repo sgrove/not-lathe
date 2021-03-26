@@ -346,14 +346,12 @@ function ChainEditor$NodeLabel(Props) {
     className = "";
   } else {
     switch (connectionDrag.TAG | 0) {
-      case /* StartedTarget */1 :
-          className = "";
-          break;
       case /* StartedSource */0 :
       case /* Completed */2 :
           exit = 1;
           break;
-      
+      default:
+        className = "";
     }
   }
   if (exit === 1) {
@@ -424,9 +422,6 @@ var NodeLabel = {
 
 function ChainEditor$OperationNodeComponent(Props) {
   var data = Props.data;
-  console.log("OperationNode: ", data);
-  ((console.log("ON Args: ", arguments)));
-  Debug.assignToWindowForDeveloperDebug("nodeData", data);
   return React.createElement("div", {
               className: "rounded-sm node-label p-2"
             }, React.createElement("div", undefined, data.label));
@@ -455,6 +450,8 @@ function diagramFromChain(chain, onEditBlock, onDragStart, schema, onPotentialVa
                 })), (function (a, b) {
               return a.title.localeCompare(b.title) | 0;
             })), (function (idx, block) {
+          var nodeTitleWidth = block.title.length * 7.2;
+          var x = 160 - nodeTitleWidth - 105;
           return {
                   id: block.id.toString(),
                   type: "fragment",
@@ -469,8 +466,8 @@ function diagramFromChain(chain, onEditBlock, onDragStart, schema, onPotentialVa
                         })
                   },
                   position: {
-                    x: -250,
-                    y: 50 * idx
+                    x: x,
+                    y: 50 * idx + 10 + 30
                   },
                   draggable: false,
                   connectable: false,
@@ -486,8 +483,8 @@ function diagramFromChain(chain, onEditBlock, onDragStart, schema, onPotentialVa
           label: "Reusable Fragments"
         },
         position: {
-          x: -250,
-          y: -50
+          x: 5,
+          y: 10
         },
         draggable: false,
         connectable: false,
@@ -965,8 +962,7 @@ function ChainEditor$Script(Props) {
   }
   return React.createElement("div", {
               style: {
-                height: "calc(100vh - 40px - 384px - 56px)",
-                overflowY: "hidden"
+                height: "calc(100vh - 40px - 384px - 56px)"
               }
             }, React.createElement(BsReactMonaco.Editor.make, tmp));
 }
@@ -2233,8 +2229,8 @@ function ChainEditor$Main(Props) {
             var sourceFile = Typescript.createSourceFile("main.ts", source, 99, true);
             var pos = TypeScript.findFnPos(sourceFile, functionName);
             return Belt_Option.forEach(pos, (function (param) {
-                          var end = param[1];
-                          var start = param[0];
+                          var end = param.end;
+                          var start = param.start;
                           return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
                                         var model = editor.getModel("file://main.tsx");
                                         var start$1 = model.getPositionAt(start);
@@ -2563,7 +2559,6 @@ function ChainEditor$Main(Props) {
                               definition,
                               compiled
                             ]);
-                        console.log("Compiled compute: ", Graphql.print(definition));
                         definition$1 = compiled;
                       } else {
                         definition$1 = definition;
@@ -2872,12 +2867,14 @@ function ChainEditor$Main(Props) {
                 }) : null;
           break;
       case /* Completed */2 :
-          var match$4 = conDrag.target;
+          var variabletarget = conDrag.target;
+          var sourceDom = conDrag.sourceDom;
           var sourceRequest = conDrag.sourceRequest;
-          if (match$4.TAG === /* Variable */0) {
-            var match$5 = conDrag.windowPosition;
-            var targetVariableDependency = match$4.variableDependency;
-            var targetRequest = match$4.targetRequest;
+          if (variabletarget.TAG === /* Variable */0) {
+            var windowPosition = conDrag.windowPosition;
+            var variabletarget$1 = variabletarget._0;
+            var targetVariableDependency = variabletarget$1.variableDependency;
+            var targetRequest = variabletarget$1.targetRequest;
             var chainFragmentsDoc = Belt_Array.keepMap(state.chain.blocks, (function (block) {
                       var match = block.kind;
                       if (match !== 3) {
@@ -2891,15 +2888,11 @@ function ChainEditor$Main(Props) {
             var targetParsedOperation = Graphql.parse(targetRequest.operation.body);
             var targetDefinition = Belt_Array.getExn(targetParsedOperation.definitions, 0);
             var targetVariables = GraphQLUtils.getOperationVariables(targetDefinition);
-            console.log("Operation variables: ", sourceRequest.operation.body, targetVariables);
             var targetVariableType = Belt_Option.map(Belt_Array.getBy(targetVariables, (function (param) {
-                        var variableName = param[0];
-                        console.log("Looking for ", variableName, targetVariableDependency.name);
-                        return targetVariableDependency.name === variableName;
+                        return targetVariableDependency.name === param[0];
                       })), (function (param) {
                     return param[1];
                   }));
-            console.log("targetVariableType: ", targetVariableType);
             var tmp$4 = {
               requestId: sourceRequest.id,
               schema: schema,
@@ -2908,106 +2901,251 @@ function ChainEditor$Main(Props) {
                     operationDoc: chainFragmentsDoc
                   }),
               onCopy: (function (param) {
+                  var printedType = param.printedType;
                   var dataPath = Belt_Array.concat(["payload"], param.path);
-                  return Curry._1(setState, (function (oldState) {
-                                var newDependency = {
-                                  TAG: 2,
-                                  _0: {
-                                    name: targetVariableDependency.name,
-                                    ifMissing: "SKIP",
-                                    ifList: "FIRST",
-                                    fromRequestId: sourceRequest.id,
-                                    path: dataPath,
-                                    functionFromScript: "TBD"
-                                  },
-                                  [Symbol.for("name")]: "GraphQLProbe"
-                                };
-                                var newRequests = Belt_Array.map(oldState.chain.requests, (function (request) {
-                                        if (targetRequest.id !== request.id) {
-                                          return request;
-                                        }
-                                        var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
-                                                if (varDep.name === targetVariableDependency.name) {
+                  var nullableTargetVariableType = Belt_Option.map(targetVariableType, (function (typ) {
+                          return typ.replace(new RegExp("!", "g"), "");
+                        }));
+                  var nullablePrintedType = printedType.replace(new RegExp("!", "g"), "");
+                  var match = nullablePrintedType;
+                  var typesMatch;
+                  if (nullableTargetVariableType !== undefined) {
+                    if (match === nullableTargetVariableType) {
+                      typesMatch = true;
+                    } else {
+                      switch (match) {
+                        case "Float" :
+                            typesMatch = nullableTargetVariableType === "Int" ? true : false;
+                            break;
+                        case "ID" :
+                            typesMatch = nullableTargetVariableType === "String" ? true : false;
+                            break;
+                        case "Int" :
+                            typesMatch = nullableTargetVariableType === "Float" ? true : false;
+                            break;
+                        case "String" :
+                            typesMatch = nullableTargetVariableType === "ID" ? true : false;
+                            break;
+                        default:
+                          typesMatch = false;
+                      }
+                    }
+                  } else {
+                    typesMatch = false;
+                  }
+                  if (typesMatch) {
+                    return Curry._1(setState, (function (oldState) {
+                                  var potentialProbeDependency = {
+                                    TAG: 2,
+                                    _0: {
+                                      name: targetVariableDependency.name,
+                                      ifMissing: "SKIP",
+                                      ifList: "FIRST",
+                                      fromRequestId: sourceRequest.id,
+                                      path: dataPath,
+                                      functionFromScript: "TBD"
+                                    },
+                                    [Symbol.for("name")]: "GraphQLProbe"
+                                  };
+                                  var newRequests = Belt_Array.map(oldState.chain.requests, (function (request) {
+                                          if (targetRequest.id !== request.id) {
+                                            return request;
+                                          }
+                                          var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
+                                                  if (varDep.name === targetVariableDependency.name) {
+                                                    return {
+                                                            name: varDep.name,
+                                                            dependency: potentialProbeDependency
+                                                          };
+                                                  }
+                                                  var argDep = varDep.dependency;
+                                                  var dependency;
+                                                  switch (argDep.TAG | 0) {
+                                                    case /* ArgumentDependency */0 :
+                                                        var argDep$1 = argDep._0;
+                                                        var newArgDep_functionFromScript = argDep$1.functionFromScript;
+                                                        var newArgDep_maxRecur = argDep$1.maxRecur;
+                                                        var newArgDep_ifMissing = argDep$1.ifMissing;
+                                                        var newArgDep_ifList = argDep$1.ifList;
+                                                        var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
+                                                        var newArgDep_name = argDep$1.name;
+                                                        var newArgDep = {
+                                                          functionFromScript: newArgDep_functionFromScript,
+                                                          maxRecur: newArgDep_maxRecur,
+                                                          ifMissing: newArgDep_ifMissing,
+                                                          ifList: newArgDep_ifList,
+                                                          fromRequestIds: newArgDep_fromRequestIds,
+                                                          name: newArgDep_name
+                                                        };
+                                                        dependency = {
+                                                          TAG: 0,
+                                                          _0: newArgDep,
+                                                          [Symbol.for("name")]: "ArgumentDependency"
+                                                        };
+                                                        break;
+                                                    case /* Direct */1 :
+                                                    case /* GraphQLProbe */2 :
+                                                        dependency = argDep;
+                                                        break;
+                                                    
+                                                  }
                                                   return {
                                                           name: varDep.name,
-                                                          dependency: newDependency
+                                                          dependency: dependency
                                                         };
-                                                }
-                                                var argDep = varDep.dependency;
-                                                var dependency;
-                                                switch (argDep.TAG | 0) {
-                                                  case /* ArgumentDependency */0 :
-                                                      var argDep$1 = argDep._0;
-                                                      var newArgDep_functionFromScript = argDep$1.functionFromScript;
-                                                      var newArgDep_maxRecur = argDep$1.maxRecur;
-                                                      var newArgDep_ifMissing = argDep$1.ifMissing;
-                                                      var newArgDep_ifList = argDep$1.ifList;
-                                                      var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
-                                                      var newArgDep_name = argDep$1.name;
-                                                      var newArgDep = {
-                                                        functionFromScript: newArgDep_functionFromScript,
-                                                        maxRecur: newArgDep_maxRecur,
-                                                        ifMissing: newArgDep_ifMissing,
-                                                        ifList: newArgDep_ifList,
-                                                        fromRequestIds: newArgDep_fromRequestIds,
-                                                        name: newArgDep_name
-                                                      };
-                                                      dependency = {
-                                                        TAG: 0,
-                                                        _0: newArgDep,
-                                                        [Symbol.for("name")]: "ArgumentDependency"
-                                                      };
-                                                      break;
-                                                  case /* Direct */1 :
-                                                  case /* GraphQLProbe */2 :
-                                                      dependency = argDep;
-                                                      break;
-                                                  
-                                                }
-                                                return {
-                                                        name: varDep.name,
-                                                        dependency: dependency
-                                                      };
-                                              }));
-                                        return {
-                                                id: request.id,
-                                                variableDependencies: varDeps,
-                                                operation: request.operation,
-                                                dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
-                                              };
-                                      }));
-                                var init = oldState.chain;
-                                var newChain_name = init.name;
-                                var newChain_script = init.script;
-                                var newChain_scriptDependencies = init.scriptDependencies;
-                                var newChain_blocks = init.blocks;
-                                var newChain = {
-                                  name: newChain_name,
-                                  script: newChain_script,
-                                  scriptDependencies: newChain_scriptDependencies,
-                                  requests: newRequests,
-                                  blocks: newChain_blocks
-                                };
-                                var diagram = diagramFromChain$1(newChain);
-                                return {
-                                        diagram: diagram,
-                                        card: oldState.card,
-                                        schema: oldState.schema,
-                                        chain: newChain,
-                                        compiledChain: oldState.compiledChain,
-                                        chainResult: oldState.chainResult,
-                                        scriptFunctions: oldState.scriptFunctions,
-                                        chainExecutionResults: oldState.chainExecutionResults,
-                                        blocks: oldState.blocks,
-                                        inspected: oldState.inspected,
-                                        blockEdit: oldState.blockEdit,
-                                        scriptEditor: oldState.scriptEditor,
-                                        savedChainId: oldState.savedChainId,
-                                        requestValueCache: oldState.requestValueCache,
-                                        debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: /* Empty */0
-                                      };
-                              }));
+                                                }));
+                                          return {
+                                                  id: request.id,
+                                                  variableDependencies: varDeps,
+                                                  operation: request.operation,
+                                                  dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
+                                                };
+                                        }));
+                                  var init = oldState.chain;
+                                  var newChain_name = init.name;
+                                  var newChain_script = init.script;
+                                  var newChain_scriptDependencies = init.scriptDependencies;
+                                  var newChain_blocks = init.blocks;
+                                  var newChain = {
+                                    name: newChain_name,
+                                    script: newChain_script,
+                                    scriptDependencies: newChain_scriptDependencies,
+                                    requests: newRequests,
+                                    blocks: newChain_blocks
+                                  };
+                                  var diagram = diagramFromChain$1(newChain);
+                                  return {
+                                          diagram: diagram,
+                                          card: oldState.card,
+                                          schema: oldState.schema,
+                                          chain: newChain,
+                                          compiledChain: oldState.compiledChain,
+                                          chainResult: oldState.chainResult,
+                                          scriptFunctions: oldState.scriptFunctions,
+                                          chainExecutionResults: oldState.chainExecutionResults,
+                                          blocks: oldState.blocks,
+                                          inspected: oldState.inspected,
+                                          blockEdit: oldState.blockEdit,
+                                          scriptEditor: oldState.scriptEditor,
+                                          savedChainId: oldState.savedChainId,
+                                          requestValueCache: oldState.requestValueCache,
+                                          debugUIItems: oldState.debugUIItems,
+                                          connectionDrag: /* Empty */0
+                                        };
+                                }));
+                  } else {
+                    return Curry._1(setState, (function (oldState) {
+                                  var parsed;
+                                  try {
+                                    parsed = Caml_option.some(Typescript.createSourceFile("main.ts", oldState.chain.script, 99, true));
+                                  }
+                                  catch (exn){
+                                    parsed = undefined;
+                                  }
+                                  var newConnectionDrag = Belt_Option.map(parsed, (function (parsed) {
+                                          var fnTypes = TypeScript.findFunctionTypes(parsed);
+                                          var existingFnMatches = Belt_SortArray.stableSortBy(Belt_Array.keep(Js_dict.values(fnTypes), (function (param) {
+                                                      var match = nullablePrintedType.toLocaleLowerCase();
+                                                      var match$1 = Belt_Option.map(param.firstParamType, (function (prim) {
+                                                              return prim.toLocaleLowerCase();
+                                                            }));
+                                                      var firstParamMatches;
+                                                      if (match$1 !== undefined) {
+                                                        if (match === match$1) {
+                                                          firstParamMatches = true;
+                                                        } else {
+                                                          var exit = 0;
+                                                          switch (match) {
+                                                            case "id" :
+                                                                firstParamMatches = match$1 === "string" ? true : false;
+                                                                break;
+                                                            case "float" :
+                                                            case "int" :
+                                                                exit = 1;
+                                                                break;
+                                                            default:
+                                                              firstParamMatches = false;
+                                                          }
+                                                          if (exit === 1) {
+                                                            firstParamMatches = match$1 === "number" ? true : false;
+                                                          }
+                                                          
+                                                        }
+                                                      } else {
+                                                        firstParamMatches = false;
+                                                      }
+                                                      var match$2 = Belt_Option.map(nullableTargetVariableType, (function (prim) {
+                                                              return prim.toLocaleLowerCase();
+                                                            }));
+                                                      var match$3 = Belt_Option.map(param.returnType, (function (prim) {
+                                                              return prim.toLocaleLowerCase();
+                                                            }));
+                                                      var returnTypeMatches;
+                                                      if (match$2 !== undefined && match$3 !== undefined) {
+                                                        if (match$2 === match$3) {
+                                                          returnTypeMatches = true;
+                                                        } else {
+                                                          var exit$1 = 0;
+                                                          switch (match$2) {
+                                                            case "id" :
+                                                                returnTypeMatches = match$3 === "string" ? true : false;
+                                                                break;
+                                                            case "float" :
+                                                            case "int" :
+                                                                exit$1 = 1;
+                                                                break;
+                                                            default:
+                                                              returnTypeMatches = false;
+                                                          }
+                                                          if (exit$1 === 1) {
+                                                            returnTypeMatches = match$3 === "number" ? true : false;
+                                                          }
+                                                          
+                                                        }
+                                                      } else {
+                                                        returnTypeMatches = false;
+                                                      }
+                                                      if (firstParamMatches) {
+                                                        return returnTypeMatches;
+                                                      } else {
+                                                        return false;
+                                                      }
+                                                    })), (function (a, b) {
+                                                  return $$String.compare(a.name, b.name);
+                                                }));
+                                          return {
+                                                  TAG: 3,
+                                                  sourceRequest: sourceRequest,
+                                                  sourceDom: sourceDom,
+                                                  variableTarget: variabletarget$1,
+                                                  sourceType: printedType,
+                                                  targetVariableType: targetVariableType,
+                                                  windowPosition: windowPosition,
+                                                  potentialFunctionMatches: existingFnMatches,
+                                                  dataPath: dataPath,
+                                                  [Symbol.for("name")]: "CompletedWithTypeMismatch"
+                                                };
+                                        }));
+                                  return {
+                                          diagram: oldState.diagram,
+                                          card: oldState.card,
+                                          schema: oldState.schema,
+                                          chain: oldState.chain,
+                                          compiledChain: oldState.compiledChain,
+                                          chainResult: oldState.chainResult,
+                                          scriptFunctions: oldState.scriptFunctions,
+                                          chainExecutionResults: oldState.chainExecutionResults,
+                                          blocks: oldState.blocks,
+                                          inspected: oldState.inspected,
+                                          blockEdit: oldState.blockEdit,
+                                          scriptEditor: oldState.scriptEditor,
+                                          savedChainId: oldState.savedChainId,
+                                          requestValueCache: oldState.requestValueCache,
+                                          debugUIItems: oldState.debugUIItems,
+                                          connectionDrag: Belt_Option.getWithDefault(newConnectionDrag, /* Empty */0)
+                                        };
+                                }));
+                  }
                 })
             };
             if (targetVariableType !== undefined) {
@@ -3016,8 +3154,8 @@ function ChainEditor$Main(Props) {
             tmp$3 = React.createElement("div", {
                   className: "absolute",
                   style: {
-                    left: String(match$5[0]) + "px",
-                    top: String(match$5[1]) + "px",
+                    left: String(windowPosition[0]) + "px",
+                    top: String(windowPosition[1]) + "px",
                     width: "500px",
                     zIndex: "999"
                   }
@@ -3025,8 +3163,8 @@ function ChainEditor$Main(Props) {
                       className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
                     }, React.createElement(Inspector.GraphQLPreview.make, tmp$4)));
           } else {
-            var match$6 = conDrag.windowPosition;
-            var scriptPosition = match$4.scriptPosition;
+            var match$4 = conDrag.windowPosition;
+            var scriptPosition = variabletarget.scriptPosition;
             var chainFragmentsDoc$1 = Belt_Array.keepMap(state.chain.blocks, (function (block) {
                       var match = block.kind;
                       if (match !== 3) {
@@ -3040,10 +3178,10 @@ function ChainEditor$Main(Props) {
             tmp$3 = React.createElement("div", {
                   className: "absolute",
                   style: {
-                    left: String(match$6[0]) + "px",
+                    left: String(match$4[0]) + "px",
                     maxHeight: "200px",
                     overflowY: "scroll",
-                    top: String(match$6[1]) + "px",
+                    top: String(match$4[1]) + "px",
                     width: "500px"
                   }
                 }, React.createElement("div", {
@@ -3130,6 +3268,226 @@ function ChainEditor$Main(Props) {
                             })
                         })));
           }
+          break;
+      case /* CompletedWithTypeMismatch */3 :
+          var dataPath = conDrag.dataPath;
+          var match$5 = conDrag.windowPosition;
+          var targetVariableType$1 = conDrag.targetVariableType;
+          var sourceType = conDrag.sourceType;
+          var variableTarget = conDrag.variableTarget;
+          var sourceRequest$1 = conDrag.sourceRequest;
+          var onClick = function (name) {
+            return Curry._1(setState, (function (oldState) {
+                          var parsed;
+                          try {
+                            parsed = Caml_option.some(Typescript.createSourceFile("main.ts", oldState.chain.script, 99, true));
+                          }
+                          catch (exn){
+                            parsed = undefined;
+                          }
+                          var targetVariableDependency = variableTarget.variableDependency;
+                          var newRequests = Belt_Array.map(oldState.chain.requests, (function (request) {
+                                  if (variableTarget.targetRequest.id !== request.id) {
+                                    return request;
+                                  }
+                                  var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
+                                          if (varDep.name === targetVariableDependency.name) {
+                                            var dependency = {
+                                              TAG: 0,
+                                              _0: {
+                                                functionFromScript: "TBD",
+                                                maxRecur: undefined,
+                                                ifMissing: "SKIP",
+                                                ifList: "FIRST",
+                                                fromRequestIds: request.dependencyRequestIds,
+                                                name: targetVariableDependency.name
+                                              },
+                                              [Symbol.for("name")]: "ArgumentDependency"
+                                            };
+                                            return {
+                                                    name: varDep.name,
+                                                    dependency: dependency
+                                                  };
+                                          }
+                                          var argDep = varDep.dependency;
+                                          var dependency$1;
+                                          switch (argDep.TAG | 0) {
+                                            case /* ArgumentDependency */0 :
+                                                var argDep$1 = argDep._0;
+                                                var newArgDep_functionFromScript = argDep$1.functionFromScript;
+                                                var newArgDep_maxRecur = argDep$1.maxRecur;
+                                                var newArgDep_ifMissing = argDep$1.ifMissing;
+                                                var newArgDep_ifList = argDep$1.ifList;
+                                                var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest$1.id]));
+                                                var newArgDep_name = argDep$1.name;
+                                                var newArgDep = {
+                                                  functionFromScript: newArgDep_functionFromScript,
+                                                  maxRecur: newArgDep_maxRecur,
+                                                  ifMissing: newArgDep_ifMissing,
+                                                  ifList: newArgDep_ifList,
+                                                  fromRequestIds: newArgDep_fromRequestIds,
+                                                  name: newArgDep_name
+                                                };
+                                                dependency$1 = {
+                                                  TAG: 0,
+                                                  _0: newArgDep,
+                                                  [Symbol.for("name")]: "ArgumentDependency"
+                                                };
+                                                break;
+                                            case /* Direct */1 :
+                                            case /* GraphQLProbe */2 :
+                                                dependency$1 = argDep;
+                                                break;
+                                            
+                                          }
+                                          return {
+                                                  name: varDep.name,
+                                                  dependency: dependency$1
+                                                };
+                                        }));
+                                  return {
+                                          id: request.id,
+                                          variableDependencies: varDeps,
+                                          operation: request.operation,
+                                          dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest$1.id]))
+                                        };
+                                }));
+                          var request = Belt_Array.getBy(newRequests, (function (request) {
+                                  return variableTarget.targetRequest.id === request.id;
+                                }));
+                          var lineNumbers = Belt_Option.flatMap(request, (function (request) {
+                                  var names = Chain.requestScriptNames(request);
+                                  return Belt_Option.flatMap(parsed, (function (parsed) {
+                                                return Belt_Option.map(TypeScript.findFnPos(parsed, names.functionName), (function (param) {
+                                                              var match = parsed.getLineAndCharacterOfPosition(param.start);
+                                                              var line = match.line;
+                                                              var firstStatementLine = Belt_Option.mapWithDefault(param.firstStatementStart, line, (function (firstStatementStart) {
+                                                                      return parsed.getLineAndCharacterOfPosition(firstStatementStart).line;
+                                                                    }));
+                                                              return [
+                                                                      line,
+                                                                      firstStatementLine
+                                                                    ];
+                                                            }));
+                                              }));
+                                }));
+                          new RegExp("\\[.+\\]", "g");
+                          var binding = targetVariableDependency.name;
+                          var nullableTargetVariableType = Belt_Option.map(targetVariableType$1, (function (typ) {
+                                  return typ.replace(new RegExp("!", "g"), "");
+                                }));
+                          var nullablePrintedType = sourceType.replace(new RegExp("!", "g"), "");
+                          var defaultCoercerName = nullablePrintedType + "To" + Belt_Option.getWithDefault(nullableTargetVariableType, "Unknown");
+                          var coercerName = name !== undefined ? name : Belt_Option.getWithDefault(prompt("Coercer function name: ", defaultCoercerName), defaultCoercerName);
+                          var coercerExists = coercerName === "INTERNAL_PASSTHROUGH" ? true : Belt_Option.isSome(Belt_Option.flatMap(parsed, (function (parsed) {
+                                        return TypeScript.findFnPos(parsed, coercerName);
+                                      })));
+                          var newScript = Belt_Option.map(lineNumbers, (function (param) {
+                                  var newBinding = coercerName === "INTERNAL_PASSTHROUGH" ? "\tlet " + binding + " = " + dataPath.join("?.") : "\tlet " + binding + " = " + coercerName + "(" + dataPath.join("?.") + ")";
+                                  var temp = oldState.chain.script.split("\n");
+                                  temp.splice(param[1] + 1 | 0, 0, newBinding);
+                                  var signatureReturnType = Belt_Option.mapWithDefault(nullableTargetVariableType, "", (function (t) {
+                                          return ": " + t;
+                                        }));
+                                  var newFunctionDefinition = "function " + coercerName + "(" + binding + " : " + nullablePrintedType + ") " + signatureReturnType + " {\n  return " + binding + "\n}";
+                                  if (coercerExists) {
+                                    return temp.join("\n");
+                                  } else {
+                                    return temp.join("\n") + "\n\n" + newFunctionDefinition;
+                                  }
+                                }));
+                          var parsed$1 = Belt_Option.flatMap(newScript, (function (newScript) {
+                                  try {
+                                    return Caml_option.some(Typescript.createSourceFile("main.ts", newScript, 99, true));
+                                  }
+                                  catch (exn){
+                                    return ;
+                                  }
+                                }));
+                          var functionObjectLiteralReturn = Belt_Option.flatMap(request, (function (request) {
+                                  var names = Chain.requestScriptNames(request);
+                                  return Belt_Option.flatMap(parsed$1, (function (parsed) {
+                                                return TypeScript.findLastReturnObjectPos(parsed, names.functionName, binding);
+                                              }));
+                                }));
+                          var shouldInsertPropertyInReturn = Belt_Option.mapWithDefault(functionObjectLiteralReturn, false, (function ($$return) {
+                                  return Belt_Option.isNone($$return.property);
+                                }));
+                          var newScript$1 = Belt_Option.map(newScript, (function (newScript) {
+                                  return Belt_Option.mapWithDefault(functionObjectLiteralReturn, newScript, (function (returnObjectPositions) {
+                                                if (!shouldInsertPropertyInReturn) {
+                                                  return newScript;
+                                                }
+                                                Debug.assignToWindowForDeveloperDebug("tNewScript", newScript);
+                                                var head = newScript.slice(0, returnObjectPositions.objectPosition.start + 2 | 0);
+                                                var tail = newScript.slice(returnObjectPositions.objectPosition.start + 2 | 0, newScript.length);
+                                                return head + " " + binding + ": " + binding + "," + tail;
+                                              }));
+                                }));
+                          var init = oldState.chain;
+                          var newChain_name = init.name;
+                          var newChain_script = Belt_Option.getWithDefault(newScript$1, oldState.chain.script);
+                          var newChain_scriptDependencies = init.scriptDependencies;
+                          var newChain_blocks = init.blocks;
+                          var newChain = {
+                            name: newChain_name,
+                            script: newChain_script,
+                            scriptDependencies: newChain_scriptDependencies,
+                            requests: newRequests,
+                            blocks: newChain_blocks
+                          };
+                          return {
+                                  diagram: oldState.diagram,
+                                  card: oldState.card,
+                                  schema: oldState.schema,
+                                  chain: newChain,
+                                  compiledChain: oldState.compiledChain,
+                                  chainResult: oldState.chainResult,
+                                  scriptFunctions: oldState.scriptFunctions,
+                                  chainExecutionResults: oldState.chainExecutionResults,
+                                  blocks: oldState.blocks,
+                                  inspected: oldState.inspected,
+                                  blockEdit: oldState.blockEdit,
+                                  scriptEditor: oldState.scriptEditor,
+                                  savedChainId: oldState.savedChainId,
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems,
+                                  connectionDrag: /* Empty */0
+                                };
+                        }));
+          };
+          tmp$3 = React.createElement("div", {
+                className: "absolute",
+                style: {
+                  left: String(match$5[0]) + "px",
+                  maxHeight: "200px",
+                  overflowY: "scroll",
+                  top: String(match$5[1]) + "px",
+                  width: "500px"
+                }
+              }, React.createElement("div", {
+                    className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
+                  }, "Type mismatch, choose coercer: ", React.createElement("ul", undefined, React.createElement("li", {
+                            key: "INTERNAL_PASSTHROUGH",
+                            className: "cursor-pointer hover:bg-blue-400 hover:text-white",
+                            onClick: (function (param) {
+                                return onClick("INTERNAL_PASSTHROUGH");
+                              })
+                          }, "Passthrough"), Belt_Array.map(conDrag.potentialFunctionMatches, (function (fn) {
+                              return React.createElement("li", {
+                                          key: fn.name,
+                                          className: "cursor-pointer hover:bg-blue-400 hover:text-white",
+                                          onClick: (function (param) {
+                                              return onClick(fn.name);
+                                            })
+                                        }, fn.name);
+                            })), React.createElement("li", {
+                            key: "createNew",
+                            className: "cursor-pointer hover:bg-blue-400 hover:text-white",
+                            onClick: (function (param) {
+                                return onClick(undefined);
+                              })
+                          }, "Create new function"))));
           break;
       
     }

@@ -1951,11 +1951,26 @@ li.CodeMirror-hint-active {
   }
 }
 
+.react-flow__node.react-flow__node-fragment.node-label.selected {
+  font-size: 12px;
+}
+
+.node-label {
+  font-size: 12px;
+}
+
+.react-flow__node.react-flow__node-fragment.node-label.selected,
+.react-flow__node.react-flow__node-output.node-label.selected,
+.react-flow__node.react-flow__node-input.node-label.selected,
 .react-flow__node.react-flow__node-default.node-label.selected {
   border-color: white;
 }
 
-.react-flow__node.react-flow__node-default.node-label {
+.react-flow__node.react-flow__node-fragment.node-label,
+.react-flow__node.react-flow__node-output.node-label,
+.react-flow__node.react-flow__node-input.node-label,
+.react-flow__node.react-flow__node-default.node-label,
+.react-flow__node[data-id="fragmentColumnLabel"] {
   padding: 0px;
   margin: 0px;
   background-color: rgb(27, 29, 31);
@@ -1964,23 +1979,6 @@ li.CodeMirror-hint-active {
   border-color: rgb(63, 63, 63);
 }
 
-.react-flow__node.react-flow__node-input.node-label {
-  padding: 0px;
-  margin: 0px;
-  background-color: rgb(27, 29, 31);
-  color: rgb(240, 240, 240);
-  border-width: 1px;
-  border-color: rgb(63, 63, 63);
-}
-
-.react-flow__node.react-flow__node-output.node-label {
-  padding: 0px;
-  margin: 0px;
-  background-color: rgb(27, 29, 31);
-  color: rgb(240, 240, 240);
-  border-width: 1px;
-  border-color: rgb(63, 63, 63);
-}
 
 select {
   /* // A reset of styles, including removing the default dropdown arrow */

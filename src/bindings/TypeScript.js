@@ -33,10 +33,21 @@ function findFnPos(ast, targetName) {
   };
   Typescript.visitNode(ast, helper);
   return Belt_Option.map(fnNode.contents, (function (node) {
-                return [
-                        node.getStart(),
-                        node.getEnd()
-                      ];
+                try {
+                  var startPos = Caml_array.get(node.body.statements, 0).pos;
+                  return {
+                          start: node.getStart(),
+                          firstStatementStart: startPos - 1 | 0,
+                          end: node.getEnd()
+                        };
+                }
+                catch (exn){
+                  return {
+                          start: node.getStart(),
+                          firstStatementStart: undefined,
+                          end: node.getEnd()
+                        };
+                }
               }));
 }
 
@@ -115,10 +126,113 @@ function findContainingDeclaration$1(ast, position) {
   return assigmentStartAndEnd.contents;
 }
 
+function findFunctionTypes(ast) {
+  var results = {
+    contents: []
+  };
+  Belt_Array.forEach(ast.statements, (function (node) {
+          console.log("Looking at node: ", node, Js_dict.get(Typescript.SyntaxKind, node.kind));
+          var match = Js_dict.get(Typescript.SyntaxKind, node.kind);
+          if (match === undefined) {
+            return ;
+          }
+          if (match !== "FunctionDeclaration") {
+            return ;
+          }
+          console.log("Found fnDecl", node);
+          var firstParamType = (node?.parameters?.[0]?.type?.getText(ast));
+          var returnType = (node?.type?.getText(ast));
+          var name = (node?.name?.getText(ast));
+          return Belt_Option.forEach(name, (function (name) {
+                        results.contents = Belt_Array.concat(results.contents, [{
+                                name: name,
+                                firstParamType: firstParamType,
+                                returnType: returnType
+                              }]);
+                        
+                      }));
+        }));
+  return Js_dict.fromArray(Belt_Array.map(results.contents, (function (fn) {
+                    return [
+                            fn.name,
+                            fn
+                          ];
+                  })));
+}
+
+function findLastReturnObjectPos(ast, functionName, properyName) {
+  var fnNode = {
+    contents: undefined
+  };
+  var helper = function (node) {
+    var match = fnNode.contents;
+    if (match !== undefined) {
+      return ;
+    }
+    if (!Typescript.isFunctionDeclaration(node)) {
+      return Belt_Array.forEach(node.getChildren(), helper);
+    }
+    var fnName = Belt_Option.map(node.name, (function (name) {
+            return name.getText(ast);
+          }));
+    if (Caml_obj.caml_equal(fnName, functionName)) {
+      fnNode.contents = Caml_option.some(node);
+      return ;
+    } else {
+      return Belt_Array.forEach(node.getChildren(), helper);
+    }
+  };
+  Typescript.visitNode(ast, helper);
+  return Belt_Option.flatMap(fnNode.contents, (function (node) {
+                try {
+                  return Belt_Option.map(Belt_Array.getBy(Belt_Array.reverse(node.body.statements), (function (statement) {
+                                    var match = Js_dict.get(Typescript.SyntaxKind, statement.kind);
+                                    if (match === "ReturnStatement") {
+                                      return Belt_Option.isSome(Belt_Option.map(statement.expression, (function (expression) {
+                                                        var match = Js_dict.get(Typescript.SyntaxKind, expression.kind);
+                                                        if (match === "ObjectLiteralExpression") {
+                                                          return true;
+                                                        } else {
+                                                          return false;
+                                                        }
+                                                      })));
+                                    } else {
+                                      return false;
+                                    }
+                                  })), (function (returnStatement) {
+                                var expression = returnStatement.expression;
+                                var property = Belt_Array.getBy(expression.properties, (function (property) {
+                                        return property.name.escapedText === properyName;
+                                      }));
+                                return {
+                                        start: returnStatement.pos,
+                                        end: returnStatement.end,
+                                        objectPosition: {
+                                          start: expression.pos,
+                                          end: expression.end
+                                        },
+                                        property: Belt_Option.map(property, (function (property) {
+                                                return {
+                                                        start: property.pos,
+                                                        end: property.end,
+                                                        name: properyName
+                                                      };
+                                              }))
+                                      };
+                              }));
+                }
+                catch (exn){
+                  return ;
+                }
+              }));
+}
+
 export {
   findFnPos ,
   findPositionOfFirstLineOfContainingFunctionForPosition ,
   findContainingDeclaration$1 as findContainingDeclaration,
+  findFunctionTypes ,
+  findLastReturnObjectPos ,
   
 }
 /* typescript Not a pure module */

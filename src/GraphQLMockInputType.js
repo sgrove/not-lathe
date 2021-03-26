@@ -614,6 +614,7 @@ function PreviewForAst({
           style={{ cursor: "copy" }}
           onClick={() =>
             onCopy({
+              gqlType: gqlType,
               printedType: printedType,
               path: fullPath,
             })

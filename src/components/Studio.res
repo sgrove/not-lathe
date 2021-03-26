@@ -10,13 +10,12 @@ let make = (~schema, ~config) => {
   let (initialChain, setInitialChain) = React.useState(() => {
     let initialChain = Chain.emptyChain
 
-    // let initialChain = DevTimeJson.simpleChain
-
+    // To debug with a local JSON chain:
+    // let initialChain = DevTimeJson.spotifyChain
     // let initialChain = DevTimeJson.devJsonChain
 
     initialChain
   })
-  // To debug with a local JSON chain:
 
   open React
 

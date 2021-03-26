@@ -13,6 +13,8 @@ function toSimpleString(connectionDrag) {
         return "StartedTarget";
     case /* Completed */2 :
         return "Completed";
+    case /* CompletedWithTypeMismatch */3 :
+        return "CompletedWithTypeMismatch";
     
   }
 }

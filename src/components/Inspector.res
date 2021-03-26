@@ -10,6 +10,7 @@ module Clipboard = {
 
 module GraphQLPreview = {
   type previewCopyPayload = {
+    gqlType: GraphQLJs.graphqlType,
     printedType: string,
     path: array<string>,
   }
@@ -736,7 +737,6 @@ module GitHub = {
         ~variables=None,
       )
       ->Js.Promise.then_(result => {
-        Js.log2("Got some repo results: ", result)
         Obj.magic(result)["data"]
         ->Js.Undefined.toOption
         ->Belt.Option.forEach(data => {
@@ -881,7 +881,7 @@ module GitHub = {
                         "acceptOverrides": true,
                       })
                       ->Js.Promise.then_(result => {
-                        Js.log2("Got push result: ", result)->Js.Promise.resolve
+                        Js.log2("GitHub push result: ", result)->Js.Promise.resolve
                       }, _)
                       ->ignore
                     | _ => ()
@@ -1424,7 +1424,7 @@ module Request = {
 
     let variableNames = request.operation->Card.getFirstVariables
 
-    let variables = variableNames->Belt.Array.map(((variableName, _variableType)) => {
+    let variables = variableNames->Belt.Array.map(((variableName, variableType)) => {
       let varDep: Chain.variableDependency =
         request.variableDependencies
         ->Belt.Array.getBy(varDep => {
@@ -1519,6 +1519,10 @@ module Request = {
             style={ReactDOMStyle.make(~color=Comps.colors["green-4"], ())}
             className=" font-semibold text-sm font-mono inline-block flex-grow">
             {(j`\\$` ++ varDep.name)->string}
+            <span
+              className="font-thin" style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
+              {(": " ++ variableType)->string}
+            </span>
           </div>
           <Comps.Select
             style={ReactDOMStyle.make(~paddingRight="40px", ())}

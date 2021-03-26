@@ -153,7 +153,7 @@ external make: (
   ~onNodeContextMenu: (ReactEvent.Mouse.t, Node.t) => unit=?,
   ~onPaneContextMenu: ReactEvent.Mouse.t => unit=?,
   ~children: React.element=?,
-  ~nodeTypes: Js.t<'a>,
+  ~nodeTypes: Js.t<'a>=?,
 ) => React.element = "default"
 
 type fitViewOptions = {padding: float, includeHiddenNodes: bool}

@@ -556,7 +556,6 @@ function Inspector$GitHub(Props) {
           Debug.assignToWindowForDeveloperDebug("guessGitHubProject", OneGraphRe.GitHub.guessProjecType);
           var __x = OneGraphRe.basicFetchOneGraphPersistedQuery("993a3e2d-de45-44fa-bff4-0c58c6150cbf", undefined, "fc839e0e-982b-43fc-b59b-3c080e17480a", undefined, "ExecuteChainMutation_look_ma_connections");
           __x.then(function (result) {
-                console.log("Got some repo results: ", result);
                 return Promise.resolve(Belt_Option.forEach(Caml_option.undefined_to_opt(result.data), (function (data) {
                                   try {
                                     return Belt_Option.forEach(Belt_Array.getBy(data.oneGraph.executeChain.results, (function (result) {
@@ -738,7 +737,7 @@ function Inspector$GitHub(Props) {
                                                                                     acceptOverrides: true
                                                                                   });
                                                                               __x.then(function (result) {
-                                                                                    return Promise.resolve((console.log("Got push result: ", result), undefined));
+                                                                                    return Promise.resolve((console.log("GitHub push result: ", result), undefined));
                                                                                   });
                                                                               
                                                                             }));
@@ -1205,8 +1204,10 @@ function Inspector$Request(Props) {
                           var sourceDom = $$event.target;
                           var connectionDrag_0 = {
                             TAG: 0,
-                            targetRequest: request,
-                            variableDependency: varDep,
+                            _0: {
+                              targetRequest: request,
+                              variableDependency: varDep
+                            },
                             [Symbol.for("name")]: "Variable"
                           };
                           var connectionDrag$1 = {
@@ -1237,9 +1238,8 @@ function Inspector$Request(Props) {
                             case /* StartedSource */0 :
                             case /* StartedTarget */1 :
                                 break;
-                            case /* Completed */2 :
-                                return ;
-                            
+                            default:
+                              return ;
                           }
                           return Curry._1(setPotentialConnection, (function (s) {
                                         return Belt_SetString.remove(s, variableName);
@@ -1264,8 +1264,10 @@ function Inspector$Request(Props) {
                                         sourceDom: connectionDrag.sourceDom,
                                         target: {
                                           TAG: 0,
-                                          targetRequest: request,
-                                          variableDependency: varDep,
+                                          _0: {
+                                            targetRequest: request,
+                                            variableDependency: varDep
+                                          },
                                           [Symbol.for("name")]: "Variable"
                                         },
                                         windowPosition: mouseClientPosition,
@@ -1293,7 +1295,12 @@ function Inspector$Request(Props) {
                               style: {
                                 color: Comps.colors["green-4"]
                               }
-                            }, "\$" + varDep.name), React.createElement(Comps.Select.make, {
+                            }, "\$" + varDep.name, React.createElement("span", {
+                                  className: "font-thin",
+                                  style: {
+                                    color: Comps.colors["gray-4"]
+                                  }
+                                }, ": " + param[1])), React.createElement(Comps.Select.make, {
                               children: null,
                               onChange: (function ($$event) {
                                   var match = $$event.target.value;
