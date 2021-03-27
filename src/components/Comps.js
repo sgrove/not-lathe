@@ -16,6 +16,7 @@ var colors = {
   "gray-10": "#26292D",
   "gray-11": "#DFDFDF",
   "gray-12": "#171717",
+  "gray-13": "#34373C",
   red: "#EB5757",
   orange: "#F2994A",
   yellow: "#F2C94C",
@@ -29,6 +30,7 @@ var colors = {
   "blue-1": "#2F80ED",
   "blue-2": "#2D9CDB",
   "blue-3": "#56CCF2",
+  "brown-1": "#8B4D14",
   "purple-1": "#9B51E0",
   "purple-2": "#BB6BD9"
 };

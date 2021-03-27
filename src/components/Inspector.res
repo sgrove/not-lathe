@@ -924,13 +924,26 @@ module DirectVariable = {
     <div className="">
       <form>
         <label className="m-0">
-          <div className="mt-1 flex rounded-md shadow-sm">
-            <span
-              className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+          <div className="mt-1 flex rounded-md">
+            <div className="flex-1 flex-grow" />
+            <div
+              style={ReactDOMStyle.make(
+                ~backgroundColor=Comps.colors["brown-1"],
+                ~color=Comps.colors["gray-4"],
+                (),
+              )}
+              className="inline-flex justify-end items-center text-right px-3 rounded-l-md text-sm">
               {"$variableName:"->string}
-            </span>
+            </div>
             <input
-              className="block w-full px-3 text-gray-500 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none"
+              style={ReactDOMStyle.make(
+                ~backgroundColor=Comps.colors["gray-7"],
+                ~minWidth="10ch",
+                ~borderTopLeftRadius="0px",
+                ~borderBottomLeftRadius="0px",
+                (),
+              )}
+              className="block px-3 text-gray-500 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none"
               value={variable}
               onChange={event => {
                 let value = ReactEvent.Form.target(event)["value"]
@@ -997,13 +1010,23 @@ module ArgumentDependency = {
     <div>
       <form>
         <label className="m-0">
-          <div className="flex rounded-md shadow-sm">
-            <span
-              className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+          <div className="flex rounded-md">
+            <div className="flex-1 flex-grow" />
+            <div
+              style={ReactDOMStyle.make(
+                ~backgroundColor=Comps.colors["brown-1"],
+                ~color=Comps.colors["gray-4"],
+                (),
+              )}
+              className="inline-flex justify-end items-center text-right px-3 rounded-l-md text-sm">
               {"ifMissing:"->string}
-            </span>
-            <select
-              className="px-4 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
+            </div>
+            <Comps.Select
+              style={ReactDOMStyle.make(
+                ~borderTopLeftRadius="0px",
+                ~borderBottomLeftRadius="0px",
+                (),
+              )}
               value={argDep.ifMissing->Obj.magic}
               onChange={event => {
                 let ifMissing = ReactEvent.Form.target(event)["value"]->Chain.ifMissingOfString
@@ -1022,7 +1045,7 @@ module ArgumentDependency = {
               <option value={#ERROR->Chain.stringOfIfMissing}> {"Error"->string} </option>
               <option value={#ALLOW->Chain.stringOfIfMissing}> {"Allow"->string} </option>
               <option value={#SKIP->Chain.stringOfIfMissing}> {"Skip"->string} </option>
-            </select>
+            </Comps.Select>
           </div>
         </label>
         {AdvancedMode.enabled
@@ -1145,13 +1168,23 @@ module GraphQLProbe = {
       <form>
         <label className="m-0">
           <div className="flex rounded-md shadow-sm">
-            <span
-              className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+            <div className="flex-1 flex-grow" />
+            <div
+              style={ReactDOMStyle.make(
+                ~backgroundColor=Comps.colors["brown-1"],
+                ~color=Comps.colors["gray-4"],
+                (),
+              )}
+              className="inline-flex justify-end items-center text-right px-3 rounded-l-md text-sm">
               {"ifMissing:"->string}
-            </span>
-            <select
-              className="block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8"
+            </div>
+            <Comps.Select
               value={probe.ifMissing->Obj.magic}
+              style={ReactDOMStyle.make(
+                ~borderTopLeftRadius="0px",
+                ~borderBottomLeftRadius="0px",
+                (),
+              )}
               onChange={event => {
                 let ifMissing = ReactEvent.Form.target(event)["value"]->Chain.ifMissingOfString
                 switch ifMissing {
@@ -1169,7 +1202,7 @@ module GraphQLProbe = {
               <option value={#ERROR->Chain.stringOfIfMissing}> {"Error"->string} </option>
               <option value={#ALLOW->Chain.stringOfIfMissing}> {"Allow"->string} </option>
               <option value={#SKIP->Chain.stringOfIfMissing}> {"Skip"->string} </option>
-            </select>
+            </Comps.Select>
           </div>
         </label>
         {AdvancedMode.enabled
@@ -1592,7 +1625,7 @@ module Request = {
           </Comps.Select>
         </div>
         <div
-          className={"text-grey-darkest p-2 bg-gray-600 text-gray-200 overflow-scroll rounded-b-sm " ++ (
+          className={"text-grey-darkest p-2 text-gray-200 overflow-scroll rounded-b-sm " ++ (
             isOpen ? "" : "hidden"
           )}>
           <RequestArgument
@@ -2074,9 +2107,10 @@ ${remoteChainCalls.netlify.code}
           isChainViable
             ? React.null
             : <div
-                className="m-2 w-full text-center flex-1 flex-grow justify-center align-middle"
-                style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
-                {"Add some blocks to get started"->React.string}
+                className="m-2 w-full text-center flex flex-1 flex-grow flex-col justify-items-center justify-center items-center justify-items align-middle"
+                style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ~height="50%", ())}>
+                <Icons.MonoAddBlocks color={Comps.colors["gray-13"]} />
+                <span className="mt-2"> {"Add some blocks to get started"->React.string} </span>
               </div>
         }
         {requests->Belt.Array.length > 0

@@ -343,6 +343,7 @@ function ChainEditor$NodeLabel(Props) {
         return false;
       });
   var setMouseHover = match[1];
+  var mouseHover = match[0];
   var domRef = React.useRef(null);
   var match$1 = block.kind;
   var className;
@@ -352,8 +353,15 @@ function ChainEditor$NodeLabel(Props) {
   } else {
     switch (connectionDrag.TAG | 0) {
       case /* StartedTarget */1 :
+          var match$2 = connectionDrag.target;
           className = match$1 !== 3 ? (
-              match[0] ? " node-drop drag-target drop-ready" : " node-drop drag-target"
+              match$2.TAG === /* Variable */0 ? (
+                  Caml_obj.caml_equal(match$2._0.targetRequest, request) ? " node-drop drag-source no-drop" : (
+                      mouseHover ? " node-drop drag-target drop-ready" : " node-drop drag-target"
+                    )
+                ) : (
+                  mouseHover ? " node-drop drag-target drop-ready" : " node-drop drag-target"
+                )
             ) : "";
           break;
       case /* StartedSource */0 :
@@ -3212,16 +3220,14 @@ function ChainEditor$Main(Props) {
               tmp$4.targetGqlType = Caml_option.valFromOption(targetVariableType);
             }
             tmp$3 = React.createElement("div", {
-                  className: "absolute",
+                  className: "absolute graphql-structure-container rounded-sm text-gray-200",
                   style: {
                     left: String(windowPosition[0]) + "px",
                     top: String(windowPosition[1]) + "px",
                     width: "500px",
                     zIndex: "999"
                   }
-                }, React.createElement("div", {
-                      className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
-                    }, React.createElement(Inspector.GraphQLPreview.make, tmp$4)));
+                }, React.createElement(Inspector.GraphQLPreview.make, tmp$4));
           } else {
             var match$4 = conDrag.windowPosition;
             var scriptPosition = variabletarget.scriptPosition;
@@ -3236,7 +3242,7 @@ function ChainEditor$Main(Props) {
             var parsedOperation$1 = Graphql.parse(sourceRequest.operation.body);
             var definition$1 = Belt_Array.getExn(parsedOperation$1.definitions, 0);
             tmp$3 = React.createElement("div", {
-                  className: "absolute",
+                  className: "absolute graphql-structure-container rounded-sm text-gray-200",
                   style: {
                     left: String(match$4[0]) + "px",
                     maxHeight: "200px",
@@ -3244,89 +3250,87 @@ function ChainEditor$Main(Props) {
                     top: String(match$4[1]) + "px",
                     width: "500px"
                   }
-                }, React.createElement("div", {
-                      className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
-                    }, React.createElement(Inspector.GraphQLPreview.make, {
-                          requestId: sourceRequest.id,
-                          schema: schema,
-                          definition: definition$1,
-                          fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
-                                operationDoc: chainFragmentsDoc$1
-                              }),
-                          onCopy: (function (payload) {
-                              var dataPath = Belt_Array.concat(["payload"], payload.path);
-                              var re = new RegExp("\\[.+\\]", "g");
-                              var binding = Caml_array.get(dataPath, dataPath.length - 1 | 0).replace(re, "");
-                              return Curry._1(setState, (function (oldState) {
-                                            var parsed;
-                                            try {
-                                              parsed = Caml_option.some(Typescript.createSourceFile("main.ts", oldState.chain.script, 99, true));
-                                            }
-                                            catch (exn){
-                                              parsed = undefined;
-                                            }
-                                            var lineNumber = Belt_Option.map(parsed, (function (parsed) {
-                                                    try {
-                                                      var position = parsed.getPositionOfLineAndCharacter(scriptPosition.lineNumber - 1 | 0, scriptPosition.column - 1 | 0);
-                                                      var parsedPosition = Belt_Option.getExn(TypeScript.findPositionOfFirstLineOfContainingFunctionForPosition(parsed, position));
-                                                      var lineAndCharacter = parsed.getLineAndCharacterOfPosition(parsedPosition);
-                                                      return lineAndCharacter.line + 1 | 0;
-                                                    }
-                                                    catch (raw_e){
-                                                      var e = Caml_js_exceptions.internalToOCamlException(raw_e);
-                                                      console.warn("Exn trying to find smart position", e);
-                                                      return scriptPosition.lineNumber - 1 | 0;
-                                                    }
-                                                  }));
-                                            var assignmentExpressionRange = Belt_Option.flatMap(parsed, (function (parsed) {
-                                                    var position = parsed.getPositionOfLineAndCharacter(scriptPosition.lineNumber - 1 | 0, scriptPosition.column - 1 | 0);
-                                                    return TypeScript.findContainingDeclaration(parsed, position);
-                                                  }));
-                                            var newScript;
-                                            if (assignmentExpressionRange !== undefined) {
-                                              var newBinding = assignmentExpressionRange.name + " = " + dataPath.join("?.");
-                                              newScript = Utils.replaceRange(oldState.chain.script, assignmentExpressionRange.start + 1 | 0, assignmentExpressionRange.end, newBinding);
-                                            } else if (lineNumber !== undefined) {
-                                              var newBinding$1 = "\tlet " + binding + " = " + dataPath.join("?.");
-                                              var temp = oldState.chain.script.split("\n");
-                                              temp.splice(lineNumber, 0, newBinding$1);
-                                              newScript = temp.join("\n");
-                                            } else {
-                                              newScript = oldState.chain.script;
-                                            }
-                                            var init = oldState.chain;
-                                            var newChain_name = init.name;
-                                            var newChain_scriptDependencies = init.scriptDependencies;
-                                            var newChain_requests = init.requests;
-                                            var newChain_blocks = init.blocks;
-                                            var newChain = {
-                                              name: newChain_name,
-                                              script: newScript,
-                                              scriptDependencies: newChain_scriptDependencies,
-                                              requests: newChain_requests,
-                                              blocks: newChain_blocks
-                                            };
-                                            return {
-                                                    diagram: oldState.diagram,
-                                                    card: oldState.card,
-                                                    schema: oldState.schema,
-                                                    chain: newChain,
-                                                    compiledChain: oldState.compiledChain,
-                                                    chainResult: oldState.chainResult,
-                                                    scriptFunctions: oldState.scriptFunctions,
-                                                    chainExecutionResults: oldState.chainExecutionResults,
-                                                    blocks: oldState.blocks,
-                                                    inspected: oldState.inspected,
-                                                    blockEdit: oldState.blockEdit,
-                                                    scriptEditor: oldState.scriptEditor,
-                                                    savedChainId: oldState.savedChainId,
-                                                    requestValueCache: oldState.requestValueCache,
-                                                    debugUIItems: oldState.debugUIItems,
-                                                    connectionDrag: /* Empty */0
-                                                  };
-                                          }));
-                            })
-                        })));
+                }, React.createElement(Inspector.GraphQLPreview.make, {
+                      requestId: sourceRequest.id,
+                      schema: schema,
+                      definition: definition$1,
+                      fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
+                            operationDoc: chainFragmentsDoc$1
+                          }),
+                      onCopy: (function (payload) {
+                          var dataPath = Belt_Array.concat(["payload"], payload.path);
+                          var re = new RegExp("\\[.+\\]", "g");
+                          var binding = Caml_array.get(dataPath, dataPath.length - 1 | 0).replace(re, "");
+                          return Curry._1(setState, (function (oldState) {
+                                        var parsed;
+                                        try {
+                                          parsed = Caml_option.some(Typescript.createSourceFile("main.ts", oldState.chain.script, 99, true));
+                                        }
+                                        catch (exn){
+                                          parsed = undefined;
+                                        }
+                                        var lineNumber = Belt_Option.map(parsed, (function (parsed) {
+                                                try {
+                                                  var position = parsed.getPositionOfLineAndCharacter(scriptPosition.lineNumber - 1 | 0, scriptPosition.column - 1 | 0);
+                                                  var parsedPosition = Belt_Option.getExn(TypeScript.findPositionOfFirstLineOfContainingFunctionForPosition(parsed, position));
+                                                  var lineAndCharacter = parsed.getLineAndCharacterOfPosition(parsedPosition);
+                                                  return lineAndCharacter.line + 1 | 0;
+                                                }
+                                                catch (raw_e){
+                                                  var e = Caml_js_exceptions.internalToOCamlException(raw_e);
+                                                  console.warn("Exn trying to find smart position", e);
+                                                  return scriptPosition.lineNumber - 1 | 0;
+                                                }
+                                              }));
+                                        var assignmentExpressionRange = Belt_Option.flatMap(parsed, (function (parsed) {
+                                                var position = parsed.getPositionOfLineAndCharacter(scriptPosition.lineNumber - 1 | 0, scriptPosition.column - 1 | 0);
+                                                return TypeScript.findContainingDeclaration(parsed, position);
+                                              }));
+                                        var newScript;
+                                        if (assignmentExpressionRange !== undefined) {
+                                          var newBinding = assignmentExpressionRange.name + " = " + dataPath.join("?.");
+                                          newScript = Utils.replaceRange(oldState.chain.script, assignmentExpressionRange.start + 1 | 0, assignmentExpressionRange.end, newBinding);
+                                        } else if (lineNumber !== undefined) {
+                                          var newBinding$1 = "\tlet " + binding + " = " + dataPath.join("?.");
+                                          var temp = oldState.chain.script.split("\n");
+                                          temp.splice(lineNumber, 0, newBinding$1);
+                                          newScript = temp.join("\n");
+                                        } else {
+                                          newScript = oldState.chain.script;
+                                        }
+                                        var init = oldState.chain;
+                                        var newChain_name = init.name;
+                                        var newChain_scriptDependencies = init.scriptDependencies;
+                                        var newChain_requests = init.requests;
+                                        var newChain_blocks = init.blocks;
+                                        var newChain = {
+                                          name: newChain_name,
+                                          script: newScript,
+                                          scriptDependencies: newChain_scriptDependencies,
+                                          requests: newChain_requests,
+                                          blocks: newChain_blocks
+                                        };
+                                        return {
+                                                diagram: oldState.diagram,
+                                                card: oldState.card,
+                                                schema: oldState.schema,
+                                                chain: newChain,
+                                                compiledChain: oldState.compiledChain,
+                                                chainResult: oldState.chainResult,
+                                                scriptFunctions: oldState.scriptFunctions,
+                                                chainExecutionResults: oldState.chainExecutionResults,
+                                                blocks: oldState.blocks,
+                                                inspected: oldState.inspected,
+                                                blockEdit: oldState.blockEdit,
+                                                scriptEditor: oldState.scriptEditor,
+                                                savedChainId: oldState.savedChainId,
+                                                requestValueCache: oldState.requestValueCache,
+                                                debugUIItems: oldState.debugUIItems,
+                                                connectionDrag: /* Empty */0
+                                              };
+                                      }));
+                        })
+                    }));
           }
           break;
       case /* CompletedWithTypeMismatch */3 :
@@ -3517,37 +3521,40 @@ function ChainEditor$Main(Props) {
                         }));
           };
           tmp$3 = React.createElement("div", {
-                className: "absolute",
+                className: "absolute graphql-structure-container rounded-sm text-gray-200",
                 style: {
+                  color: Comps.colors["gray-6"],
                   left: String(match$5[0]) + "px",
                   maxHeight: "200px",
                   overflowY: "scroll",
                   top: String(match$5[1]) + "px",
                   width: "500px"
                 }
-              }, React.createElement("div", {
-                    className: "m-2 p-2 bg-gray-600 rounded-sm text-gray-200"
-                  }, "Type mismatch, choose coercer: ", React.createElement("ul", undefined, React.createElement("li", {
-                            key: "INTERNAL_PASSTHROUGH",
-                            className: "cursor-pointer hover:bg-blue-400 hover:text-white",
-                            onClick: (function (param) {
-                                return onClick("INTERNAL_PASSTHROUGH");
-                              })
-                          }, "Passthrough"), Belt_Array.map(conDrag.potentialFunctionMatches, (function (fn) {
-                              return React.createElement("li", {
-                                          key: fn.name,
-                                          className: "cursor-pointer hover:bg-blue-400 hover:text-white",
-                                          onClick: (function (param) {
-                                              return onClick(fn.name);
-                                            })
-                                        }, fn.name);
-                            })), React.createElement("li", {
-                            key: "createNew",
-                            className: "cursor-pointer hover:bg-blue-400 hover:text-white",
-                            onClick: (function (param) {
-                                return onClick(undefined);
-                              })
-                          }, "Create new function"))));
+              }, React.createElement("span", {
+                    style: {
+                      color: Comps.colors["gray-2"]
+                    }
+                  }, "Type mismatch, choose coercer: "), React.createElement("ul", undefined, React.createElement("li", {
+                        key: "INTERNAL_PASSTHROUGH",
+                        className: "cursor-pointer graphql-structure-preview-entry",
+                        onClick: (function (param) {
+                            return onClick("INTERNAL_PASSTHROUGH");
+                          })
+                      }, "Passthrough"), Belt_Array.map(conDrag.potentialFunctionMatches, (function (fn) {
+                          return React.createElement("li", {
+                                      key: fn.name,
+                                      className: "cursor-pointer graphql-structure-preview-entry",
+                                      onClick: (function (param) {
+                                          return onClick(fn.name);
+                                        })
+                                    }, fn.name);
+                        })), React.createElement("li", {
+                        key: "createNew",
+                        className: "cursor-pointer graphql-structure-preview-entry",
+                        onClick: (function (param) {
+                            return onClick(undefined);
+                          })
+                      }, "Create new function")));
           break;
       
     }

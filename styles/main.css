@@ -2163,6 +2163,10 @@ label {
 .variable-settings.drag-source:hover {
   background-color: var(--color-green-7);
 }
+.drag-source.no-drop {
+  cursor: no-drop;
+  background-color: var(--color-green-1);
+}
 
 .variable-settings.drag-target,
 .node-drop.drag-target {
@@ -2173,4 +2177,16 @@ label {
 .node-drop.drag-target.drop-ready {
   background-color: var(--color-green-5);
   color: var(--color-gray-1)
+}
+
+.graphql-structure-container {
+  background: var(--color-gray-9);
+  border-radius: 6px;
+  padding: 10px;
+  border: 1px solid #2FD0BD;
+}
+
+.graphql-structure-preview-entry:hover {
+  color: var(--color-green-5);
+  cursor: pointer;
 }

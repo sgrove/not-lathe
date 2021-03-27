@@ -360,6 +360,8 @@ module NodeLabel = {
     | (ConnectionContext.StartedSource({sourceRequest}), _, _)
     | (Completed({sourceRequest}), _, _) if Some(sourceRequest) == request => "drag-source"
     | (ConnectionContext.StartedTarget(_), Fragment, _) => ""
+    | (ConnectionContext.StartedTarget({target: Variable({targetRequest})}), _, _)
+      if Some(targetRequest) == request => " node-drop drag-source no-drop"
     | (ConnectionContext.StartedTarget(_), _, true) => " node-drop drag-target drop-ready"
     | (ConnectionContext.StartedTarget(_), _, false) => " node-drop drag-target"
 
@@ -2695,42 +2697,43 @@ ${newScript}`
             }
 
             <div
-              className="absolute"
+              className="absolute graphql-structure-container rounded-sm text-gray-200"
               style={ReactDOMRe.Style.make(
                 ~width="500px",
                 ~top=j`${y->string_of_int}px`,
                 ~left=j`${x->string_of_int}px`,
                 ~maxHeight="200px",
                 ~overflowY="scroll",
+                ~color=Comps.colors["gray-6"],
                 (),
               )}>
-              <div className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
+              <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
                 {"Type mismatch, choose coercer: "->string}
-                <ul>
+              </span>
+              <ul>
+                <li
+                  className="cursor-pointer graphql-structure-preview-entry"
+                  key="INTERNAL_PASSTHROUGH"
+                  onClick={_ => onClick(Some("INTERNAL_PASSTHROUGH"))}>
+                  {"Passthrough"->string}
+                </li>
+                {potentialFunctionMatches
+                ->Belt.Array.map((fn: TypeScript.simpleFunctionType) => {
                   <li
-                    className="cursor-pointer hover:bg-blue-400 hover:text-white"
-                    key="INTERNAL_PASSTHROUGH"
-                    onClick={_ => onClick(Some("INTERNAL_PASSTHROUGH"))}>
-                    {"Passthrough"->string}
+                    className="cursor-pointer graphql-structure-preview-entry"
+                    onClick={_ => onClick(Some(fn.name))}
+                    key=fn.name>
+                    {fn.name->string}
                   </li>
-                  {potentialFunctionMatches
-                  ->Belt.Array.map((fn: TypeScript.simpleFunctionType) => {
-                    <li
-                      className="cursor-pointer hover:bg-blue-400 hover:text-white"
-                      onClick={_ => onClick(Some(fn.name))}
-                      key=fn.name>
-                      {fn.name->string}
-                    </li>
-                  })
-                  ->array}
-                  <li
-                    className="cursor-pointer hover:bg-blue-400 hover:text-white"
-                    key="createNew"
-                    onClick={_ => onClick(None)}>
-                    {"Create new function"->string}
-                  </li>
-                </ul>
-              </div>
+                })
+                ->array}
+                <li
+                  className="cursor-pointer graphql-structure-preview-entry"
+                  key="createNew"
+                  onClick={_ => onClick(None)}>
+                  {"Create new function"->string}
+                </li>
+              </ul>
             </div>
           | Completed({sourceRequest, target: Script({scriptPosition}), windowPosition: (x, y)}) =>
             let chainFragmentsDoc =
@@ -2747,7 +2750,7 @@ ${newScript}`
             let definition = parsedOperation.definitions->Belt.Array.getExn(0)
 
             <div
-              className="absolute"
+              className="absolute graphql-structure-container rounded-sm text-gray-200"
               style={ReactDOMRe.Style.make(
                 ~width="500px",
                 ~top=j`${y->string_of_int}px`,
@@ -2756,105 +2759,99 @@ ${newScript}`
                 ~overflowY="scroll",
                 (),
               )}>
-              <div className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
-                <Inspector.GraphQLPreview
-                  requestId=sourceRequest.id
-                  schema
-                  definition
-                  fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
-                    "operationDoc": chainFragmentsDoc,
-                  })}
-                  onCopy={payload => {
-                    let {path} = payload
-                    let dataPath = ["payload"]->Belt.Array.concat(path)
-                    let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
-                    let binding =
-                      dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
+              <Inspector.GraphQLPreview
+                requestId=sourceRequest.id
+                schema
+                definition
+                fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                  "operationDoc": chainFragmentsDoc,
+                })}
+                onCopy={payload => {
+                  let {path} = payload
+                  let dataPath = ["payload"]->Belt.Array.concat(path)
+                  let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
+                  let binding =
+                    dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
 
-                    setState(oldState => {
-                      let parsed = try {
-                        Some(
-                          TypeScript.createSourceFile(
-                            ~name="main.ts",
-                            ~source=oldState.chain.script,
-                            ~target=99,
-                            true,
-                          ),
-                        )
-                      } catch {
-                      | _ => None
-                      }
-
-                      let lineNumber = parsed->Belt.Option.map(parsed =>
-                        try {
-                          let position =
-                            parsed->TypeScript.getPositionOfLineAndCharacter(
-                              scriptPosition.lineNumber - 1,
-                              scriptPosition.column - 1,
-                            )
-
-                          let parsedPosition =
-                            parsed
-                            ->TypeScript.findPositionOfFirstLineOfContainingFunctionForPosition(
-                              position,
-                            )
-                            ->Belt.Option.getExn
-
-                          let lineAndCharacter =
-                            parsed->TypeScript.getLineAndCharacterOfPosition(parsedPosition)
-
-                          lineAndCharacter.line + 1
-                        } catch {
-                        | e =>
-                          Js.Console.warn2("Exn trying to find smart position", e)
-                          scriptPosition.lineNumber - 1
-                        }
+                  setState(oldState => {
+                    let parsed = try {
+                      Some(
+                        TypeScript.createSourceFile(
+                          ~name="main.ts",
+                          ~source=oldState.chain.script,
+                          ~target=99,
+                          true,
+                        ),
                       )
+                    } catch {
+                    | _ => None
+                    }
 
-                      let assignmentExpressionRange = parsed->Belt.Option.flatMap(parsed => {
+                    let lineNumber = parsed->Belt.Option.map(parsed =>
+                      try {
                         let position =
                           parsed->TypeScript.getPositionOfLineAndCharacter(
                             scriptPosition.lineNumber - 1,
                             scriptPosition.column - 1,
                           )
-                        parsed->TypeScript.findContainingDeclaration(position)
-                      })
 
-                      let newScript = switch (assignmentExpressionRange, lineNumber) {
-                      | (Some({name, start, end}), _) =>
-                        let newBinding = j`${name} = ${dataPath->Js.Array2.joinWith("?.")}`
-
-                        oldState.chain.script->Utils.replaceRange(
-                          ~start=start + 1,
-                          ~end,
-                          ~by=newBinding,
-                        )
-                      | (_, Some(lineNumber)) =>
-                        let newBinding = j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith("?.")}`
-
-                        let temp = oldState.chain.script->Js.String2.split("\n")
-
-                        let _ =
-                          temp->Js.Array2.spliceInPlace(
-                            ~pos=lineNumber,
-                            ~remove=0,
-                            ~add=[newBinding],
+                        let parsedPosition =
+                          parsed
+                          ->TypeScript.findPositionOfFirstLineOfContainingFunctionForPosition(
+                            position,
                           )
-                        temp->Js.Array2.joinWith("\n")
-                      | _ => oldState.chain.script
-                      }
+                          ->Belt.Option.getExn
 
-                      let newChain = {...oldState.chain, script: newScript}
+                        let lineAndCharacter =
+                          parsed->TypeScript.getLineAndCharacterOfPosition(parsedPosition)
 
-                      {
-                        ...oldState,
-                        chain: newChain,
-                        connectionDrag: Empty,
+                        lineAndCharacter.line + 1
+                      } catch {
+                      | e =>
+                        Js.Console.warn2("Exn trying to find smart position", e)
+                        scriptPosition.lineNumber - 1
                       }
+                    )
+
+                    let assignmentExpressionRange = parsed->Belt.Option.flatMap(parsed => {
+                      let position =
+                        parsed->TypeScript.getPositionOfLineAndCharacter(
+                          scriptPosition.lineNumber - 1,
+                          scriptPosition.column - 1,
+                        )
+                      parsed->TypeScript.findContainingDeclaration(position)
                     })
-                  }}
-                />
-              </div>
+
+                    let newScript = switch (assignmentExpressionRange, lineNumber) {
+                    | (Some({name, start, end}), _) =>
+                      let newBinding = j`${name} = ${dataPath->Js.Array2.joinWith("?.")}`
+
+                      oldState.chain.script->Utils.replaceRange(
+                        ~start=start + 1,
+                        ~end,
+                        ~by=newBinding,
+                      )
+                    | (_, Some(lineNumber)) =>
+                      let newBinding = j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith("?.")}`
+
+                      let temp = oldState.chain.script->Js.String2.split("\n")
+
+                      let _ =
+                        temp->Js.Array2.spliceInPlace(~pos=lineNumber, ~remove=0, ~add=[newBinding])
+                      temp->Js.Array2.joinWith("\n")
+                    | _ => oldState.chain.script
+                    }
+
+                    let newChain = {...oldState.chain, script: newScript}
+
+                    {
+                      ...oldState,
+                      chain: newChain,
+                      connectionDrag: Empty,
+                    }
+                  })
+                }}
+              />
             </div>
           | Completed({
               sourceRequest,
@@ -2889,7 +2886,7 @@ ${newScript}`
               ->Belt.Option.map(((_, typ)) => typ)
 
             <div
-              className="absolute"
+              className="absolute graphql-structure-container rounded-sm text-gray-200"
               style={ReactDOMRe.Style.make(
                 ~width="500px",
                 ~top=j`${y->string_of_int}px`,
@@ -2897,174 +2894,169 @@ ${newScript}`
                 ~zIndex="999",
                 (),
               )}>
-              <div className="m-2 p-2 bg-gray-600 rounded-sm text-gray-200">
-                <Inspector.GraphQLPreview
-                  requestId=sourceRequest.id
-                  schema
-                  definition
-                  fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
-                    "operationDoc": chainFragmentsDoc,
-                  })}
-                  targetGqlType=?targetVariableType
-                  onCopy={({printedType, path}) => {
-                    let dataPath = ["payload"]->Belt.Array.concat(path)
+              <Inspector.GraphQLPreview
+                requestId=sourceRequest.id
+                schema
+                definition
+                fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                  "operationDoc": chainFragmentsDoc,
+                })}
+                targetGqlType=?targetVariableType
+                onCopy={({printedType, path}) => {
+                  let dataPath = ["payload"]->Belt.Array.concat(path)
 
-                    let nullableTargetVariableType =
-                      targetVariableType->Belt.Option.map(typ =>
-                        typ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
-                      )
+                  let nullableTargetVariableType =
+                    targetVariableType->Belt.Option.map(typ =>
+                      typ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+                    )
 
-                    let nullablePrintedType =
-                      printedType->Js.String2.replaceByRe(
-                        Js.Re.fromStringWithFlags("!", ~flags="g"),
-                        "",
-                      )
+                  let nullablePrintedType =
+                    printedType->Js.String2.replaceByRe(
+                      Js.Re.fromStringWithFlags("!", ~flags="g"),
+                      "",
+                    )
 
-                    let typesMatch = switch (
-                      Some(nullablePrintedType),
-                      nullableTargetVariableType,
-                    ) {
-                    | (Some(a), Some(b)) if a == b => true
-                    | (Some("String"), Some("ID"))
-                    | (Some("ID"), Some("String")) => true
-                    | (Some("Int"), Some("Float"))
-                    | (Some("Float"), Some("Int")) => true
-                    | (Some("JSON"), _)
-                    | (_, Some("JSON")) => true
-                    | _ => false
-                    }
+                  let typesMatch = switch (Some(nullablePrintedType), nullableTargetVariableType) {
+                  | (Some(a), Some(b)) if a == b => true
+                  | (Some("String"), Some("ID"))
+                  | (Some("ID"), Some("String")) => true
+                  | (Some("Int"), Some("Float"))
+                  | (Some("Float"), Some("Int")) => true
+                  | (Some("JSON"), _)
+                  | (_, Some("JSON")) => true
+                  | _ => false
+                  }
 
-                    switch typesMatch {
-                    | false =>
-                      setState(oldState => {
-                        let parsed = try {
-                          Some(
-                            TypeScript.createSourceFile(
-                              ~name="main.ts",
-                              ~source=oldState.chain.script,
-                              ~target=99,
-                              true,
-                            ),
-                          )
-                        } catch {
-                        | _ => None
-                        }
+                  switch typesMatch {
+                  | false =>
+                    setState(oldState => {
+                      let parsed = try {
+                        Some(
+                          TypeScript.createSourceFile(
+                            ~name="main.ts",
+                            ~source=oldState.chain.script,
+                            ~target=99,
+                            true,
+                          ),
+                        )
+                      } catch {
+                      | _ => None
+                      }
 
-                        let newConnectionDrag = parsed->Belt.Option.map(parsed => {
-                          let fnTypes = parsed->TypeScript.findFunctionTypes
+                      let newConnectionDrag = parsed->Belt.Option.map(parsed => {
+                        let fnTypes = parsed->TypeScript.findFunctionTypes
 
-                          let existingFnMatches =
-                            fnTypes
-                            ->Js.Dict.values
-                            ->Belt.Array.keep(({firstParamType, returnType}) => {
-                              let firstParamMatches = switch (
-                                nullablePrintedType->Js.String2.toLocaleLowerCase,
-                                firstParamType->Belt.Option.map(Js.String2.toLocaleLowerCase),
-                              ) {
-                              | (a, Some(b)) if a == b => true
-                              | ("int", Some("number"))
-                              | ("float", Some("number")) => true
-                              | ("id", Some("string")) => true
-                              | _ => false
-                              }
-
-                              let returnTypeMatches = switch (
-                                nullableTargetVariableType->Belt.Option.map(
-                                  Js.String2.toLocaleLowerCase,
-                                ),
-                                returnType->Belt.Option.map(Js.String2.toLocaleLowerCase),
-                              ) {
-                              | (Some(a), Some(b)) if a == b => true
-                              | (Some("int"), Some("number"))
-                              | (Some("float"), Some("number")) => true
-                              | (Some("id"), Some("string")) => true
-                              | _ => false
-                              }
-
-                              firstParamMatches && returnTypeMatches
-                            })
-                            ->Belt.SortArray.stableSortBy((a, b) => String.compare(a.name, b.name))
-
-                          ConnectionContext.CompletedWithTypeMismatch({
-                            sourceRequest: sourceRequest,
-                            sourceDom: sourceDom,
-                            variableTarget: variabletarget,
-                            windowPosition: windowPosition,
-                            targetVariableType: targetVariableType,
-                            sourceType: printedType,
-                            potentialFunctionMatches: existingFnMatches,
-                            dataPath: dataPath,
-                          })
-                        })
-
-                        {
-                          ...oldState,
-                          connectionDrag: newConnectionDrag->Belt.Option.getWithDefault(Empty),
-                        }
-                      })
-                    | true =>
-                      setState(oldState => {
-                        let potentialProbeDependency = Chain.GraphQLProbe({
-                          name: targetVariableDependency.name,
-                          ifMissing: #SKIP,
-                          ifList: #FIRST,
-                          fromRequestId: sourceRequest.id,
-                          functionFromScript: "TBD",
-                          path: dataPath,
-                        })
-
-                        let newRequests = oldState.chain.requests->Belt.Array.map(request => {
-                          switch targetRequest.id == request.id {
-                          | false => request
-                          | true =>
-                            let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
-                              switch varDep.name == targetVariableDependency.name {
-                              | true => {...varDep, dependency: potentialProbeDependency}
-
-                              | false =>
-                                let dependency = switch varDep.dependency {
-                                | ArgumentDependency(argDep) =>
-                                  let newArgDep = {
-                                    ...argDep,
-                                    fromRequestIds: argDep.fromRequestIds
-                                    ->Belt.Array.concat([sourceRequest.id])
-                                    ->Utils.distinctStrings,
-                                  }
-
-                                  Chain.ArgumentDependency(newArgDep)
-                                | other => other
-                                }
-                                let varDep = {...varDep, dependency: dependency}
-
-                                varDep
-                              }
-                            })
-
-                            {
-                              ...request,
-                              variableDependencies: varDeps,
-                              dependencyRequestIds: request.dependencyRequestIds
-                              ->Belt.Array.concat([sourceRequest.id])
-                              ->Utils.distinctStrings,
+                        let existingFnMatches =
+                          fnTypes
+                          ->Js.Dict.values
+                          ->Belt.Array.keep(({firstParamType, returnType}) => {
+                            let firstParamMatches = switch (
+                              nullablePrintedType->Js.String2.toLocaleLowerCase,
+                              firstParamType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                            ) {
+                            | (a, Some(b)) if a == b => true
+                            | ("int", Some("number"))
+                            | ("float", Some("number")) => true
+                            | ("id", Some("string")) => true
+                            | _ => false
                             }
-                          }
+
+                            let returnTypeMatches = switch (
+                              nullableTargetVariableType->Belt.Option.map(
+                                Js.String2.toLocaleLowerCase,
+                              ),
+                              returnType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                            ) {
+                            | (Some(a), Some(b)) if a == b => true
+                            | (Some("int"), Some("number"))
+                            | (Some("float"), Some("number")) => true
+                            | (Some("id"), Some("string")) => true
+                            | _ => false
+                            }
+
+                            firstParamMatches && returnTypeMatches
+                          })
+                          ->Belt.SortArray.stableSortBy((a, b) => String.compare(a.name, b.name))
+
+                        ConnectionContext.CompletedWithTypeMismatch({
+                          sourceRequest: sourceRequest,
+                          sourceDom: sourceDom,
+                          variableTarget: variabletarget,
+                          windowPosition: windowPosition,
+                          targetVariableType: targetVariableType,
+                          sourceType: printedType,
+                          potentialFunctionMatches: existingFnMatches,
+                          dataPath: dataPath,
                         })
+                      })
 
-                        let newChain = {...oldState.chain, requests: newRequests}
+                      {
+                        ...oldState,
+                        connectionDrag: newConnectionDrag->Belt.Option.getWithDefault(Empty),
+                      }
+                    })
+                  | true =>
+                    setState(oldState => {
+                      let potentialProbeDependency = Chain.GraphQLProbe({
+                        name: targetVariableDependency.name,
+                        ifMissing: #SKIP,
+                        ifList: #FIRST,
+                        fromRequestId: sourceRequest.id,
+                        functionFromScript: "TBD",
+                        path: dataPath,
+                      })
 
-                        let diagram = diagramFromChain(newChain)
+                      let newRequests = oldState.chain.requests->Belt.Array.map(request => {
+                        switch targetRequest.id == request.id {
+                        | false => request
+                        | true =>
+                          let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+                            switch varDep.name == targetVariableDependency.name {
+                            | true => {...varDep, dependency: potentialProbeDependency}
 
-                        {
-                          ...oldState,
-                          diagram: diagram,
-                          chain: newChain,
-                          connectionDrag: Empty,
+                            | false =>
+                              let dependency = switch varDep.dependency {
+                              | ArgumentDependency(argDep) =>
+                                let newArgDep = {
+                                  ...argDep,
+                                  fromRequestIds: argDep.fromRequestIds
+                                  ->Belt.Array.concat([sourceRequest.id])
+                                  ->Utils.distinctStrings,
+                                }
+
+                                Chain.ArgumentDependency(newArgDep)
+                              | other => other
+                              }
+                              let varDep = {...varDep, dependency: dependency}
+
+                              varDep
+                            }
+                          })
+
+                          {
+                            ...request,
+                            variableDependencies: varDeps,
+                            dependencyRequestIds: request.dependencyRequestIds
+                            ->Belt.Array.concat([sourceRequest.id])
+                            ->Utils.distinctStrings,
+                          }
                         }
                       })
-                    }
-                  }}
-                />
-              </div>
+
+                      let newChain = {...oldState.chain, requests: newRequests}
+
+                      let diagram = diagramFromChain(newChain)
+
+                      {
+                        ...oldState,
+                        diagram: diagram,
+                        chain: newChain,
+                        connectionDrag: Empty,
+                      }
+                    })
+                  }
+                }}
+              />
             </div>
           | StartedSource(conDrag) =>
             <ConnectorLine

@@ -763,11 +763,23 @@ function Inspector$DirectVariable(Props) {
             }, React.createElement("form", undefined, React.createElement("label", {
                       className: "m-0"
                     }, React.createElement("div", {
-                          className: "mt-1 flex rounded-md shadow-sm"
-                        }, React.createElement("span", {
-                              className: "inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm"
+                          className: "mt-1 flex rounded-md"
+                        }, React.createElement("div", {
+                              className: "flex-1 flex-grow"
+                            }), React.createElement("div", {
+                              className: "inline-flex justify-end items-center text-right px-3 rounded-l-md text-sm",
+                              style: {
+                                backgroundColor: Comps.colors["brown-1"],
+                                color: Comps.colors["gray-4"]
+                              }
                             }, "$variableName:"), React.createElement("input", {
-                              className: "block w-full px-3 text-gray-500 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none",
+                              className: "block px-3 text-gray-500 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none",
+                              style: {
+                                backgroundColor: Comps.colors["gray-7"],
+                                minWidth: "10ch",
+                                borderTopLeftRadius: "0px",
+                                borderBottomLeftRadius: "0px"
+                              },
                               value: variable,
                               onChange: (function ($$event) {
                                   return Curry._1(onVariableUpdated, $$event.target.value);
@@ -817,12 +829,17 @@ function Inspector$ArgumentDependency(Props) {
   return React.createElement("div", undefined, React.createElement("form", undefined, React.createElement("label", {
                       className: "m-0"
                     }, React.createElement("div", {
-                          className: "flex rounded-md shadow-sm"
-                        }, React.createElement("span", {
-                              className: "inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm"
-                            }, "ifMissing:"), React.createElement("select", {
-                              className: "px-4 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8",
-                              value: argDep.ifMissing,
+                          className: "flex rounded-md"
+                        }, React.createElement("div", {
+                              className: "flex-1 flex-grow"
+                            }), React.createElement("div", {
+                              className: "inline-flex justify-end items-center text-right px-3 rounded-l-md text-sm",
+                              style: {
+                                backgroundColor: Comps.colors["brown-1"],
+                                color: Comps.colors["gray-4"]
+                              }
+                            }, "ifMissing:"), React.createElement(Comps.Select.make, {
+                              children: null,
                               onChange: (function ($$event) {
                                   var ifMissing = Chain.ifMissingOfString($$event.target.value);
                                   if (ifMissing.TAG === /* Ok */0) {
@@ -836,7 +853,12 @@ function Inspector$ArgumentDependency(Props) {
                                               });
                                   }
                                   
-                                })
+                                }),
+                              style: {
+                                borderTopLeftRadius: "0px",
+                                borderBottomLeftRadius: "0px"
+                              },
+                              value: argDep.ifMissing
                             }, React.createElement("option", {
                                   value: Chain.stringOfIfMissing("ERROR")
                                 }, "Error"), React.createElement("option", {
@@ -857,11 +879,16 @@ function Inspector$GraphQLProbe(Props) {
                       className: "m-0"
                     }, React.createElement("div", {
                           className: "flex rounded-md shadow-sm"
-                        }, React.createElement("span", {
-                              className: "inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm"
-                            }, "ifMissing:"), React.createElement("select", {
-                              className: "block w-full text-gray-500 px-3 border border-gray-300 bg-white border-l-0 rounded-md shadow-sm focus:outline-none focus:ring-blue-300 focus:border-blue-300 sm:text-sm rounded-l-none m-0 pt-0 pb-0 pl-4 pr-8",
-                              value: probe.ifMissing,
+                        }, React.createElement("div", {
+                              className: "flex-1 flex-grow"
+                            }), React.createElement("div", {
+                              className: "inline-flex justify-end items-center text-right px-3 rounded-l-md text-sm",
+                              style: {
+                                backgroundColor: Comps.colors["brown-1"],
+                                color: Comps.colors["gray-4"]
+                              }
+                            }, "ifMissing:"), React.createElement(Comps.Select.make, {
+                              children: null,
                               onChange: (function ($$event) {
                                   var ifMissing = Chain.ifMissingOfString($$event.target.value);
                                   if (ifMissing.TAG === /* Ok */0) {
@@ -875,7 +902,12 @@ function Inspector$GraphQLProbe(Props) {
                                               });
                                   }
                                   
-                                })
+                                }),
+                              style: {
+                                borderTopLeftRadius: "0px",
+                                borderBottomLeftRadius: "0px"
+                              },
+                              value: probe.ifMissing
                             }, React.createElement("option", {
                                   value: Chain.stringOfIfMissing("ERROR")
                                 }, "Error"), React.createElement("option", {
@@ -1431,7 +1463,7 @@ function Inspector$Request(Props) {
                                   disabled: true,
                                   value: "probe"
                                 }, "GraphQL Probe"))), React.createElement("div", {
-                          className: "text-grey-darkest p-2 bg-gray-600 text-gray-200 overflow-scroll rounded-b-sm " + (
+                          className: "text-grey-darkest p-2 text-gray-200 overflow-scroll rounded-b-sm " + (
                             isOpen ? "" : "hidden"
                           )
                         }, React.createElement(Inspector$RequestArgument, {
@@ -1862,11 +1894,16 @@ function Inspector$Nothing(Props) {
             oneGraphAuth: oneGraphAuth
           }));
   var inspectorTab = React.createElement(React.Fragment, undefined, isChainViable ? null : React.createElement("div", {
-              className: "m-2 w-full text-center flex-1 flex-grow justify-center align-middle",
+              className: "m-2 w-full text-center flex flex-1 flex-grow flex-col justify-items-center justify-center items-center justify-items align-middle",
               style: {
-                color: Comps.colors["gray-4"]
+                color: Comps.colors["gray-4"],
+                height: "50%"
               }
-            }, "Add some blocks to get started"), requests.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
+            }, React.createElement(Icons.MonoAddBlocks.make, {
+                  color: Comps.colors["gray-13"]
+                }), React.createElement("span", {
+                  className: "mt-2"
+                }, "Add some blocks to get started")), requests.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
               title: "Chain Requests",
               children: requests
             }) : null);

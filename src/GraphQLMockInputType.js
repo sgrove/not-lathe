@@ -619,9 +619,13 @@ function PreviewForAst({
               path: fullPath,
             })
           }
-          className={"hover:bg-blue-700 "}
         >
-          <span className={typeNameMatches ? " bg-green-700" : ""}>
+          <span
+            className={
+              "graphql-structure-preview-entry " +
+              (typeNameMatches ? " bg-green-700" : "")
+            }
+          >
             {JSON.stringify(displayedName)}
           </span>
           <span style={{ color: "gray" }}>{finalMock}</span>
@@ -650,7 +654,12 @@ export function GraphQLPreview({
 }) {
   return (
     <div
-      style={{ textAlign: "left", overflow: "scroll", fontFamily: "monospace" }}
+      style={{
+        textAlign: "left",
+        overflow: "scroll",
+        fontFamily: "monospace",
+      }}
+      className="graphql-structure-preview"
     >
       <PreviewForAst
         requestId={requestId}
