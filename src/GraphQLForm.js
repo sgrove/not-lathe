@@ -202,12 +202,13 @@ export const formInput = (schema, def, setFormVariables, options) => {
           key={path.join("-")}
           className="relative text-lg bg-transparent text-gray-800"
         >
-          <div className="flex items-center ml-2 mr-2 border-b border-gray-500">
+          <div className="flex items-center ml-2 mr-2">
             <input
               id={path.join("-")}
               onChange={updateFunction}
               {...finalInputAttrs}
-              className="bg-transparent border-none px-2 leading-tight focus:outline-none text-white"
+              className="bg-transparent border-none px-2 leading-tight outline-none text-white"
+              style={{ backgroundColor: "#282B30" }}
               type="text"
               placeholder={namedType.name}
             />

@@ -339,23 +339,35 @@ function ChainEditor$NodeLabel(Props) {
                       }));
         }));
   var connectionDrag = React.useContext(ConnectionContext.context);
+  var match = React.useState(function () {
+        return false;
+      });
+  var setMouseHover = match[1];
   var domRef = React.useRef(null);
+  var match$1 = block.kind;
   var className;
   var exit = 0;
   if (typeof connectionDrag === "number") {
     className = "";
   } else {
     switch (connectionDrag.TAG | 0) {
+      case /* StartedTarget */1 :
+          className = match$1 !== 3 ? (
+              match[0] ? " node-drop drag-target drop-ready" : " node-drop drag-target"
+            ) : "";
+          break;
       case /* StartedSource */0 :
       case /* Completed */2 :
           exit = 1;
           break;
-      default:
-        className = "";
+      case /* CompletedWithTypeMismatch */3 :
+          className = "";
+          break;
+      
     }
   }
   if (exit === 1) {
-    className = Caml_obj.caml_equal(connectionDrag.sourceRequest, request) ? "bg-green-700" : "";
+    className = Caml_obj.caml_equal(connectionDrag.sourceRequest, request) ? "drag-source" : "";
   }
   return React.createElement("div", {
               ref: domRef,
@@ -372,6 +384,16 @@ function ChainEditor$NodeLabel(Props) {
                                 }));
                   }
                   
+                }),
+              onMouseEnter: (function (param) {
+                  return Curry._1(setMouseHover, (function (param) {
+                                return true;
+                              }));
+                }),
+              onMouseLeave: (function (param) {
+                  return Curry._1(setMouseHover, (function (param) {
+                                return false;
+                              }));
                 }),
               onMouseUp: (function ($$event) {
                   return Belt_Option.forEach(request, (function (sourceRequest) {
@@ -410,7 +432,7 @@ function ChainEditor$NodeLabel(Props) {
                           return Curry._1(onEditBlock, block);
                         })
                     }, React.createElement(Icons.GraphQL.make, {
-                          color: "rgb(181,181,181)",
+                          color: Comps.colors["gray-4"],
                           width: "16px",
                           height: "16px"
                         }))));
@@ -1105,7 +1127,7 @@ function ChainEditor$ConnectorLine(Props) {
                         cursor: "none"
                       },
                       markerEnd: "url(#connectMarker)",
-                      stroke: "green",
+                      stroke: Comps.colors["green-6"],
                       strokeWidth: "3",
                       x1: String(startX),
                       x2: String(endX),
@@ -1116,11 +1138,10 @@ function ChainEditor$ConnectorLine(Props) {
                       style: {
                         cursor: "none"
                       },
-                      filter: "url(#blurMe)",
                       markerEnd: "url(#connectMarker)",
-                      stroke: "#22ff22",
+                      stroke: Comps.colors["green-3"],
                       strokeDasharray: "50",
-                      strokeWidth: "4",
+                      strokeWidth: "3",
                       x1: String(startX),
                       x2: String(endX),
                       y1: String(startY),

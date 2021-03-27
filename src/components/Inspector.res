@@ -1437,10 +1437,20 @@ module Request = {
 
       let isOpen = openedTabs->Belt.Set.String.has(varDep.name)
 
+      let dragClassName = switch connectionDrag {
+      | ConnectionContext.StartedSource(_) => "drag-target"
+      | ConnectionContext.StartedTarget({target: Variable({variableDependency})})
+        if variableDependency.name == variableName => "drag-source"
+      | _ => ""
+      }
+
       <article
         key={variableName}
         id={"inspector-variable-" ++ variableName}
-        className="m-2 variable-settings"
+        className={"m-2 variable-settings " ++
+        dragClassName ++ {
+          potentialConnection->Belt.Set.String.has(variableName) ? " drop-ready" : ""
+        }}
         onMouseEnter={event => {
           switch connectionDrag {
           | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.add(variableName))
@@ -1504,9 +1514,7 @@ module Request = {
         <div
           className={"flex justify-between items-center cursor-pointer p-1  text-gray-200 " ++
           (isOpen ? "rounded-t-sm" : "rounded-sm") ++ (
-            potentialConnection->Belt.Set.String.has(variableName)
-              ? " bg-blue-600 border-blue-900"
-              : ""
+            potentialConnection->Belt.Set.String.has(variableName) ? " border-blue-900" : ""
           )}
           onClick={_ => {
             setOpenedTabs(oldOpenedTabs =>
@@ -1665,7 +1673,7 @@ module Request = {
           def,
           setFormVariables,
           formInputOptions(
-            ~labelClassname="underline pl-2 m-2 mt-0 mb-0 font-semibold text-sm font-mono",
+            ~labelClassname="text-underline pl-2 m-2 mt-0 mb-0 font-thin text-sm font-mono",
             (),
           ),
         )
@@ -1715,7 +1723,7 @@ module Request = {
           className={"flex justify-center flex-grow cursor-pointer p-1 " ++ {
             openedTab == #inspector ? " inspector-tab-active" : " inspector-tab-inactive"
           }}>
-          <Icons.Link
+          <Icons.Remote
             className=""
             width="24px"
             height="24px"

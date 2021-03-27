@@ -1174,14 +1174,30 @@ function Inspector$Request(Props) {
                 }
               });
           var isOpen = Belt_SetString.has(openedTabs, varDep.name);
-          var match = varDep.dependency;
+          var dragClassName;
+          if (typeof connectionDrag === "number") {
+            dragClassName = "";
+          } else {
+            switch (connectionDrag.TAG | 0) {
+              case /* StartedSource */0 :
+                  dragClassName = "drag-target";
+                  break;
+              case /* StartedTarget */1 :
+                  var match = connectionDrag.target;
+                  dragClassName = match.TAG === /* Variable */0 && match._0.variableDependency.name === variableName ? "drag-source" : "";
+                  break;
+              default:
+                dragClassName = "";
+            }
+          }
+          var match$1 = varDep.dependency;
           var tmp;
-          switch (match.TAG | 0) {
+          switch (match$1.TAG | 0) {
             case /* ArgumentDependency */0 :
                 tmp = "argument";
                 break;
             case /* Direct */1 :
-                tmp = match._0.value.TAG === /* JSON */0 ? "json" : "variable";
+                tmp = match$1._0.value.TAG === /* JSON */0 ? "json" : "variable";
                 break;
             case /* GraphQLProbe */2 :
                 tmp = "probe";
@@ -1190,7 +1206,9 @@ function Inspector$Request(Props) {
           }
           return React.createElement("article", {
                       key: variableName,
-                      className: "m-2 variable-settings",
+                      className: "m-2 variable-settings " + dragClassName + (
+                        Belt_SetString.has(potentialConnection, variableName) ? " drop-ready" : ""
+                      ),
                       id: "inspector-variable-" + variableName,
                       onMouseDown: (function ($$event) {
                           if (!$$event.altKey) {
@@ -1279,7 +1297,7 @@ function Inspector$Request(Props) {
                           className: "flex justify-between items-center cursor-pointer p-1  text-gray-200 " + (
                             isOpen ? "rounded-t-sm" : "rounded-sm"
                           ) + (
-                            Belt_SetString.has(potentialConnection, variableName) ? " bg-blue-600 border-blue-900" : ""
+                            Belt_SetString.has(potentialConnection, variableName) ? " border-blue-900" : ""
                           ),
                           onClick: (function (param) {
                               return Curry._1(setOpenedTabs, (function (oldOpenedTabs) {
@@ -1487,7 +1505,7 @@ function Inspector$Request(Props) {
             type: def_type
           };
           return formInput(schema, def, setFormVariables, {
-                      labelClassname: "underline pl-2 m-2 mt-0 mb-0 font-semibold text-sm font-mono"
+                      labelClassname: "text-underline pl-2 m-2 mt-0 mb-0 font-thin text-sm font-mono"
                     });
         }));
   var form = inputs.length !== 0 ? React.createElement("form", {
@@ -1535,7 +1553,7 @@ function Inspector$Request(Props) {
                                         return "inspector";
                                       }));
                         })
-                    }, React.createElement(Icons.Link.make, {
+                    }, React.createElement(Icons.Remote.make, {
                           className: "",
                           color: openedTab === "inspector" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
                           width: "24px",

@@ -977,6 +977,33 @@ var Login = {
   make: Icons$Login
 };
 
+function Icons$Remote(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    fill: "none",
+    viewBox: "0 0 20 20"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("path", {
+                  d: "M12.4999 7.5H7.49993C7.0416 7.5 6.6666 7.875 6.6666 8.33333V18.3333C6.6666 18.7917 7.0416 19.1667 7.49993 19.1667H12.4999C12.9583 19.1667 13.3333 18.7917 13.3333 18.3333V8.33333C13.3333 7.875 12.9583 7.5 12.4999 7.5ZM9.99993 12.5C9.08327 12.5 8.33327 11.75 8.33327 10.8333C8.33327 9.91667 9.08327 9.16667 9.99993 9.16667C10.9166 9.16667 11.6666 9.91667 11.6666 10.8333C11.6666 11.75 10.9166 12.5 9.99993 12.5ZM5.87493 5.04167L7.04993 6.21667C7.80827 5.46667 8.84993 5 9.99993 5C11.1499 5 12.1916 5.46667 12.9499 6.21667L14.1249 5.04167C13.0666 3.98333 11.6083 3.33333 9.99993 3.33333C8.3916 3.33333 6.93327 3.98333 5.87493 5.04167ZM9.99993 0C7.4666 0 5.17493 1.025 3.5166 2.68333L4.6916 3.85833C6.04993 2.50833 7.92493 1.66667 9.99993 1.66667C12.0749 1.66667 13.9499 2.50833 15.2999 3.86667L16.4749 2.69167C14.8249 1.025 12.5333 0 9.99993 0Z",
+                  fill: color
+                }));
+}
+
+var Remote = {
+  make: Icons$Remote
+};
+
 export {
   Play ,
   Inspect ,
@@ -1000,6 +1027,7 @@ export {
   Mediation ,
   ContentCopy ,
   Login ,
+  Remote ,
   
 }
 /* react Not a pure module */

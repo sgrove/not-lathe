@@ -27,6 +27,9 @@
   --color-green-2: #27ae60;
   --color-green-3: #6fcf97;
   --color-green-4: #1bbe83;
+  --color-green-5: #2FD0BD;
+  --color-green-6: #47FFC8;
+  --color-green-7: #17423D;
   --color-blue-1: #2f80ed;
   --color-blue-2: #2d9cdb;
   --color-blue-3: #56ccf2;
@@ -2153,5 +2156,21 @@ label {
 }
 
 .variable-settings:hover {
-  background-color: var(--color-gray-2);
+  background-color: var(--color-gray-9);
+}
+
+.drag-source,
+.variable-settings.drag-source:hover {
+  background-color: var(--color-green-7);
+}
+
+.variable-settings.drag-target,
+.node-drop.drag-target {
+  background-color: var(--color-green-7);
+}
+
+.variable-settings.drag-target.drop-ready,
+.node-drop.drag-target.drop-ready {
+  background-color: var(--color-green-5);
+  color: var(--color-gray-1)
 }

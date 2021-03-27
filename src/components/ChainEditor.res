@@ -352,18 +352,29 @@ module NodeLabel = {
 
     open React
     let connectionDrag = useContext(ConnectionContext.context)
+    let (mouseHover, setMouseHover) = useState(() => false)
 
     let domRef = React.useRef(Js.Nullable.null)
 
-    let className = switch connectionDrag {
-    | ConnectionContext.StartedSource({sourceRequest})
-    | Completed({sourceRequest}) if Some(sourceRequest) == request => "bg-green-700"
+    let className = switch (connectionDrag, block.kind, mouseHover) {
+    | (ConnectionContext.StartedSource({sourceRequest}), _, _)
+    | (Completed({sourceRequest}), _, _) if Some(sourceRequest) == request => "drag-source"
+    | (ConnectionContext.StartedTarget(_), Fragment, _) => ""
+    | (ConnectionContext.StartedTarget(_), _, true) => " node-drop drag-target drop-ready"
+    | (ConnectionContext.StartedTarget(_), _, false) => " node-drop drag-target"
+
     | _ => ""
     }
 
     <div
       ref={ReactDOM.Ref.domRef(domRef)}
       className={"flex align-middle items-center min-w-max flex-col " ++ className}
+      onMouseEnter={_ => {
+        setMouseHover(_ => true)
+      }}
+      onMouseLeave={_ => {
+        setMouseHover(_ => false)
+      }}
       onMouseDown={event => {
         switch event->ReactEvent.Mouse.altKey {
         | false => ()
@@ -397,20 +408,6 @@ module NodeLabel = {
       onContextMenu={event => {
         ()
       }}>
-      // <ReactFlow.Handle
-      //   type_=#target
-      //   position=#top
-      //   className="rounded-lg border-2"
-      //   style={ReactDOMStyle.make(
-      //     ~backgroundColor="black",
-      //     ~borderWidth="2px",
-      //     ~padding="10px",
-      //     ~background="radial-gradient(ellipse at center, rgb(78,160,23) 0%, rgb(78,160,23) 30%, transparent 30%)",
-      //     ~borderColor="rgb(78,160,23)",
-      //     ~top="-24px",
-      //     (),
-      //   )}
-      // />
       <div className="flex flex-row items-center justify-end font-mono">
         <div className="m-2"> {services} </div>
         <div className="flex-1 inline-block "> {block.title->string} </div>
@@ -420,24 +417,9 @@ module NodeLabel = {
             ReactEvent.Mouse.preventDefault(event)
             onEditBlock(block)
           }}>
-          <Icons.GraphQL color="rgb(181,181,181)" width="16px" height="16px" />
+          <Icons.GraphQL color={Comps.colors["gray-4"]} width="16px" height="16px" />
         </div>
       </div>
-      // <ReactFlow.Handle
-      //   type_=#source
-      //   position=#bottom
-      //   className="rounded-lg border-2"
-      //   style={ReactDOMStyle.make(
-      //     ~backgroundColor="black",
-      //     ~borderWidth="2px",
-      //     ~padding="10px",
-      //     ~background="radial-gradient(ellipse at center, rgb(78,160,23) 0%, rgb(78,160,23) 30%, transparent 30%)",
-      //     ~borderColor="rgb(78,160,23)",
-      //     ~marginTop="20px",
-      //     ~bottom="-24px",
-      //     (),
-      //   )}
-      // />
     </div>
   }
 }
@@ -1223,7 +1205,7 @@ module ConnectorLine = {
         </marker>
         <line
           style={ReactDOMRe.Style.make(~cursor="none", ())}
-          stroke="green"
+          stroke={Comps.colors["green-6"]}
           strokeWidth="3"
           markerEnd="url(#connectMarker)"
           x1={startX->string_of_int}
@@ -1233,11 +1215,11 @@ module ConnectorLine = {
         />
         <line
           style={ReactDOMRe.Style.make(~cursor="none", ())}
-          stroke="#22ff22"
-          strokeWidth="4"
+          stroke={Comps.colors["green-3"]}
+          strokeWidth="3"
           className="moving-path"
           markerEnd="url(#connectMarker)"
-          filter="url(#blurMe)"
+          // filter="url(#blurMe)"
           strokeDasharray={"50"}
           x1={startX->string_of_int}
           y1={startY->string_of_int}
