@@ -2,10 +2,15 @@
 
 import * as Card from "./Card.js";
 import * as Uuid from "./bindings/Uuid.js";
+import * as Uuid$1 from "uuid";
 import * as Utils from "./bindings/Utils.js";
+import * as $$String from "bs-platform/lib/es6/string.mjs";
+import * as Graphql from "graphql";
+import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
+import * as GraphQLUtils from "./bindings/GraphQLUtils.js";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import * as Caml_exceptions from "bs-platform/lib/es6/caml_exceptions.mjs";
@@ -344,6 +349,7 @@ var chain2_blocks = [
 
 var chain2 = {
   name: "chain2",
+  id: undefined,
   script: "export function getRow(result) {\n          const event = result.SlackReactionSubscription[0].data.slack.reactionAddedEvent.event;\n          const reaction = event.reaction;\n          if (reaction !== 'eyes' && reaction !== 'white_check_mark') {\n            return null;\n          }\n          return [\n            event.item.message.permaLink, // message_permalink\n            event.item.message.text || '', // message_text\n            `=DATEOFTIMESTAMP(${event.item.message.ts} * 1000)`, // message_ts\n            event.item.message.user.id || '', // message_user_id (we don't have this yet :/)\n            event.item.message.user.name || '', // message_user_name\n            reaction === 'eyes' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', // eyes_reaction_ts\n            reaction === 'eyes' ? event.user.id : '', // eyes_reaction_user_id\n            reaction === 'eyes' ? event.user.name : '', // eyes_reaction_user_name\n            reaction === 'white_check_mark' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', //completed_reaction_ts\n            reaction === 'white_check_mark' ? event.user.id : '', // completed_reaction_user_id\n            reaction === 'white_check_mark' ? event.user.name : '', // completed_reaction_user_name\n            event.item.channel.name // channel_name\n          ]\n        }",
   scriptDependencies: chain2_scriptDependencies,
   requests: chain2_requests,
@@ -366,11 +372,23 @@ var _chain_blocks = [
 
 var _chain = {
   name: "main",
+  id: undefined,
   script: _chain_script,
   scriptDependencies: _chain_scriptDependencies,
   requests: _chain_requests,
   blocks: _chain_blocks
 };
+
+function makeEmptyChain(name) {
+  return {
+          name: name,
+          id: Caml_option.some(Uuid$1.v4()),
+          script: "",
+          scriptDependencies: [],
+          requests: [],
+          blocks: []
+        };
+}
 
 var emptyChain_script = "";
 
@@ -382,6 +400,7 @@ var emptyChain_blocks = [];
 
 var emptyChain = {
   name: "new_chain",
+  id: undefined,
   script: emptyChain_script,
   scriptDependencies: emptyChain_scriptDependencies,
   requests: emptyChain_requests,
@@ -633,17 +652,50 @@ function compileOperationDoc(chain) {
         };
 }
 
-function saveToLocalStorage(chain, docId) {
-  var jsonString = JSON.stringify(chain);
+var docId = "localChains";
+
+function loadFromLocalStorage(param) {
+  var jsonString = localStorage.getItem(docId);
+  return Belt_Option.mapWithDefault(jsonString === null ? undefined : Caml_option.some(jsonString), [], (function (jsonString) {
+                return JSON.parse(jsonString);
+              }));
+}
+
+function loadFromLocalStorageById(chainId) {
+  return Belt_Array.getBy(loadFromLocalStorage(undefined), (function (chain) {
+                return Caml_obj.caml_equal(chain.id, Caml_option.some(Uuid.parseExn(chainId)));
+              }));
+}
+
+function saveToLocalStorage(chain) {
+  var existingChains = loadFromLocalStorage(undefined);
+  var existingChain = Belt_Array.getBy(existingChains, (function (existingChain) {
+          if (Belt_Option.isSome(existingChain.id)) {
+            return Caml_obj.caml_equal(existingChain.id, chain.id);
+          } else {
+            return false;
+          }
+        }));
+  var newChains = existingChain !== undefined ? Belt_Array.map(existingChains, (function (oldChain) {
+            if (Caml_obj.caml_equal(oldChain.id, existingChain.id)) {
+              return chain;
+            } else {
+              return oldChain;
+            }
+          })) : Belt_Array.concat(existingChains, [chain]);
+  var jsonString = JSON.stringify(newChains);
   localStorage.setItem(docId, jsonString);
   
 }
 
-function loadFromLocalStorage(docId) {
-  var jsonString = localStorage.getItem(docId);
-  return Belt_Option.map(jsonString === null ? undefined : Caml_option.some(jsonString), (function (jsonString) {
-                return JSON.parse(jsonString);
-              }));
+function deleteFromLocalStorage(chain) {
+  var existingChains = loadFromLocalStorage(undefined);
+  var newChains = Belt_Array.keep(existingChains, (function (oldChain) {
+          return Caml_obj.caml_notequal(oldChain.id, chain.id);
+        }));
+  var jsonString = JSON.stringify(newChains);
+  localStorage.setItem(docId, jsonString);
+  
 }
 
 function servicesRequired(chain) {
@@ -737,6 +789,47 @@ function toposortRequests(requests) {
   }
 }
 
+function gatherAllReferencedServices(schema, chain) {
+  var requestServices = Belt_Array.concatMany(Belt_Array.map(chain.requests, (function (request) {
+              var parsedOperation = Graphql.parse(request.operation.body);
+              var definition = Belt_Array.getExn(parsedOperation.definitions, 0);
+              return Belt_Array.map(GraphQLUtils.gatherAllReferencedServices(schema, definition), (function (service) {
+                            return service.slug;
+                          }));
+            })));
+  var blockServices = Belt_Array.concatMany(Belt_Array.map(chain.blocks, (function (block) {
+              var parsedOperation = Graphql.parse(block.body);
+              var definition = Belt_Array.getExn(parsedOperation.definitions, 0);
+              return Belt_Array.map(GraphQLUtils.gatherAllReferencedServices(schema, definition), (function (service) {
+                            return service.slug;
+                          }));
+            })));
+  return Belt_SortArray.stableSortBy(Utils.distinctStrings(Belt_Array.concat(requestServices, blockServices)), $$String.compare);
+}
+
+var docId$1 = "localChainTraces";
+
+function loadFromLocalStorage$1(param) {
+  var jsonString = localStorage.getItem(docId$1);
+  return Belt_Option.mapWithDefault(jsonString === null ? undefined : Caml_option.some(jsonString), [], (function (jsonString) {
+                return JSON.parse(jsonString);
+              }));
+}
+
+function saveToLocalStorage$1(trace) {
+  var existingTraces = loadFromLocalStorage$1(undefined);
+  var newTraces = Belt_Array.concat(existingTraces, [trace]);
+  var jsonString = JSON.stringify(newTraces);
+  localStorage.setItem(docId$1, jsonString);
+  
+}
+
+var Trace = {
+  docId: docId$1,
+  loadFromLocalStorage: loadFromLocalStorage$1,
+  saveToLocalStorage: saveToLocalStorage$1
+};
+
 var target = "mutation ExecuteChainMutation(\n  $webhookUrl: JSON!\n  $chain: OneGraphQueryChainInput!\n  $sheetId: JSON!\n) {\n  oneGraph {\n    executeChain(\n      input: {\n        requests: [\n          {\n            id: \"SlackReactionSubscription\"\n            operationName: \"SlackReactionSubscription\"\n            variables: [\n              { name: \"webhookUrl\", value: $webhookUrl }\n            ]\n          }\n          {\n            id: \"AddToDocMutation\"\n            operationName: \"AddToDocMutation\"\n            argumentDependencies: {\n              name: \"row\"\n              ifList: ALL\n              fromRequestIds: [\"SlackReactionSubscription\"]\n              functionFromScript: \"getRow\"\n              ifMissing: SKIP\n            }\n            variables: { name: \"sheetId\", value: $sheetId }\n          }\n        ]\n        script: \"const a = true;\"\n      }\n    ) {\n      results {\n        request {\n          id\n        }\n        result\n        argumentDependencies {\n          name\n          returnValues\n          logs {\n            level\n            body\n          }\n          name\n        }\n      }\n    }\n  }\n}\n\nmutation AddToDocMutation(\n  $sheetId: String!\n  $row: [String!]!\n) {\n  google {\n    sheets {\n      appendValues(\n        id: $sheetId\n        valueInputOption: \"USER_ENTERED\"\n        majorDimenson: \"ROWS\"\n        range: \"'Raw Data'!A1\"\n        values: [$row]\n      ) {\n        updates {\n          spreadsheetId\n          updatedRange\n          updatedCells\n          updatedData {\n            values\n          }\n        }\n      }\n    }\n  }\n}\n\nsubscription SlackReactionSubscription(\n  $webhookUrl: String!\n) {\n  slack(webhookUrl: $webhookUrl) {\n    reactionAddedEvent {\n      eventTime\n      event {\n        user {\n          id\n          name\n        }\n        eventTs\n        reaction\n        item {\n          channel {\n            name\n          }\n          message {\n            permaLink\n            user {\n              id\n              name\n            }\n            text\n            ts\n          }\n        }\n      }\n    }\n  }\n}";
 
 var chain = emptyChain;
@@ -761,6 +854,7 @@ export {
   req6 ,
   chain2 ,
   _chain ,
+  makeEmptyChain ,
   emptyChain ,
   chain ,
   compileAsObj ,
@@ -768,11 +862,16 @@ export {
   callForVariable ,
   callForProbe ,
   compileOperationDoc ,
-  saveToLocalStorage ,
+  docId ,
   loadFromLocalStorage ,
+  loadFromLocalStorageById ,
+  saveToLocalStorage ,
+  deleteFromLocalStorage ,
   servicesRequired ,
   CircularDependencyDetected ,
   toposortRequests ,
+  gatherAllReferencedServices ,
+  Trace ,
   
 }
 /* addToDocMutation Not a pure module */

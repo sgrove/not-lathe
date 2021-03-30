@@ -206,6 +206,7 @@ export const formInput = (schema, def, setFormVariables, options) => {
             <input
               id={path.join("-")}
               onChange={updateFunction}
+              defaultValue={options.defaultValue}
               {...finalInputAttrs}
               className="bg-transparent border-none px-2 leading-tight outline-none text-white"
               style={{ backgroundColor: "#282B30" }}

@@ -102,3 +102,34 @@ let windowLocationOrigin: unit => option<string> = () => {
 let windowScrollY: unit => option<int> = () => {
   %external(window)->Belt.Option.map((window: Dom.window) => Obj.magic(window)["scrollY"])
 }
+
+module Date = {
+  let timeAgo = (date: Js.Date.t): string => {
+    let dateMs = date->Js.Date.getTime
+    let now = Js.Date.now()
+
+    switch now -. dateMs {
+    | value if value < 30000. => "Just now"
+    | value if value < 45000. => "30 seconds ago"
+    | value if value < 60000. *. 60. =>
+      let minutes = (value /. 60000.)->int_of_float->string_of_int
+      j`${minutes} minutes ago`
+    | value if value < 60000. *. 60. *. 24. =>
+      let hours = (value /. (60000. *. 60.))->int_of_float->string_of_int
+      j`${hours} hours ago`
+    | value if value < 60000. *. 60. *. 24. *. 7. =>
+      let days = (value /. (60000. *. 60. *. 24.))->int_of_float->string_of_int
+      j`${days} days ago`
+    | value if value < 60000. *. 60. *. 24. *. 30. =>
+      let weeks = (value /. (60000. *. 60. *. 24. *. 7.))->int_of_float->string_of_int
+      j`${weeks} weeks ago`
+    | value if value < 60000. *. 60. *. 24. *. 30. *. 12. =>
+      let months = (value /. (60000. *. 60. *. 24. *. 7. *. 30.))->int_of_float->string_of_int
+      j`${months} months ago`
+    | value =>
+      let years =
+        (value /. (60000. *. 60. *. 24. *. 7. *. 30. *. 12.0))->int_of_float->string_of_int
+      j`${years} years ago`
+    }
+  }
+}

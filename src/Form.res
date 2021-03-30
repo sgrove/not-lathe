@@ -7,7 +7,7 @@ module Main = {
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
     let (state, setState) = React.useState(() => {chainExecutionResults: None})
 
-    let chain = chainId->Chain.loadFromLocalStorage
+    let chain = chainId->Chain.loadFromLocalStorageById
 
     let form =
       chain

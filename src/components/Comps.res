@@ -14,6 +14,8 @@ let colors = {
   "gray-11": "#DFDFDF",
   "gray-12": "#171717",
   "gray-13": "#34373C",
+  "gray-14": "#1b1d1f",
+  "gray-15": "#282C31",
   "red": "#EB5757",
   "orange": "#F2994A",
   "yellow": "#F2C94C",

@@ -25,7 +25,7 @@ function Form$Main(Props) {
               };
       });
   var setState = match$1[1];
-  var chain = Chain.loadFromLocalStorage(chainId);
+  var chain = Chain.loadFromLocalStorageById(chainId);
   var form = Belt_Option.getWithDefault(Belt_Option.map(chain, (function (chain) {
               var compiledOperation = Inspector.transformChain(chain);
               var targetChain = Belt_Array.get(compiledOperation.chains, 0);

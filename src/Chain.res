@@ -93,6 +93,7 @@ type scriptDependency = {
 
 type t = {
   name: string,
+  id: option<Uuid.v4>,
   script: string,
   scriptDependencies: array<scriptDependency>,
   requests: array<request>,
@@ -475,6 +476,7 @@ let req6 = {
 
 let chain2 = {
   name: "chain2",
+  id: None,
   scriptDependencies: [],
   script: "export function getRow(result) {
           const event = result.SlackReactionSubscription[0].data.slack.reactionAddedEvent.event;
@@ -503,6 +505,7 @@ let chain2 = {
 
 let _chain = {
   name: "chain3",
+  id: None,
   scriptDependencies: [],
   script: "// export function greet(hello) {
 //  return true
@@ -547,6 +550,7 @@ export function getIssueTitle(payload) {
 
 let _chain = {
   name: "main",
+  id: None,
   scriptDependencies: [],
   script: `import {
   GitHubStatusInput,
@@ -576,8 +580,18 @@ export function makeVariablesForSetSlackStatus(
   blocks: [Card.gitHubStatus, Card.setSlackStatus],
 }
 
+let makeEmptyChain = name => {
+  name: name,
+  id: Some(Uuid.v4()),
+  script: ``,
+  scriptDependencies: [],
+  requests: [],
+  blocks: [],
+}
+
 let emptyChain = {
   name: "new_chain",
+  id: None,
   script: ``,
   scriptDependencies: [],
   requests: [],
@@ -932,19 +946,52 @@ ${blockOperations}`
   }
 }
 
-let saveToLocalStorage = (chain: t, docId): unit => {
-  let jsonString = Obj.magic(chain)->Js.Json.stringify
+let docId = "localChains"
+
+let loadFromLocalStorage = (): array<t> => {
+  let jsonString = Dom.Storage2.localStorage->Dom.Storage2.getItem(docId)
+
+  jsonString->Belt.Option.mapWithDefault([], jsonString => {
+    let json = jsonString->Js.Json.parseExn
+    Obj.magic(json)
+  })
+}
+
+let loadFromLocalStorageById = (chainId): option<t> => {
+  loadFromLocalStorage()->Belt.Array.getBy(chain => chain.id == Some(chainId->Uuid.parseExn))
+}
+
+let saveToLocalStorage = (chain: t): unit => {
+  let existingChains = loadFromLocalStorage()
+
+  let existingChain =
+    existingChains->Belt.Array.getBy(existingChain =>
+      existingChain.id->Belt.Option.isSome && existingChain.id == chain.id
+    )
+
+  let newChains = switch existingChain {
+  | None => existingChains->Belt.Array.concat([chain])
+  | Some(existingChain) =>
+    existingChains->Belt.Array.map(oldChain => {
+      oldChain.id == existingChain.id ? chain : oldChain
+    })
+  }
+
+  let jsonString = Obj.magic(newChains)->Js.Json.stringify
 
   Dom.Storage2.localStorage->Dom.Storage2.setItem(docId, jsonString)
 }
 
-let loadFromLocalStorage = (docId: string): option<t> => {
-  let jsonString = Dom.Storage2.localStorage->Dom.Storage2.getItem(docId)
+let deleteFromLocalStorage = (chain: t) => {
+  let existingChains = loadFromLocalStorage()
 
-  jsonString->Belt.Option.map(jsonString => {
-    let json = jsonString->Js.Json.parseExn
-    Obj.magic(json)
+  let newChains = existingChains->Belt.Array.keep(oldChain => {
+    oldChain.id != chain.id
   })
+
+  let jsonString = Obj.magic(newChains)->Js.Json.stringify
+
+  Dom.Storage2.localStorage->Dom.Storage2.setItem(docId, jsonString)
 }
 
 let servicesRequired = chain => {
@@ -960,7 +1007,7 @@ let toposortRequests = (requests: array<request>): result<
   array<request>,
   [#circularDependencyDetected],
 > => {
-  let rec toposortHelper = (request, visited, temp, requests, sorted) => {
+  let rec toposortHelper = (request: request, visited, temp, requests: array<request>, sorted) => {
     visited->Belt.Set.String.has(request.id)
       ? ()
       : {
@@ -1008,5 +1055,96 @@ let toposortRequests = (requests: array<request>): result<
   | other =>
     Js.Console.warn2("Unexpected exception", other)
     Error(#circularDependencyDetected)
+  }
+}
+
+let gatherAllReferencedServices = (~schema: GraphQLJs.schema, chain: t) => {
+  let requestServices =
+    chain.requests
+    ->Belt.Array.map(request => {
+      let parsedOperation = request.operation.body->GraphQLJs.parse
+      let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+      let services =
+        definition
+        ->Obj.magic
+        ->GraphQLUtils.gatherAllReferencedServices(~schema)
+        ->Belt.Array.map(service => service.slug)
+
+      services
+    })
+    ->Belt.Array.concatMany
+
+  let blockServices =
+    chain.blocks
+    ->Belt.Array.map(block => {
+      let parsedOperation = block.body->GraphQLJs.parse
+      let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+      let services =
+        definition
+        ->Obj.magic
+        ->GraphQLUtils.gatherAllReferencedServices(~schema)
+        ->Belt.Array.map(service => service.slug)
+
+      services
+    })
+    ->Belt.Array.concatMany
+
+  Belt.Array.concat(requestServices, blockServices)
+  ->Utils.distinctStrings
+  ->Belt.SortArray.stableSortBy((a, b) => String.compare(a, b))
+}
+
+module Trace = {
+  type metricsByHost
+
+  type apiMetrics = {
+    totalRequestMs: int,
+    avoidedRequestCount: int,
+    requestCount: int,
+    byHost: option<Js.Dict.t<metricsByHost>>,
+  }
+
+  type metrics = {api: option<apiMetrics>}
+
+  type apiRequest
+
+  type traceExtensions = {
+    metrics: option<metrics>,
+    apiRequests: option<array<apiRequest>>,
+  }
+
+  type traceWithId = {
+    id: Uuid.v4,
+    extensions: option<traceExtensions>,
+  }
+
+  type t = {
+    chainId: Uuid.v4,
+    createdAt: string,
+    trace: traceWithId,
+    variables: option<Js.Json.t>,
+  }
+
+  let docId = "localChainTraces"
+
+  let loadFromLocalStorage = (): array<t> => {
+    let jsonString = Dom.Storage2.localStorage->Dom.Storage2.getItem(docId)
+
+    jsonString->Belt.Option.mapWithDefault([], jsonString => {
+      let json = jsonString->Js.Json.parseExn
+      Obj.magic(json)
+    })
+  }
+
+  let saveToLocalStorage = (trace: t): unit => {
+    let existingTraces = loadFromLocalStorage()
+
+    let newTraces = existingTraces->Belt.Array.concat([trace])
+
+    let jsonString = Obj.magic(newTraces)->Js.Json.stringify
+
+    Dom.Storage2.localStorage->Dom.Storage2.setItem(docId, jsonString)
   }
 }

@@ -465,6 +465,44 @@ function windowScrollY(param) {
               }));
 }
 
+function timeAgo(date) {
+  var dateMs = date.getTime();
+  var now = Date.now();
+  var value = now - dateMs;
+  if (value < 30000) {
+    return "Just now";
+  }
+  if (value < 45000) {
+    return "30 seconds ago";
+  }
+  if (value < 60000 * 60) {
+    var minutes = String(value / 60000 | 0);
+    return minutes + " minutes ago";
+  }
+  if (value < 60000 * 60 * 24) {
+    var hours = String(value / (60000 * 60) | 0);
+    return hours + " hours ago";
+  }
+  if (value < 60000 * 60 * 24 * 7) {
+    var days = String(value / (60000 * 60 * 24) | 0);
+    return days + " days ago";
+  }
+  if (value < 60000 * 60 * 24 * 30) {
+    var weeks = String(value / (60000 * 60 * 24 * 7) | 0);
+    return weeks + " weeks ago";
+  }
+  if (value < 60000 * 60 * 24 * 30 * 12) {
+    var months = String(value / (60000 * 60 * 24 * 7 * 30) | 0);
+    return months + " months ago";
+  }
+  var years = String(value / (60000 * 60 * 24 * 7 * 30 * 12.0) | 0);
+  return years + " years ago";
+}
+
+var $$Date = {
+  timeAgo: timeAgo
+};
+
 export {
   capitalizeFirstLetter ,
   distinctStrings ,
@@ -473,6 +511,7 @@ export {
   serviceImageUrl ,
   windowLocationOrigin ,
   windowScrollY ,
+  $$Date ,
   
 }
 /* services Not a pure module */

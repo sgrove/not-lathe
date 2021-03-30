@@ -32,6 +32,8 @@ type formInputOptions = {
   labelClassname: string,
   @optional
   inputClassName: string,
+  @optional
+  defaultValue: Js.Json.t,
 }
 
 @module("../GraphQLForm.js")
@@ -43,7 +45,7 @@ external formInput: (
 ) => React.element = "formInput"
 
 type inspectable =
-  | Nothing(Chain.t)
+  | Nothing({chain: Chain.t, trace: option<Chain.Trace.t>})
   | Block(Card.block)
   | Request({chain: Chain.t, request: Chain.request})
   | RequestArgument({chain: Chain.t, request: Chain.request, variableName: string})
@@ -169,10 +171,13 @@ let evalRequest = (
   ~chain: Chain.t,
   ~request: Chain.request,
   ~requestValueCache: Js.Dict.t<Js.Json.t>,
+  ~trace: option<Chain.Trace.t>,
 ): Js.Promise.t<result<mockRequestValues, 'err>> => {
   QuickJsEmscripten.getQuickJS()
   ->Js.Promise.then_(
     quickjs => {
+      Debug.assignToWindowForDeveloperDebug(~name="existingTrace", trace)
+
       let payload =
         request.variableDependencies
         ->Belt.Array.keepMap(varDep =>
@@ -194,14 +199,38 @@ let evalRequest = (
 
             let variables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
 
-            switch requestValueCache->Js.Dict.get(nextRequest.id) {
-            | Some(results) =>
+            let traceValue = trace->Belt.Option.flatMap(trace => {
+              try {
+                let results = Obj.magic(trace.trace)["data"]["oneGraph"]["executeChain"]["results"]
+                Debug.assignToWindowForDeveloperDebug(
+                  ~name="variable_upstream_" ++ nextRequest.id,
+                  results,
+                )
+                let returnedTrace =
+                  results
+                  ->Belt.Array.getBy(result => result["request"]["id"] == nextRequest.id)
+                  ->Belt.Option.flatMap(request => request["result"][0])
+                returnedTrace
+              } catch {
+              | _ => None
+              }
+            })
+
+            switch (requestValueCache->Js.Dict.get(nextRequest.id), traceValue) {
+            | (Some(results), _) =>
               acc->Js.Dict.set(
                 nextRequest.id,
                 {variables: variables, graphQLResult: results->Obj.magic},
               )
               acc
-            | None =>
+            | (_, Some(traceValue)) =>
+              acc->Js.Dict.set(
+                nextRequest.id,
+                {variables: variables, graphQLResult: traceValue->Obj.magic},
+              )
+              acc
+
+            | (None, None) =>
               let results = GraphQLJs.graphqlSync(
                 schema,
                 nextRequest.operation.body,
@@ -707,7 +736,10 @@ module GitHub = {
 
   @react.component
   let make = (~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
-    let loadedChain = savedChainId->Belt.Option.flatMap(Chain.loadFromLocalStorage)
+    let loadedChain =
+      Chain.loadFromLocalStorage()->Belt.Array.getBy(chain =>
+        chain.id == savedChainId->Belt.Option.map(Uuid.parseExn)
+      )
 
     let appId = oneGraphAuth->OneGraphAuth.appId
 
@@ -890,7 +922,7 @@ module GitHub = {
                 })
               })}>
             {switch (savedChainId, state.selectedRepo, state.repoProjectGuess) {
-            | (None, _, _) => "Save chain to push to GitHub"->string
+            | (None, _, _) => "Persist chain to push to GitHub"->string
             | (_, None, _) => "Select a GitHub repository"->string
             | (_, _, None) => "Determining project type..."->string
             | (Some(_), Some(_), Some(projectGuess)) =>
@@ -1410,6 +1442,7 @@ module Request = {
     ~onDeleteEdge,
     ~onPotentialVariableSourceConnect,
     ~onDragStart,
+    ~trace: option<Chain.Trace.t>,
   ) => {
     open React
     let connectionDrag = useContext(ConnectionContext.context)
@@ -1439,7 +1472,8 @@ module Request = {
 
       let request = patchRequestArgDeps(request)
 
-      evalRequest(~schema, ~chain, ~request, ~requestValueCache)->Js.Promise.then_(result => {
+      evalRequest(~schema, ~chain, ~request, ~requestValueCache, ~trace)
+      ->Js.Promise.then_(result => {
         setMockedEvalResults(_ =>
           switch result {
           | Ok(result) =>
@@ -1448,7 +1482,8 @@ module Request = {
           | other => Some(other)
           }
         )->Js.Promise.resolve
-      }, _)->ignore
+      }, _)
+      ->ignore
       None
     }, (request->Js.Json.stringifyAny->Belt.Option.getExn, chain.script))
 
@@ -1707,6 +1742,11 @@ module Request = {
           setFormVariables,
           formInputOptions(
             ~labelClassname="text-underline pl-2 m-2 mt-0 mb-0 font-thin text-sm font-mono",
+            ~defaultValue=?trace->Belt.Option.flatMap(trace =>
+              trace.variables->Belt.Option.flatMap(variables =>
+                variables->Obj.magic->Js.Dict.get(name)
+              )
+            ),
             (),
           ),
         )
@@ -1912,6 +1952,10 @@ module Nothing = {
     ~onRequestInspected,
     ~savedChainId,
     ~oneGraphAuth,
+    ~trace: option<Chain.Trace.t>,
+    ~initialChain,
+    ~onSaveChain,
+    ~onClose,
   ) => {
     let compiledOperation = chain->Chain.compileOperationDoc
 
@@ -1954,7 +1998,15 @@ module Nothing = {
             schema,
             def,
             setFormVariables,
-            formInputOptions(~labelClassname="background-blue-400", ()),
+            formInputOptions(
+              ~labelClassname="background-blue-400",
+              ~defaultValue=?trace->Belt.Option.flatMap(trace =>
+                trace.variables->Belt.Option.flatMap(variables =>
+                  variables->Obj.magic->Js.Dict.get(exposedVariable.exposedName)
+                )
+              ),
+              (),
+            ),
           )
         })
 
@@ -2026,7 +2078,7 @@ module Nothing = {
           className="w-full">
           <Icons.AddLink className="inline-block" color={Comps.colors["gray-6"]} />
           {{
-            savedChainId->Belt.Option.isNone ? "  Save Chain" : "  Saved!"
+            savedChainId->Belt.Option.isNone ? "  Persist Chain" : "  Persisted!"
           }->React.string}
         </Comps.Button>
         <Comps.Header> {"Step 2:"->React.string} </Comps.Header>
@@ -2048,7 +2100,7 @@ module Nothing = {
           )}
           onChange={event =>
             savedChainId->Belt.Option.forEach(chainId => {
-              let chain = chainId->Chain.loadFromLocalStorage
+              let chain = chainId->Chain.loadFromLocalStorageById
 
               let appId = oneGraphAuth->OneGraphAuth.appId
 
@@ -2118,6 +2170,12 @@ ${remoteChainCalls.netlify.code}
               {requests->array}
             </CollapsableSection>
           : React.null}
+        {initialChain == chain
+          ? null
+          : <Comps.Button onClick={_ => {onSaveChain(chain)}}>
+              {"Save Changes"->string}
+            </Comps.Button>}
+        <Comps.Button onClick={_ => {onClose()}}> {"Cancel changes"->string} </Comps.Button>
         // <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
         //   <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
         // </CollapsableSection>
@@ -2218,6 +2276,10 @@ let make = (
   ~oneGraphAuth,
   ~onPotentialVariableSourceConnect,
   ~onDragStart,
+  ~trace,
+  ~initialChain,
+  ~onSaveChain,
+  ~onClose,
 ) => {
   open React
 
@@ -2227,7 +2289,7 @@ let make = (
     <nav className="flex flex-row py-1 px-2 mb-2 justify-between">
       <Comps.Header>
         {switch inspected {
-        | Nothing(_) => "Chain Inspector"
+        | Nothing(_) => "Chain Inspector "
         | Block({title}) => "Block: " ++ title
         | Request({request}) => "Request: " ++ request.id
         | RequestArgument(_) => "Request Argument"
@@ -2245,9 +2307,10 @@ let make = (
       className="overflow-y-scroll"
       style={ReactDOMStyle.make(~height="calc(100vh - 56px - 56px)", ())}>
       {switch inspected {
-      | Nothing(chain) =>
+      | Nothing({chain, trace}) =>
         <Nothing
           chain
+          trace
           schema
           chainExecutionResults
           onLogin
@@ -2257,6 +2320,9 @@ let make = (
           onDeleteRequest
           onRequestInspected
           oneGraphAuth
+          initialChain
+          onSaveChain
+          onClose
         />
       | Block(block) => <Block schema block onAddBlock />
       | Request({request})
@@ -2276,6 +2342,7 @@ let make = (
           onDeleteEdge
           onPotentialVariableSourceConnect
           onDragStart
+          trace
         />
       }}
     </div>

@@ -1188,6 +1188,117 @@ var MonoAddBlocks = {
   make: Icons$MonoAddBlocks
 };
 
+function Icons$Warning(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    fill: "none",
+    viewBox: "0 0 1000 1000"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("path", {
+                  d: "M806.9 947.4H193.1c-76.2 0-134.4-28.2-163.9-79.3S4.4 752.5 42.4 686.5l306.9-531.6C387.5 88.9 441 52.6 500 52.6c59 0 112.5 36.3 150.7 102.3l306.9 531.6c38.1 66 42.8 130.5 13.3 181.6-29.6 51.1-87.8 79.3-164 79.3zM500 142.1c-25.3 0-52 21-73.1 57.6L120 731.2c-21.1 36.6-26 70.2-13.3 92.1 12.7 22 44.2 34.5 86.4 34.5h613.8c42.2 0 73.7-12.6 86.4-34.5 12.7-21.9 7.8-55.5-13.3-92.1L573.1 199.7c-21.1-36.6-47.8-57.6-73.1-57.6z",
+                  fill: color
+                }), React.createElement("path", {
+                  d: "M491.9 812.9c-29.8 0-51.4-22.6-51.4-53.8 0-31 22.4-54.3 52-54.3 29.8 0 51.4 22.9 51.4 54.3 0 31.2-21.9 53.8-52 53.8zm-34.3-139.1l-11.1-330.9h91.8l-11.1 330.9h-69.6z",
+                  fill: color
+                }));
+}
+
+var Warning = {
+  make: Icons$Warning
+};
+
+function Icons$Visibility(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    fill: "none",
+    viewBox: "0 0 20 20"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("path", {
+                  d: "M9.99992 3.75C5.83325 3.75 2.27492 6.34167 0.833252 10C2.27492 13.6583 5.83325 16.25 9.99992 16.25C14.1666 16.25 17.7249 13.6583 19.1666 10C17.7249 6.34167 14.1666 3.75 9.99992 3.75ZM9.99992 14.1667C7.69992 14.1667 5.83325 12.3 5.83325 10C5.83325 7.7 7.69992 5.83333 9.99992 5.83333C12.2999 5.83333 14.1666 7.7 14.1666 10C14.1666 12.3 12.2999 14.1667 9.99992 14.1667ZM9.99992 7.5C8.61658 7.5 7.49992 8.61667 7.49992 10C7.49992 11.3833 8.61658 12.5 9.99992 12.5C11.3833 12.5 12.4999 11.3833 12.4999 10C12.4999 8.61667 11.3833 7.5 9.99992 7.5Z",
+                  fill: color
+                }));
+}
+
+var Visibility = {
+  make: Icons$Visibility
+};
+
+function Icons$EditPencil(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    fill: "none",
+    viewBox: "0 0 20 20"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("path", {
+                  d: "M15.3417 4.83333L14.3333 3.82499C13.6833 3.17499 12.625 3.17499 11.975 3.82499L9.74167 6.05833L2.5 13.3V16.6667H5.86667L13.15 9.38333L15.3417 7.19166C16 6.54166 16 5.48333 15.3417 4.83333ZM5.175 15H4.16667V13.9917L11.3833 6.77499L12.3917 7.78333L5.175 15ZM9.16667 16.6667L12.5 13.3333H17.5V16.6667H9.16667Z",
+                  fill: color
+                }));
+}
+
+var EditPencil = {
+  make: Icons$EditPencil
+};
+
+function Icons$Plus(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    fill: "none",
+    viewBox: "0 0 20 20"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("path", {
+                  d: "M14 8H8V14H6V8H0V6H6V0H8V6H14V8Z",
+                  fill: color
+                }));
+}
+
+var Plus = {
+  make: Icons$Plus
+};
+
 export {
   Play ,
   Inspect ,
@@ -1213,6 +1324,10 @@ export {
   Login ,
   Remote ,
   MonoAddBlocks ,
+  Warning ,
+  Visibility ,
+  EditPencil ,
+  Plus ,
   
 }
 /* react Not a pure module */

@@ -35,6 +35,7 @@ import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import FragmentNodeJs from "./FragmentNode.js";
 import * as ConnectionContext from "./ConnectionContext.js";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
+import ReactResizePanel from "react-resize-panel";
 import * as ReactFlowRenderer from "react-flow-renderer";
 import ReactFlowRenderer$1 from "react-flow-renderer";
 import ParserBabel from "prettier/parser-babel";
@@ -939,7 +940,8 @@ function ChainEditor$Script(Props) {
     options: {
       minimap: {
         enabled: false
-      }
+      },
+      fixedOverflowWidgets: true
     },
     onChange: (function (newScript, param) {
         Curry._1(setLocalContent, (function (param) {
@@ -1168,6 +1170,7 @@ function ChainEditor$Diagram(Props) {
   var removeEdge = Props.removeEdge;
   var removeRequest = Props.removeRequest;
   var diagramFromChain = Props.diagramFromChain;
+  var trace = Props.trace;
   return React.createElement(ReactFlowRenderer$1, {
               elements: diagram.elements,
               style: {
@@ -1288,7 +1291,8 @@ function ChainEditor$Diagram(Props) {
                                         blocks: oldState.blocks,
                                         inspected: {
                                           TAG: 0,
-                                          _0: oldState.chain,
+                                          chain: oldState.chain,
+                                          trace: trace,
                                           [Symbol.for("name")]: "Nothing"
                                         },
                                         blockEdit: oldState.blockEdit,
@@ -1365,12 +1369,14 @@ function ChainEditor$Diagram(Props) {
                                   }
                                   var init = oldState.chain;
                                   var newChain_name = init.name;
+                                  var newChain_id = init.id;
                                   var newChain_script = init.script;
                                   var newChain_scriptDependencies = init.scriptDependencies;
                                   var newChain_requests = sortedRequests._0;
                                   var newChain_blocks = init.blocks;
                                   var newChain = {
                                     name: newChain_name,
+                                    id: newChain_id,
                                     script: newChain_script,
                                     scriptDependencies: newChain_scriptDependencies,
                                     requests: newChain_requests,
@@ -1437,6 +1443,9 @@ function ChainEditor$Main(Props) {
   var initialChain = Props.initialChain;
   var config = Props.config;
   var oneGraphAuth = Props.oneGraphAuth;
+  var onSaveChain = Props.onSaveChain;
+  var onClose = Props.onClose;
+  var trace = Props.trace;
   var match = React.useState(function () {
         return [];
       });
@@ -1454,7 +1463,8 @@ function ChainEditor$Main(Props) {
         }
         var inspected = {
           TAG: 0,
-          _0: initialChain,
+          chain: initialChain,
+          trace: trace,
           [Symbol.for("name")]: "Nothing"
         };
         return {
@@ -1717,6 +1727,7 @@ function ChainEditor$Main(Props) {
                           schema: oldState.schema,
                           chain: {
                             name: initialChain.name,
+                            id: init.id,
                             script: init.script,
                             scriptDependencies: init.scriptDependencies,
                             requests: init.requests,
@@ -1816,6 +1827,7 @@ function ChainEditor$Main(Props) {
             if (match === 3) {
               return {
                       name: newChain.name,
+                      id: newChain.id,
                       script: newChain.script,
                       scriptDependencies: newChain.scriptDependencies,
                       requests: newChain.requests,
@@ -1856,11 +1868,13 @@ function ChainEditor$Main(Props) {
             var nameExistsInScript = Belt_Option.isSome(Caml_option.null_to_opt(newChain.script.match(new RegExp("export function " + names.functionName))));
             var newScript = nameExistsInScript ? newChain.script : newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}");
             var newChain_name = newChain.name;
+            var newChain_id = newChain.id;
             var newChain_scriptDependencies = newChain.scriptDependencies;
             var newChain_requests = Belt_Array.concat(newChain.requests, [newReq]);
             var newChain_blocks = Belt_Array.concat(newChain.blocks, [block]);
             var newChain$1 = {
               name: newChain_name,
+              id: newChain_id,
               script: newScript,
               scriptDependencies: newChain_scriptDependencies,
               requests: newChain_requests,
@@ -1872,6 +1886,7 @@ function ChainEditor$Main(Props) {
             var newScript$1 = hasImport ? newScript.replace(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"), importLine) : importLine + "\n\n" + newScript;
             return {
                     name: newChain_name,
+                    id: newChain_id,
                     script: newScript$1,
                     scriptDependencies: newChain_scriptDependencies,
                     requests: newChain_requests,
@@ -1956,6 +1971,7 @@ function ChainEditor$Main(Props) {
           }));
     return {
             name: oldChain.name,
+            id: oldChain.id,
             script: oldChain.script,
             scriptDependencies: oldChain.scriptDependencies,
             requests: newRequests,
@@ -2012,6 +2028,7 @@ function ChainEditor$Main(Props) {
           }));
     return {
             name: oldChain.name,
+            id: oldChain.id,
             script: oldChain.script,
             scriptDependencies: oldChain.scriptDependencies,
             requests: newRequests,
@@ -2084,7 +2101,8 @@ function ChainEditor$Main(Props) {
               case /* Nothing */0 :
                   inspected = {
                     TAG: 0,
-                    _0: newChain,
+                    chain: newChain,
+                    trace: trace,
                     [Symbol.for("name")]: "Nothing"
                   };
                   break;
@@ -2157,7 +2175,8 @@ function ChainEditor$Main(Props) {
                                   blocks: oldState.blocks,
                                   inspected: {
                                     TAG: 0,
-                                    _0: state.chain,
+                                    chain: state.chain,
+                                    trace: trace,
                                     [Symbol.for("name")]: "Nothing"
                                   },
                                   blockEdit: oldState.blockEdit,
@@ -2190,6 +2209,16 @@ function ChainEditor$Main(Props) {
             var __x = Inspector.transformAndExecuteChain(state.chain, oneGraphAuth, variables);
             __x.then(function (result) {
                   return Promise.resolve(Curry._1(setState, (function (oldState) {
+                                    var newTrace = Belt_Option.map(oldState.chain.id, (function (chainId) {
+                                            result.id = Uuid.v4();
+                                            return {
+                                                    chainId: chainId,
+                                                    createdAt: new Date().toUTCString(),
+                                                    trace: result,
+                                                    variables: variables
+                                                  };
+                                          }));
+                                    Belt_Option.forEach(newTrace, Chain.Trace.saveToLocalStorage);
                                     return {
                                             diagram: oldState.diagram,
                                             card: oldState.card,
@@ -2221,7 +2250,7 @@ function ChainEditor$Main(Props) {
             return OneGraphRe.persistQuery(config.oneGraphAppId, config.persistQueryToken, compiled.operationDoc, freeVariables, config.chainAccessToken, undefined, (function (results) {
                           try {
                             var docId = results.data.oneGraph.createPersistedQuery.persistedQuery.id;
-                            Chain.saveToLocalStorage(state.chain, docId);
+                            Chain.saveToLocalStorage(state.chain);
                             return Curry._1(setState, (function (oldState) {
                                           return {
                                                   diagram: oldState.diagram,
@@ -2293,7 +2322,8 @@ function ChainEditor$Main(Props) {
                                   blocks: oldState.blocks,
                                   inspected: {
                                     TAG: 0,
-                                    _0: newChain,
+                                    chain: newChain,
+                                    trace: trace,
                                     [Symbol.for("name")]: "Nothing"
                                   },
                                   blockEdit: oldState.blockEdit,
@@ -2321,7 +2351,8 @@ function ChainEditor$Main(Props) {
                                   blocks: oldState.blocks,
                                   inspected: {
                                     TAG: 0,
-                                    _0: newChain,
+                                    chain: newChain,
+                                    trace: trace,
                                     [Symbol.for("name")]: "Nothing"
                                   },
                                   blockEdit: oldState.blockEdit,
@@ -2357,7 +2388,11 @@ function ChainEditor$Main(Props) {
                                   connectionDrag: connectionDrag
                                 };
                         }));
-          })
+          }),
+        trace: trace,
+        initialChain: initialChain,
+        onSaveChain: onSaveChain,
+        onClose: onClose
       });
   var tmp = {
     schema: state.schema,
@@ -2366,11 +2401,13 @@ function ChainEditor$Main(Props) {
         try {
           var init = state.chain;
           var newChain_name = init.name;
+          var newChain_id = init.id;
           var newChain_scriptDependencies = init.scriptDependencies;
           var newChain_requests = init.requests;
           var newChain_blocks = init.blocks;
           var newChain = {
             name: newChain_name,
+            id: newChain_id,
             script: newScript,
             scriptDependencies: newChain_scriptDependencies,
             requests: newChain_requests,
@@ -2383,7 +2420,8 @@ function ChainEditor$Main(Props) {
             case /* Nothing */0 :
                 inspected = {
                   TAG: 0,
-                  _0: newChain,
+                  chain: newChain,
+                  trace: trace,
                   [Symbol.for("name")]: "Nothing"
                 };
                 break;
@@ -2637,6 +2675,7 @@ function ChainEditor$Main(Props) {
                                       if (match === 3) {
                                         return {
                                                 name: newChain.name,
+                                                id: newChain.id,
                                                 script: newChain.script,
                                                 scriptDependencies: newChain.scriptDependencies,
                                                 requests: newChain.requests,
@@ -2690,6 +2729,7 @@ function ChainEditor$Main(Props) {
                                       var nameExistsInScript = Belt_Option.isSome(Caml_option.null_to_opt(newChain.script.match(new RegExp("export function " + names.functionName))));
                                       var newScript = nameExistsInScript ? newChain.script : newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}");
                                       var newChain_name = newChain.name;
+                                      var newChain_id = newChain.id;
                                       var newChain_scriptDependencies = newChain.scriptDependencies;
                                       var newChain_requests = Belt_Array.concat(Belt_Array.keep(newChain.requests, (function (existingRequest) {
                                                   return existingRequest.id !== newReq_id;
@@ -2699,6 +2739,7 @@ function ChainEditor$Main(Props) {
                                                 })), [block]);
                                       var newChain$1 = {
                                         name: newChain_name,
+                                        id: newChain_id,
                                         script: newScript,
                                         scriptDependencies: newChain_scriptDependencies,
                                         requests: newChain_requests,
@@ -2710,6 +2751,7 @@ function ChainEditor$Main(Props) {
                                       var newScript$1 = hasImport ? newScript.replace(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"), importLine) : importLine + "\n\n" + newScript;
                                       return {
                                               name: newChain_name,
+                                              id: newChain_id,
                                               script: newScript$1,
                                               scriptDependencies: newChain_scriptDependencies,
                                               requests: newChain_requests,
@@ -2726,7 +2768,8 @@ function ChainEditor$Main(Props) {
                                       }));
                                 inspected = Belt_Option.mapWithDefault(request, {
                                       TAG: 0,
-                                      _0: newChain,
+                                      chain: newChain,
+                                      trace: trace,
                                       [Symbol.for("name")]: "Nothing"
                                     }, (function (request) {
                                         var newRequest_id = request.id;
@@ -2751,7 +2794,8 @@ function ChainEditor$Main(Props) {
                                   case /* Nothing */0 :
                                       inspected = {
                                         TAG: 0,
-                                        _0: newChain,
+                                        chain: newChain,
+                                        trace: trace,
                                         [Symbol.for("name")]: "Nothing"
                                       };
                                       break;
@@ -3071,11 +3115,13 @@ function ChainEditor$Main(Props) {
                                         }));
                                   var init = oldState.chain;
                                   var newChain_name = init.name;
+                                  var newChain_id = init.id;
                                   var newChain_script = init.script;
                                   var newChain_scriptDependencies = init.scriptDependencies;
                                   var newChain_blocks = init.blocks;
                                   var newChain = {
                                     name: newChain_name,
+                                    id: newChain_id,
                                     script: newChain_script,
                                     scriptDependencies: newChain_scriptDependencies,
                                     requests: newRequests,
@@ -3300,11 +3346,13 @@ function ChainEditor$Main(Props) {
                                         }
                                         var init = oldState.chain;
                                         var newChain_name = init.name;
+                                        var newChain_id = init.id;
                                         var newChain_scriptDependencies = init.scriptDependencies;
                                         var newChain_requests = init.requests;
                                         var newChain_blocks = init.blocks;
                                         var newChain = {
                                           name: newChain_name,
+                                          id: newChain_id,
                                           script: newScript,
                                           scriptDependencies: newChain_scriptDependencies,
                                           requests: newChain_requests,
@@ -3490,11 +3538,13 @@ function ChainEditor$Main(Props) {
                                 }));
                           var init = oldState.chain;
                           var newChain_name = init.name;
+                          var newChain_id = init.id;
                           var newChain_script = Belt_Option.getWithDefault(newScript$1, oldState.chain.script);
                           var newChain_scriptDependencies = init.scriptDependencies;
                           var newChain_blocks = init.blocks;
                           var newChain = {
                             name: newChain_name,
+                            id: newChain_id,
                             script: newChain_script,
                             scriptDependencies: newChain_scriptDependencies,
                             requests: newRequests,
@@ -3569,15 +3619,22 @@ function ChainEditor$Main(Props) {
                         value: state.connectionDrag,
                         children: null
                       }, React.createElement("div", {
-                            className: "flex"
-                          }, React.createElement("div", {
-                                className: "w-1/6 m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 ",
+                            className: "flex flex-row flex-nowrap"
+                          }, React.createElement(ReactResizePanel, {
+                                direction: "e",
                                 style: {
-                                  backgroundColor: Comps.colors["gray-9"],
-                                  height: "calc(100vh - 56px)"
-                                }
-                              }, blockSearch), React.createElement("div", {
-                                className: "w-1/2 m:w-1/2 xl:w-1/2 2xl:w-10/12"
+                                  width: "400px"
+                                },
+                                handleClass: "ResizeHandleHorizontal",
+                                children: React.createElement("div", {
+                                      className: "w-full",
+                                      style: {
+                                        backgroundColor: Comps.colors["gray-9"],
+                                        height: "calc(100vh - 56px)"
+                                      }
+                                    }, blockSearch)
+                              }), React.createElement("div", {
+                                className: "flex-1 overflow-x-hidden"
                               }, React.createElement("div", {
                                     style: {
                                       height: "calc(50vh - 28px)"
@@ -3589,7 +3646,8 @@ function ChainEditor$Main(Props) {
                                                       chain: state.chain,
                                                       removeEdge: removeEdge,
                                                       removeRequest: removeRequest,
-                                                      diagramFromChain: diagramFromChain$1
+                                                      diagramFromChain: diagramFromChain$1,
+                                                      trace: trace
                                                     });
                                         }))), React.createElement("div", {
                                     style: {
@@ -3652,6 +3710,7 @@ function ChainEditor$Main(Props) {
                                                                                             schema: oldState.schema,
                                                                                             chain: {
                                                                                               name: init.name,
+                                                                                              id: init.id,
                                                                                               script: newScript,
                                                                                               scriptDependencies: init.scriptDependencies,
                                                                                               requests: init.requests,
@@ -3676,9 +3735,20 @@ function ChainEditor$Main(Props) {
                                                   }, React.createElement(Icons.Prettier.Dark.make, {
                                                         width: "16px",
                                                         height: "16px"
-                                                      }))))), React.createElement(ChainEditor$Script, tmp))), React.createElement("div", {
-                                className: "w-1/3 2xl:w-1/6"
-                              }, sidebar)), tmp$2, tmp$3)
+                                                      }))))), React.createElement(ChainEditor$Script, tmp))), React.createElement(ReactResizePanel, {
+                                direction: "w",
+                                style: {
+                                  width: "400px"
+                                },
+                                handleClass: "ResizeHandleHorizontal",
+                                children: React.createElement("div", {
+                                      className: "w-full",
+                                      style: {
+                                        backgroundColor: Comps.colors["gray-9"],
+                                        height: "calc(100vh - 56px)"
+                                      }
+                                    }, sidebar)
+                              })), tmp$2, tmp$3)
                 }));
 }
 
@@ -3690,6 +3760,10 @@ function ChainEditor(Props) {
   var schema = Props.schema;
   var initialChain = Props.initialChain;
   var config = Props.config;
+  var onSaveChain = Props.onSaveChain;
+  var onClose = Props.onClose;
+  var onSaveAndClose = Props.onSaveAndClose;
+  var trace = Props.trace;
   var oneGraphAuth = OneGraphAuth.create({
         appId: config.oneGraphAppId
       });
@@ -3699,7 +3773,11 @@ function ChainEditor(Props) {
                                       schema: schema,
                                       initialChain: initialChain,
                                       config: config,
-                                      oneGraphAuth: oneGraphAuth
+                                      oneGraphAuth: oneGraphAuth,
+                                      onSaveChain: onSaveChain,
+                                      onClose: onClose,
+                                      onSaveAndClose: onSaveAndClose,
+                                      trace: trace
                                     })
                               });
                   })), "Loading Chain Editor...");

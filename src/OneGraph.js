@@ -18,7 +18,7 @@ export async function basicFetchOneGraph(
     : {};
 
   const result = await fetch(
-    `https://serve.onegraph.com/graphql?app_id=${appId}`,
+    `https://serve.onegraph.com/graphql?app_id=${appId}&show_api_requests=true&show_metrics=true`,
     {
       method: "POST",
       headers: { ...authHeaders, "Content-Type": "application/json" },

@@ -1056,6 +1056,8 @@ ${chain.script}`
         defaultValue={content}
         options={
           "minimap": {"enabled": false},
+          // "automaticLayout": true,
+          "fixedOverflowWidgets": true,
         }
         height="100%"
         path=filename
@@ -1242,6 +1244,7 @@ module Diagram = {
     ~removeEdge,
     ~removeRequest,
     ~diagramFromChain,
+    ~trace,
   ) => {
     <ReactFlow
       nodeTypes={
@@ -1291,7 +1294,10 @@ module Diagram = {
       elements=diagram.elements
       zoomOnScroll=false
       onPaneClick={_ => {
-        setState(oldState => {...oldState, inspected: Nothing(oldState.chain)})
+        setState(oldState => {
+          ...oldState,
+          inspected: Nothing({chain: oldState.chain, trace: trace}),
+        })
       }}
       onPaneContextMenu={event => {
         // ReactEvent.Mouse.preventDefault(event)
@@ -1412,6 +1418,10 @@ module Main = {
     ~initialChain: Chain.t,
     ~config: Config.Studio.t,
     ~oneGraphAuth: OneGraphAuth.t,
+    ~onSaveChain,
+    ~onClose,
+    ~onSaveAndClose,
+    ~trace: option<Chain.Trace.t>,
   ) => {
     let (_missingAuthServices, setMissingAuthServices) = React.useState(() => [])
 
@@ -1428,7 +1438,7 @@ module Main = {
       | _ => []
       }
 
-      let inspected: Inspector.inspectable = Nothing(initialChain)
+      let inspected: Inspector.inspectable = Nothing({chain: initialChain, trace: trace})
       // Request({
       //   chain: initialChain,
       //   request: initialChain.requests->Belt.Array.get(1)->Belt.Option.getExn,
@@ -1731,6 +1741,7 @@ export function ${names.functionName} (payload : ${names.inputTypeName}) : ${nam
 }`
           let newChain: Chain.t = {
             name: newChain.name,
+            id: newChain.id,
             scriptDependencies: newChain.scriptDependencies,
             blocks: newChain.blocks->Belt.Array.concat([block]),
             requests: newChain.requests->Belt.Array.concat([newReq]),
@@ -1871,7 +1882,11 @@ ${newScript}`
       <Inspector
         inspected={state.inspected}
         chain={state.chain}
+        initialChain
+        trace
         onAddBlock={addBlock}
+        onSaveChain
+        onClose
         schema={state.schema}
         onDragStart={(~connectionDrag) => {
           setState(oldState => {
@@ -1891,7 +1906,7 @@ ${newScript}`
             {
               ...oldState,
               chain: newChain,
-              inspected: Nothing(newChain),
+              inspected: Nothing({chain: newChain, trace: trace}),
               diagram: diagram,
             }
           })
@@ -1905,7 +1920,7 @@ ${newScript}`
             {
               ...oldState,
               chain: newChain,
-              inspected: Nothing(newChain),
+              inspected: Nothing({chain: newChain, trace: trace}),
               diagram: diagram,
             }
           })
@@ -1913,7 +1928,10 @@ ${newScript}`
         onPotentialVariableSourceConnect
         requestValueCache={state.requestValueCache}
         onReset={() => {
-          setState(oldState => {...oldState, inspected: Nothing(state.chain)})
+          setState(oldState => {
+            ...oldState,
+            inspected: Nothing({chain: state.chain, trace: trace}),
+          })
         }}
         savedChainId={state.savedChainId}
         onRequestCodeInspected={(~request) => {
@@ -1939,7 +1957,7 @@ ${newScript}`
                     results,
                   )["data"]["oneGraph"]["createPersistedQuery"]["persistedQuery"]["id"]
 
-                  state.chain->Chain.saveToLocalStorage(docId)
+                  state.chain->Chain.saveToLocalStorage
                   setState(oldState => {
                     ...oldState,
                     savedChainId: Some(docId),
@@ -1955,10 +1973,35 @@ ${newScript}`
         transformAndExecuteChain={(~variables) => {
           state.chain
           ->Inspector.transformAndExecuteChain(~oneGraphAuth, ~variables)
-          ->Js.Promise.then_(result => {
-            let json = result->Obj.magic
-            setState(oldState => {...oldState, chainExecutionResults: json})->Js.Promise.resolve
-          }, _)
+          ->Js.Promise.then_(
+            result => {
+              let json = result->Obj.magic
+
+              setState(oldState => {
+                let newTrace = oldState.chain.id->Belt.Option.map(chainId => {
+                  json["id"] = Uuid.v4()
+
+                  let trace: Chain.Trace.t = {
+                    chainId: chainId,
+                    createdAt: Js.Date.make()->Js.Date.toUTCString,
+                    trace: json,
+                    variables: variables,
+                  }
+
+                  trace
+                })
+
+                newTrace->Belt.Option.forEach(Chain.Trace.saveToLocalStorage)
+
+                {...oldState, chainExecutionResults: json}
+              })->Js.Promise.resolve
+            },
+            // XXX This is a stand-in for OG's eventual server-side chain trace storage
+
+            // XXX This is a stand-in for OG's chain traces
+
+            _,
+          )
           ->ignore
         }}
         onLogin={service => {
@@ -1976,7 +2019,7 @@ ${newScript}`
         }}
         onChainUpdated={newChain => {
           let inspected: Inspector.inspectable = switch state.inspected {
-          | Nothing(_) => Nothing(newChain)
+          | Nothing(_) => Nothing({chain: newChain, trace: trace})
           | Block(block) => Block(block)
           | Request(v) =>
             let request =
@@ -2007,21 +2050,32 @@ ${newScript}`
     <div style={ReactDOMStyle.make(~height="calc(100vh - 56px)", ())}>
       <InspectedContextProvider value={Some(state.inspected)}>
         <ConnectionContext.Provider value={state.connectionDrag}>
-          <div className="flex">
-            <div
-              className="w-1/6 m:w-1/6 l:w-1/6 2xl:w-1/12 xl:w-1/6 "
-              style={ReactDOMStyle.make(
-                ~backgroundColor=Comps.colors["gray-9"],
-                ~height="calc(100vh - 56px)",
-                (),
-              )}>
-              {blockSearch}
-            </div>
-            <div className="w-1/2 m:w-1/2 xl:w-1/2 2xl:w-10/12">
+          <div className="flex flex-row flex-nowrap">
+            <ReactResizePanel
+              direction=#e
+              style={ReactDOMStyle.make(~width="400px", ())}
+              handleClass="ResizeHandleHorizontal">
+              <div
+                className="w-full"
+                style={ReactDOMStyle.make(
+                  ~backgroundColor=Comps.colors["gray-9"],
+                  ~height="calc(100vh - 56px)",
+                  (),
+                )}>
+                {blockSearch}
+              </div>
+            </ReactResizePanel>
+            <div className="flex-1 overflow-x-hidden">
               <div style={ReactDOMStyle.make(~height="calc(50vh - 28px)", ())}>
                 {state.diagram->Belt.Option.mapWithDefault(React.null, diagram =>
                   <Diagram
-                    setState diagram chain=state.chain removeEdge removeRequest diagramFromChain
+                    setState
+                    diagram
+                    chain=state.chain
+                    removeEdge
+                    removeRequest
+                    diagramFromChain
+                    trace
                   />
                 )}
               </div>
@@ -2123,7 +2177,7 @@ ${newScript}`
                           let functionNames = []
 
                           let inspected: Inspector.inspectable = switch state.inspected {
-                          | Nothing(_) => Nothing(newChain)
+                          | Nothing(_) => Nothing({chain: newChain, trace: trace})
                           | Block(block) => Block(block)
                           | Request(v) =>
                             let request =
@@ -2162,7 +2216,20 @@ ${newScript}`
                     />}
               </div>
             </div>
-            <div className="w-1/3 2xl:w-1/6"> {sidebar} </div>
+            <ReactResizePanel
+              direction=#w
+              style={ReactDOMStyle.make(~width="400px", ())}
+              handleClass="ResizeHandleHorizontal">
+              <div
+                className="w-full"
+                style={ReactDOMStyle.make(
+                  ~backgroundColor=Comps.colors["gray-9"],
+                  ~height="calc(100vh - 56px)",
+                  (),
+                )}>
+                {sidebar}
+              </div>
+            </ReactResizePanel>
           </div>
           {switch state.blockEdit {
           | Nothing => React.null
@@ -2349,6 +2416,7 @@ export function ${names.functionName} (payload : ${names.inputTypeName}) : ${nam
 
                           let newChain: Chain.t = {
                             name: newChain.name,
+                            id: newChain.id,
                             scriptDependencies: newChain.scriptDependencies,
                             blocks: newChain.blocks
                             ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
@@ -2409,7 +2477,7 @@ ${newScript}`
                           )
 
                         request->Belt.Option.mapWithDefault(
-                          Inspector.Nothing(newChain),
+                          Inspector.Nothing({chain: newChain, trace: trace}),
                           request => {
                             let newRequest = {...request, operation: newInitialBlock}
                             Request({request: newRequest, chain: newChain})
@@ -2418,7 +2486,7 @@ ${newScript}`
                       | false =>
                         switch oldState.inspected {
                         | Block(_) => Block(newInitialBlock)
-                        | Nothing(_) => Nothing(newChain)
+                        | Nothing(_) => Nothing({chain: newChain, trace: trace})
                         | Request({request}) =>
                           let newRequest = {...request, operation: newInitialBlock}
                           Request({request: newRequest, chain: newChain})
@@ -3088,13 +3156,23 @@ ${newScript}`
 }
 
 @react.component
-let make = (~schema, ~initialChain: Chain.t, ~config: Config.Studio.t) => {
+let make = (
+  ~schema,
+  ~initialChain: Chain.t,
+  ~config: Config.Studio.t,
+  ~onSaveChain,
+  ~onClose,
+  ~onSaveAndClose,
+  ~trace: option<Chain.Trace.t>,
+) => {
   let oneGraphAuth = OneGraphAuth.create(
     OneGraphAuth.createOptions(~appId=config.oneGraphAppId, ()),
   )
   oneGraphAuth
   ->Belt.Option.map(oneGraphAuth => {
-    <ReactFlow.Provider> <Main schema initialChain config oneGraphAuth /> </ReactFlow.Provider>
+    <ReactFlow.Provider>
+      <Main schema initialChain config oneGraphAuth onSaveChain onClose onSaveAndClose trace />
+    </ReactFlow.Provider>
   })
   ->Belt.Option.getWithDefault("Loading Chain Editor..."->React.string)
 }
