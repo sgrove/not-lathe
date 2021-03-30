@@ -237,6 +237,12 @@ module BlockSearch = {
               <div
                 key={block.title}
                 className="block-search-item flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2"
+                draggable=true
+                onDragStart={event => {
+                  let dataTransfer = Obj.magic(event)["dataTransfer"]
+                  dataTransfer["effectAllowed"] = "copyLink"
+                  dataTransfer["setData"]("text", block.id->Uuid.toString)
+                }}
                 onDoubleClick={_ => onAdd(block)}
                 onClick={_ => onInspect(block)}>
                 <div
@@ -2066,7 +2072,33 @@ ${newScript}`
               </div>
             </ReactResizePanel>
             <div className="flex-1 overflow-x-hidden">
-              <div style={ReactDOMStyle.make(~height="calc(50vh - 28px)", ())}>
+              <div
+                style={ReactDOMStyle.make(~height="calc(50vh - 28px)", ())}
+                onDragEnter={event => {
+                  event->ReactEvent.Mouse.stopPropagation
+                  event->ReactEvent.Mouse.preventDefault
+
+                  let dataTransfer = Obj.magic(event)["dataTransfer"]
+                  dataTransfer["dropEffect"] = "copy"
+                }}
+                onDragOver={event => {
+                  event->ReactEvent.Mouse.stopPropagation
+                  event->ReactEvent.Mouse.preventDefault
+                  let dataTransfer = Obj.magic(event)["dataTransfer"]
+                  dataTransfer["dropEffect"] = "copy"
+                }}
+                onDrop={event => {
+                  event->ReactEvent.Mouse.stopPropagation
+                  let dataTransfer = Obj.magic(event)["dataTransfer"]
+                  dataTransfer["dropEffect"] = "copy"
+                  let blockId: string = dataTransfer["getData"]("text")
+
+                  state.blocks
+                  ->Belt.Array.getBy(block => block.id->Uuid.toString == blockId)
+                  ->Belt.Option.forEach(block => {
+                    addBlock(block)
+                  })
+                }}>
                 {state.diagram->Belt.Option.mapWithDefault(React.null, diagram =>
                   <Diagram
                     setState

@@ -247,11 +247,17 @@ function ChainEditor$BlockSearch(Props) {
                                 return React.createElement("div", {
                                             key: block.title,
                                             className: "block-search-item flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2",
+                                            draggable: true,
                                             onClick: (function (param) {
                                                 return Curry._1(onInspect, block);
                                               }),
                                             onDoubleClick: (function (param) {
                                                 return Curry._1(onAdd, block);
+                                              }),
+                                            onDragStart: (function ($$event) {
+                                                var dataTransfer = $$event.dataTransfer;
+                                                dataTransfer.effectAllowed = "copyLink";
+                                                return dataTransfer.setData("text", block.id.toString());
                                               })
                                           }, React.createElement("div", {
                                                 style: {
@@ -3638,7 +3644,30 @@ function ChainEditor$Main(Props) {
                               }, React.createElement("div", {
                                     style: {
                                       height: "calc(50vh - 28px)"
-                                    }
+                                    },
+                                    onDragEnter: (function ($$event) {
+                                        $$event.stopPropagation();
+                                        $$event.preventDefault();
+                                        var dataTransfer = $$event.dataTransfer;
+                                        dataTransfer.dropEffect = "copy";
+                                        
+                                      }),
+                                    onDragOver: (function ($$event) {
+                                        $$event.stopPropagation();
+                                        $$event.preventDefault();
+                                        var dataTransfer = $$event.dataTransfer;
+                                        dataTransfer.dropEffect = "copy";
+                                        
+                                      }),
+                                    onDrop: (function ($$event) {
+                                        $$event.stopPropagation();
+                                        var dataTransfer = $$event.dataTransfer;
+                                        dataTransfer.dropEffect = "copy";
+                                        var blockId = dataTransfer.getData("text");
+                                        return Belt_Option.forEach(Belt_Array.getBy(state.blocks, (function (block) {
+                                                          return block.id.toString() === blockId;
+                                                        })), addBlock);
+                                      })
                                   }, Belt_Option.mapWithDefault(state.diagram, null, (function (diagram) {
                                           return React.createElement(ChainEditor$Diagram, {
                                                       setState: setState,
