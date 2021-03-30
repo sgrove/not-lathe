@@ -2,7 +2,6 @@
   "name": "rescript-nextjs-template",
   "namespace": false,
   "reason": { "react-jsx": 3 },
-  "refmt": 3,
   "bs-dependencies": ["bs-fetch", "reason-react"],
   "ppx-flags": [],
   "sources": [
@@ -16,7 +15,7 @@
   "warnings": {
     "error": "+101+8"
   },
-  "bsc-flags": ["-bs-super-errors", "-bs-g"],
+  "bsc-flags": ["-bs-super-errors", "-bs-g", "-w -23"],
   "gentypeconfig": {
     "language": "untyped",
     "shims": [],
