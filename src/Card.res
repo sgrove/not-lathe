@@ -1737,28 +1737,7 @@ query AboutMe {
 - Search for matching Spotify tracks (songs) with the GraphQL operation `Search`
 - Use the mutations (`Resume`/`Pause`/`Next`/`Previous`/`Play`) to control the Spotify player
 ",
-    body: "query Search($query: String!) {
-  spotify {
-    search(data: { query: $query }) {
-      tracks {
-        name
-        id
-        album {
-          name
-          id
-          images {
-            height
-            url
-            width
-          }
-          href
-        }
-        href
-      }
-    }
-  }
-}
-
+    body: "
 ## Find some information about the currently logged-in
 ## Spotify user.
 query AboutMe {
@@ -1835,7 +1814,7 @@ fragment Player on SpotifyPlayer {
   },
   {
     title: "Search",
-    id: "ac28feb9-dbed-4116-afb1-d9bce22a8629"->Uuid.parseExn,
+    id: "ac28feb9-dbed-4226-afb1-d9bce22a8629"->Uuid.parseExn,
     contributedBy: None,
     services: ["spotify"],
     description: "Search for matching Spotify tracks (songs) with the GraphQL operation `Search`",

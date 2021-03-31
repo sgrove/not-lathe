@@ -736,19 +736,19 @@ module GitHub = {
 
   @react.component
   let make = (~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
-    let loadedChain =
-      Chain.loadFromLocalStorage()->Belt.Array.getBy(chain =>
-        chain.id == savedChainId->Belt.Option.map(Uuid.parseExn)
-      )
+    let loadedChain = Some(chain)
+    // Chain.loadFromLocalStorage()->Belt.Array.getBy(chain =>
+    //   chain.id == savedChainId->Belt.Option.map(Uuid.parseExn)
+    // )
 
     let appId = oneGraphAuth->OneGraphAuth.appId
 
-    let remoteChainCalls =
-      savedChainId->Belt.Option.map(chainId =>
-        remoteChainCalls(~appId, ~chainId, loadedChain->Belt.Option.getExn)
-      )
-
     open React
+
+    let remoteChainCalls =
+      savedChainId->Belt.Option.flatMap(chainId =>
+        loadedChain->Belt.Option.map(loadedChain => remoteChainCalls(~appId, ~chainId, loadedChain))
+      )
 
     let (state, setState) = React.useState(() => {
       repoList: None,
@@ -2100,11 +2100,9 @@ module Nothing = {
           )}
           onChange={event =>
             savedChainId->Belt.Option.forEach(chainId => {
-              let chain = chainId->Chain.loadFromLocalStorageById
-
               let appId = oneGraphAuth->OneGraphAuth.appId
 
-              let remoteChainCalls = remoteChainCalls(~appId, ~chainId, chain->Belt.Option.getExn)
+              let remoteChainCalls = remoteChainCalls(~appId, ~chainId, chain)
 
               let value = switch ReactEvent.Form.target(event)["value"] {
               | "form" => Some(j`http://localhost:3003/form?form_id=${chainId}`)
@@ -2133,21 +2131,26 @@ ${remoteChainCalls.netlify.code}
           <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
           <option value={"id"}> {"Copy Chain Id"->React.string} </option>
         </Comps.Select>
-        {<GitHub chain savedChainId oneGraphAuth />}
-        // <div>
-        //   <Comps.Select style={ReactDOMStyle.make(~width="100%", ~margin="10px", ())}>
-        //     <option> {"sgrove/blog"->React.string} </option>
-        //   </Comps.Select>
-        //   <Comps.Button
-        //     onClick={_ => {
-        //       onPersistChain()
-        //     }}
-        //     disabled=true
-        //     className="w-full">
-        //     <Icons.Login className="inline-block" color={Comps.colors["gray-6"]} />
-        //     {"  Push"->React.string}
-        //   </Comps.Button>
-        // </div>
+        {
+          // Enable later
+          // <GitHub chain savedChainId oneGraphAuth />
+          null
+
+          // <div>
+          //   <Comps.Select style={ReactDOMStyle.make(~width="100%", ~margin="10px", ())}>
+          //     <option> {"sgrove/blog"->React.string} </option>
+          //   </Comps.Select>
+          //   <Comps.Button
+          //     onClick={_ => {
+          //       onPersistChain()
+          //     }}
+          //     disabled=true
+          //     className="w-full">
+          //     <Icons.Login className="inline-block" color={Comps.colors["gray-6"]} />
+          //     {"  Push"->React.string}
+          //   </Comps.Button>
+          // </div>
+        }
       </>
 
     let inspectorTab =
