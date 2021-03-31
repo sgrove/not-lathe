@@ -7,7 +7,9 @@ import * as Utils from "./bindings/Utils.js";
 import * as $$String from "bs-platform/lib/es6/string.mjs";
 import * as Graphql from "graphql";
 import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";
+import * as GraphQLJs from "./bindings/GraphQLJs.js";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
+import * as Caml_array from "bs-platform/lib/es6/caml_array.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as GraphQLUtils from "./bindings/GraphQLUtils.js";
@@ -711,7 +713,6 @@ function toposortRequests(requests) {
     if (Belt_SetString.has(visited, request.id)) {
       
     } else {
-      console.log("Add Req: ", request.id);
       sorted.contents = Belt_Array.concat(sorted.contents, [request]);
     }
     var deps = request.dependencyRequestIds;
@@ -830,6 +831,137 @@ var Trace = {
   saveToLocalStorage: saveToLocalStorage$1
 };
 
+function chainPrincipleKind(chain) {
+  var match = Belt_Array.reduce(chain.requests, [
+        false,
+        false,
+        false
+      ], (function (param, request) {
+          var hasSubscription = param[2];
+          var hasMutation = param[1];
+          var hasQuery = param[0];
+          var match = request.operation.kind;
+          switch (match) {
+            case /* Query */0 :
+                return [
+                        true,
+                        hasMutation,
+                        hasSubscription
+                      ];
+            case /* Mutation */1 :
+                return [
+                        hasQuery,
+                        true,
+                        hasSubscription
+                      ];
+            case /* Subscription */2 :
+                return [
+                        hasQuery,
+                        hasMutation,
+                        true
+                      ];
+            case /* Fragment */3 :
+            case /* Compute */4 :
+                return [
+                        hasQuery,
+                        hasMutation,
+                        hasSubscription
+                      ];
+            
+          }
+        }));
+  if (match[2]) {
+    return "subscription";
+  } else if (match[1]) {
+    return "mutation";
+  } else if (match[0]) {
+    return "query";
+  } else {
+    return ;
+  }
+}
+
+function javaScriptFunctionName(chain) {
+  var kind = chainPrincipleKind(chain);
+  var match = Belt_Option.getWithDefault(kind, "query");
+  var prefix = match === "mutation" ? "execute" : (
+      match === "subscription" ? "subscribeTo" : "fetch"
+    );
+  return Utils.$$String.camelize(prefix + "_" + chain.name);
+}
+
+function makeInputTypeName(chain) {
+  var fnName = javaScriptFunctionName(chain);
+  return fnName + "Params";
+}
+
+function makeReturnTypeName(chain) {
+  var fnName = javaScriptFunctionName(chain);
+  return fnName + "Return";
+}
+
+function typeScriptDefinition(schema, chain) {
+  var exposedVariables = Belt_Array.concatMany(Belt_Array.map(chain.requests, (function (request) {
+              return Belt_Array.keepMap(request.variableDependencies, (function (dep) {
+                            var variable = dep.dependency;
+                            switch (variable.TAG | 0) {
+                              case /* Direct */1 :
+                                  var variable$1 = variable._0;
+                                  var name = variable$1.value;
+                                  if (name.TAG === /* JSON */0) {
+                                    return ;
+                                  }
+                                  var name$1 = name._0;
+                                  return Belt_Option.map(Belt_Array.getBy(Card.getFirstVariables(request.operation), (function (param) {
+                                                    return param[0] === variable$1.name;
+                                                  })), (function (param) {
+                                                return {
+                                                        upstreamName: param[0],
+                                                        upstreamType: param[1],
+                                                        exposedName: name$1
+                                                      };
+                                              }));
+                              case /* ArgumentDependency */0 :
+                              case /* GraphQLProbe */2 :
+                                  return ;
+                              
+                            }
+                          }));
+            })));
+  var inputType = Belt_Array.map(exposedVariables, (function (exposedVariable) {
+              var gqlType = Graphql.typeFromAST(schema, Graphql.parseType(exposedVariable.upstreamType));
+              var typeScriptType = Belt_Option.mapWithDefault(gqlType, "any", (function (gqlType) {
+                      return GraphQLJs.Mock.typeScriptForGraphQLType(schema, gqlType);
+                    }));
+              return "\"" + exposedVariable.exposedName + "\": " + typeScriptType;
+            })).join(",").replace(new RegExp(",", "g"), ",\n\t");
+  var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
+              var match = block.kind;
+              if (match !== 3) {
+                return ;
+              } else {
+                return block.body;
+              }
+            })).join("\n\n").concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }");
+  var chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
+        operationDoc: chainFragmentsDoc
+      });
+  var returnType = Belt_Array.map(chain.requests, (function (request) {
+              var block = request.operation;
+              var ast = Graphql.parse(block.body);
+              var definition = Caml_array.get(ast.definitions, 0);
+              var typeScriptType = GraphQLJs.Mock.typeScriptForOperation(schema, definition, chainFragmentDefinitions);
+              return "\"" + request.id + "\": " + typeScriptType;
+            })).join(",").replace(new RegExp(",", "g"), ",\n\t");
+  return {
+          functionName: javaScriptFunctionName(chain),
+          inputTypeName: makeInputTypeName(chain),
+          inputType: "{" + inputType + "}",
+          returnTypeName: makeReturnTypeName(chain),
+          returnType: "Promise<{" + returnType + "}>"
+        };
+}
+
 var target = "mutation ExecuteChainMutation(\n  $webhookUrl: JSON!\n  $chain: OneGraphQueryChainInput!\n  $sheetId: JSON!\n) {\n  oneGraph {\n    executeChain(\n      input: {\n        requests: [\n          {\n            id: \"SlackReactionSubscription\"\n            operationName: \"SlackReactionSubscription\"\n            variables: [\n              { name: \"webhookUrl\", value: $webhookUrl }\n            ]\n          }\n          {\n            id: \"AddToDocMutation\"\n            operationName: \"AddToDocMutation\"\n            argumentDependencies: {\n              name: \"row\"\n              ifList: ALL\n              fromRequestIds: [\"SlackReactionSubscription\"]\n              functionFromScript: \"getRow\"\n              ifMissing: SKIP\n            }\n            variables: { name: \"sheetId\", value: $sheetId }\n          }\n        ]\n        script: \"const a = true;\"\n      }\n    ) {\n      results {\n        request {\n          id\n        }\n        result\n        argumentDependencies {\n          name\n          returnValues\n          logs {\n            level\n            body\n          }\n          name\n        }\n      }\n    }\n  }\n}\n\nmutation AddToDocMutation(\n  $sheetId: String!\n  $row: [String!]!\n) {\n  google {\n    sheets {\n      appendValues(\n        id: $sheetId\n        valueInputOption: \"USER_ENTERED\"\n        majorDimenson: \"ROWS\"\n        range: \"'Raw Data'!A1\"\n        values: [$row]\n      ) {\n        updates {\n          spreadsheetId\n          updatedRange\n          updatedCells\n          updatedData {\n            values\n          }\n        }\n      }\n    }\n  }\n}\n\nsubscription SlackReactionSubscription(\n  $webhookUrl: String!\n) {\n  slack(webhookUrl: $webhookUrl) {\n    reactionAddedEvent {\n      eventTime\n      event {\n        user {\n          id\n          name\n        }\n        eventTs\n        reaction\n        item {\n          channel {\n            name\n          }\n          message {\n            permaLink\n            user {\n              id\n              name\n            }\n            text\n            ts\n          }\n        }\n      }\n    }\n  }\n}";
 
 var chain = emptyChain;
@@ -872,6 +1004,11 @@ export {
   toposortRequests ,
   gatherAllReferencedServices ,
   Trace ,
+  chainPrincipleKind ,
+  javaScriptFunctionName ,
+  makeInputTypeName ,
+  makeReturnTypeName ,
+  typeScriptDefinition ,
   
 }
 /* addToDocMutation Not a pure module */

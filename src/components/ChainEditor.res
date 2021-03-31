@@ -1123,23 +1123,6 @@ ${chain.script}`
   }
 }
 
-module Modal = {
-  @react.component
-  let make = (~children) => {
-    <div
-      style={ReactDOMStyle.make(~zIndex="9999", ())}
-      className="flex items-center justify-center absolute left-0 bottom-0 w-full h-full bg-gray-800 bg-opacity-60">
-      <div
-        className="rounded-lg w-4/5 h-4/5"
-        style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-8"], ())}>
-        <div className="flex flex-col p-1 h-full">
-          <div className="flex h-full"> {children} </div>
-        </div>
-      </div>
-    </div>
-  }
-}
-
 module ConnectorLine = {
   type state = {mousePosition: (int, int)}
 
@@ -2559,7 +2542,7 @@ ${newScript}`
                 }}
               />
 
-            <Modal> {editor} </Modal>
+            <Comps.Modal> {editor} </Comps.Modal>
           }}
           {switch state.connectionDrag {
           | Empty => React.null

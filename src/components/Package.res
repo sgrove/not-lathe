@@ -8,9 +8,15 @@ module DevTimeJson = {
 
 type info = {
   name: string,
-  version: string,
+  version: (int, int, int),
   chains: array<Chain.t>,
 }
+
+let stringVersion = (info: info) => {
+  let (major, minor, patch) = info.version
+  j`${major->string_of_int}.${minor->string_of_int}.${patch->string_of_int}`
+}
+
 let completed = () => {
   <span className="bg-green-200 text-green-600 py-1 px-3 rounded-full text-xs">
     {j`Completed`->React.string}
@@ -54,17 +60,101 @@ let noErrors = () => {
 }
 
 module PackageEditor = {
+  type diff = {
+    addedFunctions: array<Chain.typeScriptDefinition>,
+    removedFunctions: array<Chain.typeScriptDefinition>,
+    changedFunctions: array<Chain.typeScriptDefinition>,
+  }
+
+  // TODO: Detect field removable, renames, etc. and make it breaking change
+  let diffPackage = (~schema, a: info, b: info): option<diff> => {
+    let aFns = a.chains->Belt.Array.map(chain => {
+      let typeDef = Chain.typeScriptDefinition(~schema, chain)
+      typeDef
+    })
+
+    let bFns = b.chains->Belt.Array.map(chain => {
+      let typeDef = Chain.typeScriptDefinition(~schema, chain)
+      typeDef
+    })
+
+    let addedFunctions = bFns->Belt.Array.keep(bFn => {
+      !(aFns->Belt.Array.some(aFn => bFn.functionName == aFn.functionName))
+    })
+
+    let removedFunctions = aFns->Belt.Array.keep(aFn => {
+      !(bFns->Belt.Array.some(bFn => bFn.functionName == aFn.functionName))
+    })
+
+    let changedFunctions = bFns->Belt.Array.keep(bFn => {
+      let previousFunction = aFns->Belt.Array.getBy(aFn => bFn.functionName == aFn.functionName)
+
+      previousFunction->Belt.Option.mapWithDefault(false, aFn => {
+        aFn.inputType != bFn.inputType && aFn.returnType != bFn.returnType
+      })
+    })
+
+    Js.log4("Diff a / b: ", a, b, (addedFunctions, removedFunctions, changedFunctions))
+
+    switch (addedFunctions, removedFunctions, changedFunctions) {
+    | ([], [], []) => None
+    | (_, _, _) =>
+      Some({
+        addedFunctions: addedFunctions,
+        removedFunctions: removedFunctions,
+        changedFunctions: changedFunctions,
+      })
+    }
+  }
+
+  let versionBumpForDiff = (diff: diff): (int, int, int) => {
+    switch (diff.removedFunctions, diff.addedFunctions, diff.changedFunctions) {
+    | ([], [], []) => (0, 0, 0)
+    | ([], [], _) => (0, 0, 1)
+    | ([], _, _) => (0, 1, 0)
+    | (_, _, _) => (1, 0, 0)
+    }
+  }
+
+  let computeNewVersion = (package: info, diff) => {
+    let (major, minor, patch) = package.version
+
+    let newVersion = switch diff->versionBumpForDiff {
+    | (0, 0, patchDelta) => (major, minor, patch + patchDelta)
+    | (0, minorDelta, 0) => (major, minor + minorDelta, 0)
+    | (majorDelta, 0, 0) => (major + majorDelta, 0, 0)
+    | _ => package.version
+    }
+
+    {
+      ...package,
+      version: newVersion,
+    }
+  }
+
+  type view =
+    | Nothing
+    | Settings
+    | Publish(diff)
+
+  type state = {view: view}
+
   @react.component
   let make = (
     ~schema,
+    ~initialPackage: info,
     ~package: info,
-    ~chains: array<Chain.t>,
     ~onCreateChain,
     ~onInspectChain,
     ~onEditChain,
     ~onDeleteChain,
   ) => {
     open React
+
+    let (state, setState) = useState(() => {view: Nothing})
+    let chains = package.chains
+
+    let diff = diffPackage(~schema, initialPackage, package)
 
     <div
       className="w-full m-2 h-full bg-white flex items-center justify-center font-sans overflow-hidden"
@@ -75,7 +165,7 @@ module PackageEditor = {
             className="m-5 flex-1 font-bold"
             style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
             {package.name->string}
-            <span className="mx-2"> <code> {package.version->string} </code> </span>
+            <span className="mx-2"> <code> {package->stringVersion->string} </code> </span>
           </h1>
           <div className="m-2">
             <Comps.Button
@@ -98,16 +188,11 @@ module PackageEditor = {
           <div className="m-2">
             <Comps.Button
             // style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}
+              disabled={diff->Belt.Option.isNone}
               onClick={_ => {
-                switch Utils.prompt(
-                  "Publish changes to npm",
-                  ~default=Some("new_chain"),
-                )->Belt.Option.mapWithDefault("", name => name->Js.String2.trim) {
-                | "" => ()
-                | other =>
-                  let chain = Chain.makeEmptyChain(other)
-                  onCreateChain(chain)
-                }
+                diff->Belt.Option.forEach(diff =>
+                  setState(oldState => {...oldState, view: Publish(diff)})
+                )
               }}>
               <Icons.Login className="inline-block " color={Comps.colors["gray-4"]} />
               {" Publsh changes to npm"->string}
@@ -256,6 +341,62 @@ module PackageEditor = {
           </table>
         </div>
       </div>
+      {switch state.view {
+      | Nothing => null
+      | Settings => <Comps.Modal> {"Settings"->string} </Comps.Modal>
+      | Publish(diff) =>
+        <Comps.Modal>
+          <div className="w-full h-full shadow-md rounded my-6 text-white flex flex-col">
+            <div className="overflow-y-scroll flex flex-col">
+              <h1
+                className="m-5 flex-1 font-bold block"
+                style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+                {"Publish package changes: "->string}
+                <span className="mx-2">
+                  <code> {initialPackage->stringVersion->string} </code>
+                </span>
+                <span className="mx-2"> {" => "->string} </span>
+                <span className="mx-2">
+                  <code> {package->computeNewVersion(diff)->stringVersion->string} </code>
+                </span>
+              </h1>
+              <table className="min-w-max h-full w-full table-auto">
+                <thead>
+                  <tr
+                    className="text-gray-600 text-sm leading-normal"
+                    style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}>
+                    <th className="py-3 px-6 text-left"> {j`Function`->string} </th>
+                    <th className="py-3 px-6 text-left"> {j`Input`->string} </th>
+                    <th className="py-3 px-6 text-center"> {j`Return`->string} </th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-600 text-sm font-light">
+                  {package.chains
+                  ->Belt.Array.map(chain => {
+                    let typeDef = Chain.typeScriptDefinition(~schema, chain)
+                    <tr
+                      className={"rounded-md border-4 border-gray-900 text-gray-50 hover:bg-gray-400"}>
+                      <td> {typeDef.functionName->string} </td>
+                      <td> <Comps.Pre> {typeDef.inputType->string} </Comps.Pre> </td>
+                      <td> <Comps.Pre> {typeDef.returnType->string} </Comps.Pre> </td>
+                    </tr>
+                  })
+                  ->array}
+                </tbody>
+              </table>
+            </div>
+            <div className="w-full ml-auto flex">
+              <Comps.Button className="flex-grow" disabled={true}> {j`Save`->string} </Comps.Button>
+              <Comps.Button
+              // className="bg-transparent hover:bg-gray-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded flex-grow"
+                className="flex-grow"
+                onClick={_ => setState(oldState => {...oldState, view: Nothing})}>
+                {j`Cancel`->string}
+              </Comps.Button>
+            </div>
+          </div>
+        </Comps.Modal>
+      }}
     </div>
   }
 }
@@ -844,7 +985,7 @@ module ChainLogs = {
 
 type inspectable = Package | Chain(Chain.t) | Edit({chain: Chain.t, trace: option<Chain.Trace.t>})
 
-type state = {inspected: inspectable, chains: array<Chain.t>, package: info}
+type state = {inspected: inspectable, package: info, initialPackage: info}
 
 @react.component
 let make = (~schema, ~config) => {
@@ -870,15 +1011,15 @@ let make = (~schema, ~config) => {
 
     let package: info = {
       name: "bushido-fns",
-      version: "1.0.1",
+      version: (1, 0, 1),
       chains: initialChains,
     }
 
     {
       inspected: Package,
       //Edit({chain: chain, trace: trace}),
-      chains: initialChains,
       package: package,
+      initialPackage: package,
     }
   })
 
@@ -916,10 +1057,13 @@ let make = (~schema, ~config) => {
           }
           {
             ...oldState,
-            chains: oldState.chains->Belt.Array.map(oldChain => {
-              Js.log3("Looking to save chain: ", oldChain.id, newChain.id)
-              oldChain.id == newChain.id ? newChain : oldChain
-            }),
+            package: {
+              ...oldState.package,
+              chains: oldState.package.chains->Belt.Array.map(oldChain => {
+                Js.log3("Looking to save chain: ", oldChain.id, newChain.id)
+                oldChain.id == newChain.id ? newChain : oldChain
+              }),
+            },
             inspected: inspected,
           }
         })
@@ -934,9 +1078,12 @@ let make = (~schema, ~config) => {
         setState(oldState => {
           ...oldState,
           inspected: Package,
-          chains: oldState.chains->Belt.Array.map(oldChain => {
-            oldChain == chain ? newChain : oldChain
-          }),
+          package: {
+            ...oldState.package,
+            chains: oldState.package.chains->Belt.Array.map(oldChain => {
+              oldChain == chain ? newChain : oldChain
+            }),
+          },
         })
       }}
     />
@@ -944,12 +1091,15 @@ let make = (~schema, ~config) => {
     <PackageEditor
       schema
       package=state.package
-      chains=state.chains
+      initialPackage=state.initialPackage
       onDeleteChain={targetChain => {
         targetChain->Chain.deleteFromLocalStorage
         setState(oldState => {
           ...oldState,
-          chains: oldState.chains->Belt.Array.keep(chain => chain.id != targetChain.id),
+          package: {
+            ...oldState.package,
+            chains: oldState.package.chains->Belt.Array.keep(chain => chain.id != targetChain.id),
+          },
           inspected: Package,
         })
       }}
@@ -957,7 +1107,10 @@ let make = (~schema, ~config) => {
         newChain->Chain.saveToLocalStorage
         setState(oldState => {
           ...oldState,
-          chains: oldState.chains->Belt.Array.concat([newChain]),
+          package: {
+            ...oldState.package,
+            chains: oldState.package.chains->Belt.Array.concat([newChain]),
+          },
           inspected: Edit({chain: newChain, trace: None}),
         })
       }}
@@ -978,7 +1131,7 @@ let make = (~schema, ~config) => {
 
   let makeNav = (inspected: inspectable) => {
     <nav
-      className="p-4  text-white"
+      className="p-4 text-white"
       style={ReactDOMStyle.make(
         ~color=Comps.colors["gray-11"],
         ~backgroundColor=Comps.colors["gray-12"],

@@ -34,6 +34,11 @@ var DevTimeJson = {
   descuriChain: descuriChain
 };
 
+function stringVersion(info) {
+  var match = info.version;
+  return String(match[0]) + "." + String(match[1]) + "." + String(match[2]);
+}
+
 function completed(param) {
   return React.createElement("span", {
               className: "bg-green-200 text-green-600 py-1 px-3 rounded-full text-xs"
@@ -74,14 +79,142 @@ function noErrors(param) {
             }, "No errors");
 }
 
+function diffPackage(schema, a, b) {
+  var aFns = Belt_Array.map(a.chains, (function (chain) {
+          return Chain.typeScriptDefinition(schema, chain);
+        }));
+  var bFns = Belt_Array.map(b.chains, (function (chain) {
+          return Chain.typeScriptDefinition(schema, chain);
+        }));
+  var addedFunctions = Belt_Array.keep(bFns, (function (bFn) {
+          return !Belt_Array.some(aFns, (function (aFn) {
+                        return bFn.functionName === aFn.functionName;
+                      }));
+        }));
+  var removedFunctions = Belt_Array.keep(aFns, (function (aFn) {
+          return !Belt_Array.some(bFns, (function (bFn) {
+                        return bFn.functionName === aFn.functionName;
+                      }));
+        }));
+  var changedFunctions = Belt_Array.keep(bFns, (function (bFn) {
+          var previousFunction = Belt_Array.getBy(aFns, (function (aFn) {
+                  return bFn.functionName === aFn.functionName;
+                }));
+          return Belt_Option.mapWithDefault(previousFunction, false, (function (aFn) {
+                        if (aFn.inputType !== bFn.inputType) {
+                          return aFn.returnType !== bFn.returnType;
+                        } else {
+                          return false;
+                        }
+                      }));
+        }));
+  console.log("Diff a / b: ", a, b, [
+        addedFunctions,
+        removedFunctions,
+        changedFunctions
+      ]);
+  if (addedFunctions.length === 0 && removedFunctions.length === 0 && changedFunctions.length === 0) {
+    return ;
+  }
+  return {
+          addedFunctions: addedFunctions,
+          removedFunctions: removedFunctions,
+          changedFunctions: changedFunctions
+        };
+}
+
+function versionBumpForDiff(diff) {
+  var match = diff.removedFunctions;
+  var match$1 = diff.addedFunctions;
+  var match$2 = diff.changedFunctions;
+  if (match.length !== 0) {
+    return [
+            1,
+            0,
+            0
+          ];
+  } else if (match$1.length !== 0) {
+    return [
+            0,
+            1,
+            0
+          ];
+  } else if (match$2.length !== 0) {
+    return [
+            0,
+            0,
+            1
+          ];
+  } else {
+    return [
+            0,
+            0,
+            0
+          ];
+  }
+}
+
+function computeNewVersion($$package, diff) {
+  var match = $$package.version;
+  var minor = match[1];
+  var major = match[0];
+  var match$1 = versionBumpForDiff(diff);
+  var majorDelta = match$1[0];
+  var newVersion;
+  var exit = 0;
+  if (majorDelta !== 0) {
+    exit = 1;
+  } else {
+    var minorDelta = match$1[1];
+    if (minorDelta !== 0) {
+      if (match$1[2] !== 0) {
+        exit = 1;
+      } else {
+        newVersion = [
+          major,
+          minor + minorDelta | 0,
+          0
+        ];
+      }
+    } else {
+      newVersion = [
+        major,
+        minor,
+        match[2] + match$1[2] | 0
+      ];
+    }
+  }
+  if (exit === 1) {
+    newVersion = match$1[1] !== 0 || match$1[2] !== 0 ? $$package.version : [
+        major + majorDelta | 0,
+        0,
+        0
+      ];
+  }
+  return {
+          name: $$package.name,
+          version: newVersion,
+          chains: $$package.chains
+        };
+}
+
 function Package$PackageEditor(Props) {
   var schema = Props.schema;
+  var initialPackage = Props.initialPackage;
   var $$package = Props.package;
-  var chains = Props.chains;
   var onCreateChain = Props.onCreateChain;
   var onInspectChain = Props.onInspectChain;
   var onEditChain = Props.onEditChain;
   var onDeleteChain = Props.onDeleteChain;
+  var match = React.useState(function () {
+        return {
+                view: /* Nothing */0
+              };
+      });
+  var setState = match[1];
+  var chains = $$package.chains;
+  var diff = diffPackage(schema, initialPackage, $$package);
+  var diff$1 = match[0].view;
   return React.createElement("div", {
               className: "w-full m-2 h-full bg-white flex items-center justify-center font-sans overflow-hidden",
               style: {
@@ -98,7 +231,7 @@ function Package$PackageEditor(Props) {
                           }
                         }, $$package.name, React.createElement("span", {
                               className: "mx-2"
-                            }, React.createElement("code", undefined, $$package.version))), React.createElement("div", {
+                            }, React.createElement("code", undefined, stringVersion($$package)))), React.createElement("div", {
                           className: "m-2"
                         }, React.createElement(Comps.Button.make, {
                               onClick: (function (param) {
@@ -119,16 +252,19 @@ function Package$PackageEditor(Props) {
                           className: "m-2"
                         }, React.createElement(Comps.Button.make, {
                               onClick: (function (param) {
-                                  var other = Belt_Option.mapWithDefault(prompt("Publish changes to npm", "new_chain"), "", (function (name) {
-                                          return name.trim();
-                                        }));
-                                  if (other === "") {
-                                    return ;
-                                  } else {
-                                    return Curry._1(onCreateChain, Chain.makeEmptyChain(other));
-                                  }
+                                  return Belt_Option.forEach(diff, (function (diff) {
+                                                return Curry._1(setState, (function (oldState) {
+                                                              return {
+                                                                      view: {
+                                                                        _0: diff,
+                                                                        [Symbol.for("name")]: "Publish"
+                                                                      }
+                                                                    };
+                                                            }));
+                                              }));
                                 }),
-                              children: null
+                              children: null,
+                              disabled: Belt_Option.isNone(diff)
                             }, React.createElement(Icons.Login.make, {
                                   className: "inline-block ",
                                   color: Comps.colors["gray-4"]
@@ -274,10 +410,74 @@ function Package$PackageEditor(Props) {
                                                           }, React.createElement(Icons.Trash.make, {
                                                                 color: Comps.colors["gray-4"]
                                                               })))));
-                                  })))))));
+                                  })))))), typeof diff$1 === "number" ? (
+                diff$1 !== 0 ? React.createElement(Comps.Modal.make, {
+                        children: "Settings"
+                      }) : null
+              ) : React.createElement(Comps.Modal.make, {
+                    children: React.createElement("div", {
+                          className: "w-full h-full shadow-md rounded my-6 text-white flex flex-col"
+                        }, React.createElement("div", {
+                              className: "overflow-y-scroll flex flex-col"
+                            }, React.createElement("h1", {
+                                  className: "m-5 flex-1 font-bold block",
+                                  style: {
+                                    color: Comps.colors["gray-6"]
+                                  }
+                                }, "Publish package changes: ", React.createElement("span", {
+                                      className: "mx-2"
+                                    }, React.createElement("code", undefined, stringVersion(initialPackage))), React.createElement("span", {
+                                      className: "mx-2"
+                                    }, " => "), React.createElement("span", {
+                                      className: "mx-2"
+                                    }, React.createElement("code", undefined, stringVersion(computeNewVersion($$package, diff$1._0))))), React.createElement("table", {
+                                  className: "min-w-max h-full w-full table-auto"
+                                }, React.createElement("thead", undefined, React.createElement("tr", {
+                                          className: "text-gray-600 text-sm leading-normal",
+                                          style: {
+                                            color: Comps.colors["gray-3"]
+                                          }
+                                        }, React.createElement("th", {
+                                              className: "py-3 px-6 text-left"
+                                            }, "Function"), React.createElement("th", {
+                                              className: "py-3 px-6 text-left"
+                                            }, "Input"), React.createElement("th", {
+                                              className: "py-3 px-6 text-center"
+                                            }, "Return"))), React.createElement("tbody", {
+                                      className: "text-gray-600 text-sm font-light"
+                                    }, Belt_Array.map($$package.chains, (function (chain) {
+                                            var typeDef = Chain.typeScriptDefinition(schema, chain);
+                                            return React.createElement("tr", {
+                                                        className: "rounded-md border-4 border-gray-900 text-gray-50 hover:bg-gray-400"
+                                                      }, React.createElement("td", undefined, typeDef.functionName), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
+                                                                children: typeDef.inputType
+                                                              })), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
+                                                                children: typeDef.returnType
+                                                              })));
+                                          }))))), React.createElement("div", {
+                              className: "w-full ml-auto flex"
+                            }, React.createElement(Comps.Button.make, {
+                                  className: "flex-grow",
+                                  children: "Save",
+                                  disabled: true
+                                }), React.createElement(Comps.Button.make, {
+                                  onClick: (function (param) {
+                                      return Curry._1(setState, (function (oldState) {
+                                                    return {
+                                                            view: /* Nothing */0
+                                                          };
+                                                  }));
+                                    }),
+                                  className: "flex-grow",
+                                  children: "Cancel"
+                                })))
+                  }));
 }
 
 var PackageEditor = {
+  diffPackage: diffPackage,
+  versionBumpForDiff: versionBumpForDiff,
+  computeNewVersion: computeNewVersion,
   make: Package$PackageEditor
 };
 
@@ -801,15 +1001,20 @@ function Package(Props) {
         Belt_Array.keep(Chain.Trace.loadFromLocalStorage(undefined), (function (trace) {
                 return Caml_obj.caml_equal(Caml_option.some(trace.chainId), chain.id);
               }));
+        var package_version = [
+          1,
+          0,
+          1
+        ];
         var $$package = {
           name: "bushido-fns",
-          version: "1.0.1",
+          version: package_version,
           chains: initialChains$1
         };
         return {
                 inspected: /* Package */0,
-                chains: initialChains$1,
-                package: $$package
+                package: $$package,
+                initialPackage: $$package
               };
       });
   var setState = match[1];
@@ -829,11 +1034,12 @@ function Package(Props) {
   if (typeof chain === "number") {
     content = React.createElement(Package$PackageEditor, {
           schema: schema,
+          initialPackage: state.initialPackage,
           package: state.package,
-          chains: state.chains,
           onCreateChain: (function (newChain) {
               Chain.saveToLocalStorage(newChain);
               return Curry._1(setState, (function (oldState) {
+                            var init = oldState.package;
                             return {
                                     inspected: {
                                       TAG: 1,
@@ -841,8 +1047,12 @@ function Package(Props) {
                                       trace: undefined,
                                       [Symbol.for("name")]: "Edit"
                                     },
-                                    chains: Belt_Array.concat(oldState.chains, [newChain]),
-                                    package: oldState.package
+                                    package: {
+                                      name: init.name,
+                                      version: init.version,
+                                      chains: Belt_Array.concat(oldState.package.chains, [newChain])
+                                    },
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             }),
@@ -854,8 +1064,8 @@ function Package(Props) {
                                       _0: chain,
                                       [Symbol.for("name")]: "Chain"
                                     },
-                                    chains: oldState.chains,
-                                    package: oldState.package
+                                    package: oldState.package,
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             }),
@@ -868,20 +1078,25 @@ function Package(Props) {
                                       trace: trace,
                                       [Symbol.for("name")]: "Edit"
                                     },
-                                    chains: oldState.chains,
-                                    package: oldState.package
+                                    package: oldState.package,
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             }),
           onDeleteChain: (function (targetChain) {
               Chain.deleteFromLocalStorage(targetChain);
               return Curry._1(setState, (function (oldState) {
+                            var init = oldState.package;
                             return {
                                     inspected: /* Package */0,
-                                    chains: Belt_Array.keep(oldState.chains, (function (chain) {
-                                            return Caml_obj.caml_notequal(chain.id, targetChain.id);
-                                          })),
-                                    package: oldState.package
+                                    package: {
+                                      name: init.name,
+                                      version: init.version,
+                                      chains: Belt_Array.keep(oldState.package.chains, (function (chain) {
+                                              return Caml_obj.caml_notequal(chain.id, targetChain.id);
+                                            }))
+                                    },
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             })
@@ -903,8 +1118,8 @@ function Package(Props) {
                                       trace: trace,
                                       [Symbol.for("name")]: "Edit"
                                     },
-                                    chains: oldState.chains,
-                                    package: oldState.package
+                                    package: oldState.package,
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             })
@@ -931,17 +1146,22 @@ function Package(Props) {
                                   trace: match.trace,
                                   [Symbol.for("name")]: "Edit"
                                 });
+                            var init = oldState.package;
                             return {
                                     inspected: inspected,
-                                    chains: Belt_Array.map(oldState.chains, (function (oldChain) {
-                                            console.log("Looking to save chain: ", oldChain.id, newChain.id);
-                                            if (Caml_obj.caml_equal(oldChain.id, newChain.id)) {
-                                              return newChain;
-                                            } else {
-                                              return oldChain;
-                                            }
-                                          })),
-                                    package: oldState.package
+                                    package: {
+                                      name: init.name,
+                                      version: init.version,
+                                      chains: Belt_Array.map(oldState.package.chains, (function (oldChain) {
+                                              console.log("Looking to save chain: ", oldChain.id, newChain.id);
+                                              if (Caml_obj.caml_equal(oldChain.id, newChain.id)) {
+                                                return newChain;
+                                              } else {
+                                                return oldChain;
+                                              }
+                                            }))
+                                    },
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             }),
@@ -949,23 +1169,28 @@ function Package(Props) {
               return Curry._1(setState, (function (oldState) {
                             return {
                                     inspected: /* Package */0,
-                                    chains: oldState.chains,
-                                    package: oldState.package
+                                    package: oldState.package,
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             }),
           onSaveAndClose: (function (newChain) {
               return Curry._1(setState, (function (oldState) {
+                            var init = oldState.package;
                             return {
                                     inspected: /* Package */0,
-                                    chains: Belt_Array.map(oldState.chains, (function (oldChain) {
-                                            if (Caml_obj.caml_equal(oldChain, chain$2)) {
-                                              return newChain;
-                                            } else {
-                                              return oldChain;
-                                            }
-                                          })),
-                                    package: oldState.package
+                                    package: {
+                                      name: init.name,
+                                      version: init.version,
+                                      chains: Belt_Array.map(oldState.package.chains, (function (oldChain) {
+                                              if (Caml_obj.caml_equal(oldChain, chain$2)) {
+                                                return newChain;
+                                              } else {
+                                                return oldChain;
+                                              }
+                                            }))
+                                    },
+                                    initialPackage: oldState.initialPackage
                                   };
                           }));
             }),
@@ -999,7 +1224,7 @@ function Package(Props) {
             }), React.createElement("strong", undefined, " >" + chain.name));
     }
     return React.createElement("nav", {
-                className: "p-4  text-white",
+                className: "p-4 text-white",
                 style: {
                   backgroundColor: Comps.colors["gray-12"],
                   color: Comps.colors["gray-11"]
@@ -1010,8 +1235,8 @@ function Package(Props) {
                       return Curry._1(setState, (function (oldState) {
                                     return {
                                             inspected: /* Package */0,
-                                            chains: oldState.chains,
-                                            package: oldState.package
+                                            package: oldState.package,
+                                            initialPackage: oldState.initialPackage
                                           };
                                   }));
                     }), undefined, " > " + state.package.name), tmp);
@@ -1023,6 +1248,7 @@ var make = Package;
 
 export {
   DevTimeJson ,
+  stringVersion ,
   completed ,
   errored ,
   active ,

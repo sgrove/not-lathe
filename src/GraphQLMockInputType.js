@@ -450,7 +450,7 @@ export function typeScriptForGraphQLType(schema, gqlType) {
     return enums.join(" | ");
   } else {
     let namedType = getNamedType(gqlType);
-    let basicType = scalarMap[namedType.name] || "any";
+    let basicType = scalarMap[namedType?.name] || "any";
 
     return basicType;
   }

@@ -75,6 +75,8 @@ external getType: (schema, string) => Js.Undefined.t<graphqlType> = "getType"
 @module("graphql") external parseType: string => graphqlAst = "parseType"
 @module("graphql") external parse: string => graphqlAst = "parse"
 
+@module("graphql") external typeFromAST: (schema, graphqlAst) => option<graphqlType> = "typeFromAST"
+
 @get
 external _typeOfType: graphqlType => Js.Undefined.t<graphqlType> = "type"
 
@@ -173,6 +175,9 @@ module Mock = {
   @module("../GraphQLMockInputType.js")
   external mockOperationDocVariables: (schema, graphqlAst) => Js.Dict.t<Js.Json.t> =
     "mockOperationDocVariables"
+
+  @module("../GraphQLMockInputType.js")
+  external typeScriptForGraphQLType: (schema, graphqlType) => string = "typeScriptForGraphQLType"
 
   @module("../GraphQLMockInputType.js")
   external typeScriptForOperation: (

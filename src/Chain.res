@@ -1011,7 +1011,6 @@ let toposortRequests = (requests: array<request>): result<
     visited->Belt.Set.String.has(request.id)
       ? ()
       : {
-          Js.log2("Add Req: ", request.id)
           sorted := sorted.contents->Belt.Array.concat([request])
         }
 
@@ -1146,5 +1145,144 @@ module Trace = {
     let jsonString = Obj.magic(newTraces)->Js.Json.stringify
 
     Dom.Storage2.localStorage->Dom.Storage2.setItem(docId, jsonString)
+  }
+}
+
+type typeScriptDefinition = {
+  functionName: string,
+  inputTypeName: string,
+  inputType: string,
+  returnTypeName: string,
+  returnType: string,
+}
+
+let chainPrincipleKind = (chain: t) => {
+  let (hasQuery, hasMutation, hasSubscription) = chain.requests->Belt.Array.reduce(
+    (false, false, false),
+    ((hasQuery, hasMutation, hasSubscription), request) => {
+      switch request.operation.kind {
+      | Query => (true, hasMutation, hasSubscription)
+      | Mutation => (hasQuery, true, hasSubscription)
+      | Subscription => (hasQuery, hasMutation, true)
+      | _ => (hasQuery, hasMutation, hasSubscription)
+      }
+    },
+  )
+
+  switch (hasQuery, hasMutation, hasSubscription) {
+  | (_, _, true) => Some(#subscription)
+  | (_, true, _) => Some(#mutation)
+  | (true, _, _) => Some(#query)
+  | _ => None
+  }
+}
+
+let javaScriptFunctionName = (chain: t) => {
+  let kind = chain->chainPrincipleKind
+  let prefix = switch kind->Belt.Option.getWithDefault(#query) {
+  | #query => "fetch"
+  | #mutation => "execute"
+  | #subscription => "subscribeTo"
+  }
+
+  Utils.String.camelize(j`${prefix}_${chain.name}`)
+}
+
+let makeInputTypeName = (chain: t) => {
+  let fnName = javaScriptFunctionName(chain)
+  j`${fnName}Params`
+}
+
+let makeReturnTypeName = (chain: t) => {
+  let fnName = javaScriptFunctionName(chain)
+  j`${fnName}Return`
+}
+
+let typeScriptDefinition = (~schema: GraphQLJs.schema, chain: t): typeScriptDefinition => {
+  let exposedVariables =
+    chain.requests
+    ->Belt.Array.map(request =>
+      request.variableDependencies->Belt.Array.keepMap(dep => {
+        switch dep.dependency {
+        | ArgumentDependency(_)
+        | GraphQLProbe(_) =>
+          None
+
+        | Direct(variable) =>
+          switch variable.value {
+          | JSON(_) => None
+          | Variable(name) =>
+            request.operation
+            ->Card.getFirstVariables
+            ->Belt.Array.getBy(((varName, _)) => {
+              varName == variable.name
+            })
+            ->Belt.Option.map(((varName, varType)) => {
+              {
+                upstreamName: varName,
+                upstreamType: varType,
+                exposedName: name,
+              }
+            })
+          }
+        }
+      })
+    )
+    ->Belt.Array.concatMany
+
+  let inputType =
+    exposedVariables
+    ->Belt.Array.map(exposedVariable => {
+      let gqlType =
+        exposedVariable.upstreamType->GraphQLJs.parseType->GraphQLJs.typeFromAST(schema, _)
+
+      let typeScriptType = gqlType->Belt.Option.mapWithDefault("any", gqlType => {
+        schema->GraphQLJs.Mock.typeScriptForGraphQLType(gqlType)
+      })
+
+      j`"${exposedVariable.exposedName}": ${typeScriptType}`
+    })
+    ->Js.Array2.joinWith(",")
+    ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags(",", ~flags="g"), ",\n\t")
+
+  let chainFragmentsDoc =
+    chain.blocks
+    ->Belt.Array.keepMap(block => {
+      switch block.kind {
+      | Fragment => Some(block.body)
+      | _ => None
+      }
+    })
+    ->Js.Array2.joinWith("\n\n")
+    ->Js.String2.concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }")
+
+  let chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
+    "operationDoc": chainFragmentsDoc,
+  })
+
+  let returnType =
+    chain.requests
+    ->Belt.Array.map(request => {
+      let block = request.operation
+      let ast = block.body->GraphQLJs.parse
+      let definition = ast.definitions[0]
+
+      let typeScriptType =
+        schema->GraphQLJs.Mock.typeScriptForOperation(
+          definition,
+          ~fragmentDefinitions=chainFragmentDefinitions,
+        )
+
+      j`"${request.id}": ${typeScriptType}`
+    })
+    ->Js.Array2.joinWith(",")
+    ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags(",", ~flags="g"), ",\n\t")
+
+  {
+    functionName: javaScriptFunctionName(chain),
+    inputTypeName: makeInputTypeName(chain),
+    inputType: j`{${inputType}}`,
+    returnType: j`Promise<{${returnType}}>`,
+    returnTypeName: makeReturnTypeName(chain),
   }
 }

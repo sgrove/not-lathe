@@ -77,6 +77,10 @@ function mockOperationDocVariables(prim, prim$1) {
   return GraphQLMockInputTypeJs.mockOperationDocVariables(prim, prim$1);
 }
 
+function typeScriptForGraphQLType(prim, prim$1) {
+  return GraphQLMockInputTypeJs.typeScriptForGraphQLType(prim, prim$1);
+}
+
 function typeScriptForOperation(prim, prim$1, prim$2) {
   return GraphQLMockInputTypeJs.typeScriptForOperation(prim, prim$1, prim$2);
 }
@@ -101,6 +105,7 @@ var Mock = {
   stripVariables: stripVariables,
   mockOperationVariables: mockOperationVariables,
   mockOperationDocVariables: mockOperationDocVariables,
+  typeScriptForGraphQLType: typeScriptForGraphQLType,
   typeScriptForOperation: typeScriptForOperation,
   typeScriptSignatureForOperations: typeScriptSignatureForOperations,
   typeScriptSignatureForOperationVariables: typeScriptSignatureForOperationVariables,

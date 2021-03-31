@@ -153,6 +153,29 @@ var activeTabStyle = {
 
 var inactiveTabStyle = {};
 
+function Comps$Modal(Props) {
+  var children = Props.children;
+  return React.createElement("div", {
+              className: "flex items-center justify-center absolute left-0 bottom-0 w-full h-full bg-gray-800 bg-opacity-60",
+              style: {
+                zIndex: "9999"
+              }
+            }, React.createElement("div", {
+                  className: "rounded-lg w-4/5 h-4/5",
+                  style: {
+                    backgroundColor: colors["gray-8"]
+                  }
+                }, React.createElement("div", {
+                      className: "flex flex-col p-1 h-full"
+                    }, React.createElement("div", {
+                          className: "flex h-full"
+                        }, children))));
+}
+
+var Modal = {
+  make: Comps$Modal
+};
+
 export {
   colors ,
   Header ,
@@ -161,6 +184,7 @@ export {
   Select ,
   activeTabStyle ,
   inactiveTabStyle ,
+  Modal ,
   
 }
 /* defaultStyle Not a pure module */

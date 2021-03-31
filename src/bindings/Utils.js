@@ -503,6 +503,17 @@ var $$Date = {
   timeAgo: timeAgo
 };
 
+var camelize = (function camelize(text) {
+    return text.replace(/^([A-Z])|[\s-_]+(\w)/g, function(match, p1, p2, offset) {
+        if (p2) return p2.toUpperCase();
+        return p1.toLowerCase();        
+    });
+});
+
+var $$String$1 = {
+  camelize: camelize
+};
+
 export {
   capitalizeFirstLetter ,
   distinctStrings ,
@@ -512,6 +523,7 @@ export {
   windowLocationOrigin ,
   windowScrollY ,
   $$Date ,
+  $$String$1 as $$String,
   
 }
 /* services Not a pure module */
