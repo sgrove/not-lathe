@@ -3473,7 +3473,7 @@ function ChainEditor$Main(Props) {
                                 }));
                           var nullablePrintedType = sourceType.replace(new RegExp("!", "g"), "");
                           var defaultCoercerName = nullablePrintedType + "To" + Belt_Option.getWithDefault(nullableTargetVariableType, "Unknown");
-                          var coercerName = name !== undefined ? name : Belt_Option.getWithDefault(prompt("Coercer function name: ", defaultCoercerName), defaultCoercerName);
+                          var coercerName = name !== undefined ? name : Belt_Option.getWithDefault(Caml_option.nullable_to_opt(prompt("Coercer function name: ", defaultCoercerName)), defaultCoercerName);
                           var coercerExists = coercerName === "INTERNAL_PASSTHROUGH" ? true : Belt_Option.isSome(Belt_Option.flatMap(parsed, (function (parsed) {
                                         return TypeScript.findFnPos(parsed, coercerName);
                                       })));

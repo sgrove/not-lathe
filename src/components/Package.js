@@ -10,6 +10,7 @@ import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
 import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
+import * as Caml_format from "bs-platform/lib/es6/caml_format.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as ChainEditor from "./ChainEditor.js";
 import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
@@ -108,11 +109,6 @@ function diffPackage(schema, a, b) {
                         }
                       }));
         }));
-  console.log("Diff a / b: ", a, b, [
-        addedFunctions,
-        removedFunctions,
-        changedFunctions
-      ]);
   if (addedFunctions.length === 0 && removedFunctions.length === 0 && changedFunctions.length === 0) {
     return ;
   }
@@ -194,7 +190,9 @@ function computeNewVersion($$package, diff) {
   return {
           name: $$package.name,
           version: newVersion,
-          chains: $$package.chains
+          chains: $$package.chains,
+          traceRetentionPolicy: $$package.traceRetentionPolicy,
+          traceRetentionDays: $$package.traceRetentionDays
         };
 }
 
@@ -206,6 +204,7 @@ function Package$PackageEditor(Props) {
   var onInspectChain = Props.onInspectChain;
   var onEditChain = Props.onEditChain;
   var onDeleteChain = Props.onDeleteChain;
+  var onEditPackage = Props.onEditPackage;
   var match = React.useState(function () {
         return {
                 view: /* Nothing */0
@@ -215,6 +214,194 @@ function Package$PackageEditor(Props) {
   var chains = $$package.chains;
   var diff = diffPackage(schema, initialPackage, $$package);
   var diff$1 = match[0].view;
+  var tmp;
+  if (typeof diff$1 === "number") {
+    if (diff$1 !== 0) {
+      var match$1 = $$package.traceRetentionPolicy;
+      tmp = React.createElement(Comps.Modal.make, {
+            children: React.createElement("div", {
+                  className: "flex w-full flex-col"
+                }, React.createElement("div", {
+                      className: "flex flex-grow flex-row h-full"
+                    }, React.createElement("table", {
+                          className: ""
+                        }, React.createElement("thead", undefined, React.createElement("tr", {
+                                  className: "text-gray-600 text-sm leading-normal",
+                                  style: {
+                                    color: Comps.colors["gray-3"]
+                                  }
+                                }, React.createElement("th", {
+                                      className: "py-3 px-6 text-left"
+                                    }, "Name"), React.createElement("th", {
+                                      className: "py-3 px-6 text-left"
+                                    }, "Setting"))), React.createElement("tbody", {
+                              className: ""
+                            }, React.createElement("tr", {
+                                  className: "rounded-md border-4 border-gray-900 ",
+                                  style: {
+                                    backgroundColor: Comps.colors["gray-15"],
+                                    color: Comps.colors["gray-6"],
+                                    marginTop: "5px"
+                                  }
+                                }, React.createElement("td", {
+                                      className: "py-3 px-6 text-left whitespace-nowrap"
+                                    }, React.createElement("div", {
+                                          className: "flex items-center"
+                                        }, React.createElement("span", {
+                                              className: "font-medium cursor-pointer mr-2"
+                                            }, "Trace Retention Policy: "))), React.createElement("td", {
+                                      className: "py-3 px-6 "
+                                    }, React.createElement(Comps.Select.make, {
+                                          children: null,
+                                          onChange: (function ($$event) {
+                                              var value = $$event.target.value;
+                                              var policy;
+                                              switch (value) {
+                                                case "all" :
+                                                    policy = "all";
+                                                    break;
+                                                case "never" :
+                                                    policy = "never";
+                                                    break;
+                                                case "onlyErrors" :
+                                                    policy = "onlyErrors";
+                                                    break;
+                                                default:
+                                                  policy = undefined;
+                                              }
+                                              return Belt_Option.forEach(policy, (function (policy) {
+                                                            return Curry._1(onEditPackage, {
+                                                                        name: $$package.name,
+                                                                        version: $$package.version,
+                                                                        chains: $$package.chains,
+                                                                        traceRetentionPolicy: policy,
+                                                                        traceRetentionDays: $$package.traceRetentionDays
+                                                                      });
+                                                          }));
+                                            }),
+                                          value: match$1 === "all" ? "all" : (
+                                              match$1 === "never" ? "never" : "onlyErrors"
+                                            )
+                                        }, React.createElement("option", {
+                                              value: "all"
+                                            }, "Keep trace for every invocation"), React.createElement("option", {
+                                              value: "onlyErrors"
+                                            }, "Only keep trace for invocations with errors"), React.createElement("option", {
+                                              value: "never"
+                                            }, "Never retain any trace data")))), React.createElement("tr", {
+                                  className: "rounded-md border-4 border-gray-900 ",
+                                  style: {
+                                    backgroundColor: Comps.colors["gray-15"],
+                                    color: Comps.colors["gray-6"],
+                                    marginTop: "5px"
+                                  }
+                                }, React.createElement("td", {
+                                      className: "py-3 px-6 text-left whitespace-nowrap"
+                                    }, React.createElement("div", {
+                                          className: "flex items-center"
+                                        }, React.createElement("span", {
+                                              className: "font-medium cursor-pointer mr-2"
+                                            }, "Days to retain trace data: "))), React.createElement("td", {
+                                      className: "py-3 px-6 "
+                                    }, React.createElement("input", {
+                                          className: "bg-transparent border-none px-2 leading-tight outline-none text-white",
+                                          disabled: $$package.traceRetentionPolicy === "never",
+                                          placeholder: "days",
+                                          type: "number",
+                                          value: String($$package.traceRetentionDays),
+                                          onChange: (function ($$event) {
+                                              var value = $$event.target.value;
+                                              try {
+                                                var number = Caml_format.caml_int_of_string(value);
+                                                return Curry._1(onEditPackage, {
+                                                            name: $$package.name,
+                                                            version: $$package.version,
+                                                            chains: $$package.chains,
+                                                            traceRetentionPolicy: $$package.traceRetentionPolicy,
+                                                            traceRetentionDays: number
+                                                          });
+                                              }
+                                              catch (exn){
+                                                return ;
+                                              }
+                                            })
+                                        })))))), React.createElement("div", {
+                      className: "w-full ml-auto flex"
+                    }, React.createElement(Comps.Button.make, {
+                          onClick: (function (param) {
+                              return Curry._1(setState, (function (oldState) {
+                                            return {
+                                                    view: /* Nothing */0
+                                                  };
+                                          }));
+                            }),
+                          className: "flex-grow",
+                          children: "Close"
+                        })))
+          });
+    } else {
+      tmp = null;
+    }
+  } else {
+    tmp = React.createElement(Comps.Modal.make, {
+          children: React.createElement("div", {
+                className: "w-full h-full shadow-md rounded my-6 text-white flex flex-col"
+              }, React.createElement("div", {
+                    className: "overflow-y-scroll flex flex-col"
+                  }, React.createElement("h1", {
+                        className: "m-5 flex-1 font-bold block",
+                        style: {
+                          color: Comps.colors["gray-6"]
+                        }
+                      }, "Publish package changes: ", React.createElement("span", {
+                            className: "mx-2"
+                          }, React.createElement("code", undefined, stringVersion(initialPackage))), React.createElement("span", {
+                            className: "mx-2"
+                          }, " => "), React.createElement("span", {
+                            className: "mx-2"
+                          }, React.createElement("code", undefined, stringVersion(computeNewVersion($$package, diff$1._0))))), React.createElement("table", {
+                        className: "min-w-max h-full w-full table-auto"
+                      }, React.createElement("thead", undefined, React.createElement("tr", {
+                                className: "text-gray-600 text-sm leading-normal",
+                                style: {
+                                  color: Comps.colors["gray-3"]
+                                }
+                              }, React.createElement("th", {
+                                    className: "py-3 px-6 text-left"
+                                  }, "Function"), React.createElement("th", {
+                                    className: "py-3 px-6 text-left"
+                                  }, "Input"), React.createElement("th", {
+                                    className: "py-3 px-6 text-center"
+                                  }, "Return"))), React.createElement("tbody", {
+                            className: "text-gray-600 text-sm font-light"
+                          }, Belt_Array.map($$package.chains, (function (chain) {
+                                  var typeDef = Chain.typeScriptDefinition(schema, chain);
+                                  return React.createElement("tr", {
+                                              className: "rounded-md border-4 border-gray-900 text-gray-50 hover:bg-gray-400"
+                                            }, React.createElement("td", undefined, typeDef.functionName), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
+                                                      children: typeDef.inputType
+                                                    })), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
+                                                      children: typeDef.returnType
+                                                    })));
+                                }))))), React.createElement("div", {
+                    className: "w-full ml-auto flex"
+                  }, React.createElement(Comps.Button.make, {
+                        className: "flex-grow",
+                        children: "Save",
+                        disabled: true
+                      }), React.createElement(Comps.Button.make, {
+                        onClick: (function (param) {
+                            return Curry._1(setState, (function (oldState) {
+                                          return {
+                                                  view: /* Nothing */0
+                                                };
+                                        }));
+                          }),
+                        className: "flex-grow",
+                        children: "Cancel"
+                      })))
+        });
+  }
   return React.createElement("div", {
               className: "w-full m-2 h-full bg-white flex items-center justify-center font-sans overflow-hidden",
               style: {
@@ -235,14 +422,11 @@ function Package$PackageEditor(Props) {
                           className: "m-2"
                         }, React.createElement(Comps.Button.make, {
                               onClick: (function (param) {
-                                  var other = Belt_Option.mapWithDefault(prompt("New chain name", "new_chain"), "", (function (name) {
-                                          return name.trim();
-                                        }));
-                                  if (other === "") {
-                                    return ;
-                                  } else {
-                                    return Curry._1(onCreateChain, Chain.makeEmptyChain(other));
-                                  }
+                                  return Curry._1(setState, (function (oldState) {
+                                                return {
+                                                        view: /* Settings */1
+                                                      };
+                                              }));
                                 }),
                               children: null
                             }, React.createElement(Icons.Gears.make, {
@@ -272,7 +456,7 @@ function Package$PackageEditor(Props) {
                           className: "m-2"
                         }, React.createElement(Comps.Button.make, {
                               onClick: (function (param) {
-                                  var other = Belt_Option.mapWithDefault(prompt("New chain name", "new_chain"), "", (function (name) {
+                                  var other = Belt_Option.mapWithDefault(Caml_option.nullable_to_opt(prompt("New chain name", "newChain")), "", (function (name) {
                                           return name.trim();
                                         }));
                                   if (other === "") {
@@ -344,7 +528,7 @@ function Package$PackageEditor(Props) {
                                                       }, React.createElement("span", {
                                                             className: "font-medium cursor-pointer mr-2",
                                                             onClick: (function (param) {
-                                                                return Curry._1(onInspectChain, chain);
+                                                                return Curry._2(onEditChain, chain, undefined);
                                                               })
                                                           }, chain.name), React.createElement("div", {
                                                             className: "flex items-center"
@@ -410,68 +594,7 @@ function Package$PackageEditor(Props) {
                                                           }, React.createElement(Icons.Trash.make, {
                                                                 color: Comps.colors["gray-4"]
                                                               })))));
-                                  })))))), typeof diff$1 === "number" ? (
-                diff$1 !== 0 ? React.createElement(Comps.Modal.make, {
-                        children: "Settings"
-                      }) : null
-              ) : React.createElement(Comps.Modal.make, {
-                    children: React.createElement("div", {
-                          className: "w-full h-full shadow-md rounded my-6 text-white flex flex-col"
-                        }, React.createElement("div", {
-                              className: "overflow-y-scroll flex flex-col"
-                            }, React.createElement("h1", {
-                                  className: "m-5 flex-1 font-bold block",
-                                  style: {
-                                    color: Comps.colors["gray-6"]
-                                  }
-                                }, "Publish package changes: ", React.createElement("span", {
-                                      className: "mx-2"
-                                    }, React.createElement("code", undefined, stringVersion(initialPackage))), React.createElement("span", {
-                                      className: "mx-2"
-                                    }, " => "), React.createElement("span", {
-                                      className: "mx-2"
-                                    }, React.createElement("code", undefined, stringVersion(computeNewVersion($$package, diff$1._0))))), React.createElement("table", {
-                                  className: "min-w-max h-full w-full table-auto"
-                                }, React.createElement("thead", undefined, React.createElement("tr", {
-                                          className: "text-gray-600 text-sm leading-normal",
-                                          style: {
-                                            color: Comps.colors["gray-3"]
-                                          }
-                                        }, React.createElement("th", {
-                                              className: "py-3 px-6 text-left"
-                                            }, "Function"), React.createElement("th", {
-                                              className: "py-3 px-6 text-left"
-                                            }, "Input"), React.createElement("th", {
-                                              className: "py-3 px-6 text-center"
-                                            }, "Return"))), React.createElement("tbody", {
-                                      className: "text-gray-600 text-sm font-light"
-                                    }, Belt_Array.map($$package.chains, (function (chain) {
-                                            var typeDef = Chain.typeScriptDefinition(schema, chain);
-                                            return React.createElement("tr", {
-                                                        className: "rounded-md border-4 border-gray-900 text-gray-50 hover:bg-gray-400"
-                                                      }, React.createElement("td", undefined, typeDef.functionName), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
-                                                                children: typeDef.inputType
-                                                              })), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
-                                                                children: typeDef.returnType
-                                                              })));
-                                          }))))), React.createElement("div", {
-                              className: "w-full ml-auto flex"
-                            }, React.createElement(Comps.Button.make, {
-                                  className: "flex-grow",
-                                  children: "Save",
-                                  disabled: true
-                                }), React.createElement(Comps.Button.make, {
-                                  onClick: (function (param) {
-                                      return Curry._1(setState, (function (oldState) {
-                                                    return {
-                                                            view: /* Nothing */0
-                                                          };
-                                                  }));
-                                    }),
-                                  className: "flex-grow",
-                                  children: "Cancel"
-                                })))
-                  }));
+                                  })))))), tmp);
 }
 
 var PackageEditor = {
@@ -601,7 +724,9 @@ function Package$ChainLogs(Props) {
                 break;
             
           }
-          var className = category === state.filter ? " bg-gray-200" : "";
+          var style = category === state.filter ? ({
+                backgroundColor: Comps.colors["gray-16"]
+              }) : ({});
           var filterFn$1 = filterFn(category);
           var categoryCount = Belt_Array.reduce(traces, 0, (function (acc, next) {
                   if (Curry._1(filterFn$1, next)) {
@@ -613,7 +738,8 @@ function Package$ChainLogs(Props) {
           return React.createElement("div", {
                       className: "mt-3"
                     }, React.createElement("div", {
-                          className: "-mx-3 inline-block py-1 px-3 text-sm font-medium flex items-center hover:bg-gray-200 cursor-pointer justify-between rounded-lg" + className,
+                          className: "-mx-3 inline-block py-1 px-3 text-sm font-medium flex items-center hover:bg-gray-700 cursor-pointer justify-between rounded-lg",
+                          style: style,
                           onClick: (function (param) {
                               return Curry._1(setState, (function (oldState) {
                                             return {
@@ -624,15 +750,21 @@ function Package$ChainLogs(Props) {
                                           }));
                             })
                         }, React.createElement("span", undefined, React.createElement("span", {
-                                  className: "text-gray-900"
+                                  style: {
+                                    color: Comps.colors["gray-6"]
+                                  }
                                 }, name)), categoryCount > 0 ? React.createElement("span", {
-                                className: "inline-block px-4 py-1 text-center py-1 leading-none text-xs font-semibold text-gray-700 bg-gray-300 rounded-full"
+                                className: "inline-block px-2 py-1 text-center py-1 leading-none text-xs font-semibold text-gray-700 rounded-full",
+                                style: {
+                                  backgroundColor: Comps.colors["gray-17"],
+                                  color: Comps.colors["gray-6"]
+                                }
                               }, String(categoryCount)) : null));
         }));
   var filteredTracesList = Belt_Array.map(Belt_SortArray.stableSortBy(filteredTraces, (function (a, b) {
               return new Date(b.createdAt) - new Date(a.createdAt) | 0;
             })), (function (trace) {
-          var className = Caml_obj.caml_equal(Caml_option.some(trace.trace.id), state.inspected) ? "bg-gray-300" : "";
+          var className = Caml_obj.caml_equal(Caml_option.some(trace.trace.id), state.inspected) ? "bg-gray-600" : "";
           var hasErrors = Belt_Array.some(trace.trace.data.oneGraph.executeChain.results, (function (result) {
                   try {
                     return Belt_Array.some(result.result, (function (result) {
@@ -644,7 +776,11 @@ function Package$ChainLogs(Props) {
                   }
                 }));
           return React.createElement("button", {
-                      className: "block bg-white w-full text-left py-3 border-t hover:bg-gray-300 " + className,
+                      className: "block w-full text-left py-2 border-b hover:bg-gray-700 " + className,
+                      style: {
+                        borderColor: Comps.colors["gray-1"],
+                        color: Comps.colors["gray-6"]
+                      },
                       onClick: (function ($$event) {
                           $$event.stopPropagation();
                           return Curry._1(setState, (function (oldState) {
@@ -656,16 +792,19 @@ function Package$ChainLogs(Props) {
                                       }));
                         })
                     }, React.createElement("div", {
-                          className: "px-4 flex justify-between"
+                          className: "px-2 flex justify-between"
                         }, React.createElement("span", {
-                              className: "text-xs font-semibold text-gray-900"
+                              className: "text-xs font-semibold"
                             }, trace.trace.id.toString())), React.createElement("div", {
-                          className: "px-4 flex justify-between"
+                          className: "px-2 flex justify-between items-center"
                         }, React.createElement("span", {
-                              className: "text-xs font-semibold text-gray-600"
-                            }, Utils.$$Date.timeAgo(new Date(trace.createdAt)))), React.createElement("span", {
-                          className: "text-xs font-semibold text-gray-900 px-4 py-2"
-                        }, hasErrors ? errored(undefined) : noErrors(undefined)));
+                              className: "text-xs font-semibold",
+                              style: {
+                                color: Comps.colors["gray-3"]
+                              }
+                            }, Utils.$$Date.timeAgo(new Date(trace.createdAt))), React.createElement("span", {
+                              className: "text-xs font-semibold text-gray-900 px-4 py-2"
+                            }, hasErrors ? errored(undefined) : noErrors(undefined))));
         }));
   var noSelectedTrace = React.createElement("div", {
         className: "m-2 w-full text-center flex flex-1 flex-grow flex-col justify-items-center justify-center items-center justify-items align-middle",
@@ -693,9 +832,7 @@ function Package$ChainLogs(Props) {
                     return false;
                   }
                 }));
-          console.log("trace->apiMetrics: ", trace);
           var apiMetrics = Belt_Option.flatMap(trace.trace.extensions, (function (extensions) {
-                  console.log("Extensions: ", extensions);
                   return Belt_Option.flatMap(extensions.metrics, (function (metrics) {
                                 return metrics.api;
                               }));
@@ -706,6 +843,8 @@ function Package$ChainLogs(Props) {
                     return m.totalRequestMs;
                   })) > 1500 ? slow(undefined) : null
           ];
+          var variables = Belt_Option.getWithDefault(trace.variables, JSON.parse("{}"));
+          var variableEntries = Js_dict.entries(variables);
           var avoidedReqs = Belt_Option.mapWithDefault(apiMetrics, 0, (function (m) {
                   return m.avoidedRequestCount;
                 }));
@@ -716,97 +855,132 @@ function Package$ChainLogs(Props) {
                         })), (function (api) {
                       return api.byHost;
                     })), [], Js_dict.entries);
-          var variables = Belt_Option.getWithDefault(trace.variables, JSON.parse("{}"));
           return React.createElement(React.Fragment, undefined, React.createElement("div", {
                           className: "shadow-lg ml-2 mr-2 "
                         }, React.createElement("div", {
                               className: "pb-4"
                             }, React.createElement("div", {
-                                  className: "block bg-white py-3 border-t"
+                                  className: "block py-3 border-t"
                                 }, React.createElement("div", {
-                                      className: "px-4 py-2 flex  justify-between"
-                                    }, React.createElement("span", undefined, "Trace: ", React.createElement("code", undefined, trace.trace.id.toString())), React.createElement("div", undefined, badges, React.createElement(Comps.Button.make, {
+                                      className: "px-4 py-2 flex justify-between"
+                                    }, React.createElement("div", undefined, React.createElement("span", {
+                                              className: "mr-2",
+                                              style: {
+                                                color: Comps.colors["gray-6"]
+                                              }
+                                            }, React.createElement("code", undefined, trace.trace.id.toString())), badges), React.createElement("div", undefined, React.createElement(Comps.Button.make, {
                                               onClick: (function (param) {
                                                   return Curry._2(onEditChain, chain, trace);
                                                 }),
                                               children: "Use as mock"
-                                            })))), React.createElement(Package$CollapsableTable, {
-                                  className: "min-w-full leading-normal",
-                                  head: React.createElement("tr", undefined, React.createElement("th", {
-                                            className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                                            })))), React.createElement("div", {
+                                  className: "w-full m-4",
+                                  style: {
+                                    color: Comps.colors["gray-6"]
+                                  }
+                                }, "General"), React.createElement(Package$CollapsableTable, {
+                                  className: "min-w-full leading-normal text-xs",
+                                  head: React.createElement("tr", {
+                                        className: "text-left mb-2"
+                                      }, React.createElement("th", {
+                                            className: "px-5 py-3 font-semibold tracking-wider",
+                                            style: {
+                                              color: Comps.colors["gray-3"]
+                                            }
                                           }, "Host"), React.createElement("th", {
-                                            className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                                            className: "px-5 py-3 font-semibold tracking-wider",
+                                            style: {
+                                              color: Comps.colors["gray-3"]
+                                            }
                                           }, "Request Count"), React.createElement("th", {
-                                            className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                                            className: "px-5 py-3 font-semibold tracking-wider",
+                                            style: {
+                                              color: Comps.colors["gray-3"]
+                                            }
                                           }, "Total ms / host")),
                                   children: null
-                                }, React.createElement("tr", undefined, React.createElement("td", {
-                                          className: "px-5 py-5 border-b border-gray-200 bg-white text-sm w-2/5"
+                                }, React.createElement("tr", {
+                                      className: "rounded-sm",
+                                      style: {
+                                        backgroundColor: Comps.colors["gray-15"],
+                                        color: Comps.colors["gray-6"]
+                                      }
+                                    }, React.createElement("td", {
+                                          className: "px-5 py-5 text-sm w-2/5"
                                         }, React.createElement("div", {
                                               className: "flex items-center"
                                             }, React.createElement("code", undefined, "All hosts"))), React.createElement("td", {
-                                          className: "px-5 py-5 border-b border-gray-200 bg-white text-sm"
+                                          className: "px-5 py-5 text-sm w-2/5"
                                         }, React.createElement("p", {
-                                              className: "text-gray-900 whitespace-no-wrap text-center"
+                                              className: "whitespace-no-wrap"
                                             }, String(Belt_Option.mapWithDefault(apiMetrics, 0, (function (m) {
                                                         return m.requestCount;
                                                       }))) + " reqs", avoidedReqs !== 0 ? "(" + String(avoidedReqs) + " avoided)" : null)), React.createElement("td", {
-                                          className: "px-5 py-5 border-b border-gray-200 bg-white text-sm"
+                                          className: "px-5 py-5 text-sm w-2/5"
                                         }, React.createElement("p", {
-                                              className: "text-gray-900 whitespace-no-wrap text-center"
+                                              className: "whitespace-no-wrap"
                                             }, String(Belt_Option.mapWithDefault(apiMetrics, 0, (function (m) {
                                                         return m.totalRequestMs;
                                                       }))) + "ms total"))), Belt_Array.map(byHost, (function (param) {
                                         var metrics = param[1];
-                                        return React.createElement("tr", undefined, React.createElement("td", {
-                                                        className: "px-5 py-5 border-b border-gray-200 bg-white text-sm w-2/5"
+                                        return React.createElement("tr", {
+                                                    className: "rounded-sm",
+                                                    style: {
+                                                      backgroundColor: Comps.colors["gray-15"],
+                                                      color: Comps.colors["gray-6"]
+                                                    }
+                                                  }, React.createElement("td", {
+                                                        className: "px-5 py-5 text-sm w-2/5"
                                                       }, React.createElement("div", {
                                                             className: "flex items-center"
                                                           }, React.createElement("code", undefined, param[0] + ": "))), React.createElement("td", {
-                                                        className: "px-5 py-5 border-b border-gray-200 bg-white text-sm"
+                                                        className: "px-5 py-5 text-sm w-2/5"
                                                       }, React.createElement("p", {
-                                                            className: "text-gray-900 whitespace-no-wrap text-center"
+                                                            className: "whitespace-no-wrap"
                                                           }, String(metrics.requestCount) + " reqs")), React.createElement("td", {
-                                                        className: "px-5 py-5 border-b border-gray-200 bg-white text-sm"
+                                                        className: "px-5 py-5 text-sm w-2/5"
                                                       }, React.createElement("p", {
-                                                            className: "text-gray-900 whitespace-no-wrap text-center"
+                                                            className: "whitespace-no-wrap"
                                                           }, String(metrics.totalRequestMs) + "ms total")));
                                       }))))), React.createElement("div", {
                           className: "shadow-lg ml-2 mr-2 "
                         }, React.createElement("div", {
                               className: "pb-4"
                             }, React.createElement("div", {
-                                  className: "block bg-white border-t"
+                                  className: "block",
+                                  style: {
+                                    color: Comps.colors["gray-6"]
+                                  }
                                 }, React.createElement("div", {
-                                      className: "px-4 py-2 flex  justify-between"
-                                    }, React.createElement("span", undefined, "Trace Variables "))), React.createElement(Package$CollapsableTable, {
-                                  className: "min-w-full leading-normal",
-                                  head: React.createElement("tr", undefined, React.createElement("th", {
-                                            className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                                          }, "Name"), React.createElement("th", {
-                                            className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                                          }, "value")),
-                                  children: Belt_Array.map(Js_dict.entries(variables), (function (param) {
-                                          return React.createElement("tr", undefined, React.createElement("td", {
-                                                          className: "px-5 py-5 border-b border-gray-200 bg-white text-sm w-2/5"
-                                                        }, React.createElement("div", {
-                                                              className: "flex items-center"
-                                                            }, React.createElement("code", undefined, param[0]))), React.createElement("td", {
-                                                          className: "px-5 py-5 border-b border-gray-200 bg-white text-sm overflow-x-scroll overflow-y-scroll"
-                                                        }, React.createElement("pre", {
-                                                              className: "text-gray-900 whitespace-no-wrap text-left"
-                                                            }, JSON.stringify(param[1], null, 2))));
-                                        }))
-                                }))), React.createElement("div", undefined, Belt_Array.map(trace.trace.data.oneGraph.executeChain.results, (function (result) {
+                                      className: "px-4 py-2 flex justify-between"
+                                    }, variableEntries.length !== 0 ? React.createElement("span", undefined, "Trace Variables ") : React.createElement("span", undefined, "No variables in trace"))), variableEntries.length !== 0 ? React.createElement(Package$CollapsableTable, {
+                                    className: "min-w-full leading-normal",
+                                    head: React.createElement("tr", {
+                                          className: "text-left mb-2"
+                                        }, React.createElement("th", {
+                                              className: "px-5 py-3 font-semibold tracking-wider",
+                                              style: {
+                                                color: Comps.colors["gray-3"]
+                                              }
+                                            }, "Name"), React.createElement("th", {
+                                              className: "px-5 py-3 font-semibold tracking-wider",
+                                              style: {
+                                                color: Comps.colors["gray-3"]
+                                              }
+                                            }, "Value")),
+                                    children: Belt_Array.map(variableEntries, (function (param) {
+                                            return React.createElement("tr", undefined, React.createElement("td", {
+                                                            className: "px-5 py-5 border-b border-gray-200 bg-white text-sm w-2/5"
+                                                          }, React.createElement("div", {
+                                                                className: "flex items-center"
+                                                              }, React.createElement("code", undefined, param[0]))), React.createElement("td", {
+                                                            className: "px-5 py-5 border-b border-gray-200 bg-white text-sm overflow-x-scroll overflow-y-scroll"
+                                                          }, React.createElement("pre", {
+                                                                className: "text-gray-900 whitespace-no-wrap text-left"
+                                                              }, JSON.stringify(param[1], null, 2))));
+                                          }))
+                                  }) : null)), React.createElement("div", undefined, Belt_Array.map(trace.trace.data.oneGraph.executeChain.results, (function (result) {
                                 var request = result.request;
-                                try {
-                                  Belt_Array.some(result.result, (function (result) {
-                                          return Belt_Option.isSome(Caml_option.nullable_to_opt(result.errors));
-                                        }));
-                                }
-                                catch (exn){
-                                  
-                                }
                                 var chainRequest = Belt_Array.getBy(chain.requests, (function (chainRequest) {
                                         return request.id === chainRequest.id;
                                       }));
@@ -816,8 +990,8 @@ function Package$ChainLogs(Props) {
                                                                         var friendlyServiceName = param[1];
                                                                         return React.createElement("img", {
                                                                                     key: friendlyServiceName,
-                                                                                    className: " h-6 w-6 rounded-full object-cover transform hover:scale-125 " + (
-                                                                                      idx > 0 ? "-m-1" : ""
+                                                                                    className: " h-6 w-6 rounded-full object-cover transform hover:scale-125 inline-block border-2 border-gray-300 " + (
+                                                                                      idx > 0 ? "-m-1" : "ml-2"
                                                                                     ),
                                                                                     title: friendlyServiceName,
                                                                                     alt: friendlyServiceName,
@@ -839,32 +1013,58 @@ function Package$ChainLogs(Props) {
                                 var argumentDependencies = result.argumentDependencies;
                                 var argumentDependenciesTable = argumentDependencies.length === 0 ? null : React.createElement(Package$CollapsableTable, {
                                         className: "min-w-full leading-normal",
-                                        head: React.createElement("tr", undefined, React.createElement("th", {
-                                                  className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                                        head: React.createElement("tr", {
+                                              className: "text-left mb-2"
+                                            }, React.createElement("th", {
+                                                  className: "px-5 py tracking-wider font-normal",
+                                                  style: {
+                                                    color: Comps.colors["gray-3"]
+                                                  }
                                                 }, "Name / Status"), React.createElement("th", {
-                                                  className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                                                  className: "px-5 py tracking-wider font-normal",
+                                                  style: {
+                                                    color: Comps.colors["gray-3"]
+                                                  }
                                                 }, "Value"), React.createElement("th", {
-                                                  className: "px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                                                  className: "px-5 py tracking-wider font-normal",
+                                                  style: {
+                                                    color: Comps.colors["gray-3"]
+                                                  }
                                                 }, "Logs")),
                                         children: Belt_Array.map(argumentDependencies, (function (argumentDependency) {
-                                                var status = Belt_Option.mapWithDefault(Caml_option.nullable_to_opt(argumentDependency.error), noErrors(undefined), (function (param) {
+                                                var status = Belt_Option.mapWithDefault(Caml_option.nullable_to_opt(argumentDependency.error), null, (function (param) {
                                                         return errored(undefined);
                                                       }));
-                                                return React.createElement("tr", undefined, React.createElement("td", {
-                                                                className: "px-5 py-1 border-b border-gray-200 bg-white text-sm w-2/5"
+                                                return React.createElement("tr", {
+                                                            className: "border-b-2",
+                                                            style: {
+                                                              backgroundColor: Comps.colors["gray-15"],
+                                                              borderColor: Comps.colors["gray-8"],
+                                                              color: Comps.colors["gray-6"]
+                                                            }
+                                                          }, React.createElement("td", {
+                                                                className: "px-5 py-1 text-sm w-2/5"
                                                               }, status, " ", argumentDependency.name), React.createElement("td", {
-                                                                className: "px-5 py-1 border-b border-gray-200 bg-white text-sm w-2/5"
+                                                                className: "px-5 py-1 text-sm w-2/5"
                                                               }, React.createElement("pre", {
                                                                     className: "overflow-x-scroll w-full overflow-y-scroll"
-                                                                  }, Belt_Option.mapWithDefault(Belt_Array.get(argumentDependency.returnValues, 0), "", (function (value) {
+                                                                  }, Belt_Option.mapWithDefault(Belt_Array.get(Belt_Option.getWithDefault(Caml_option.nullable_to_opt(argumentDependency.returnValues), []), 0), "", (function (value) {
                                                                           return JSON.stringify(value, null, 2);
                                                                         })))), React.createElement("td", {
-                                                                className: "px-5 py-1 border-b border-gray-200 bg-white text-sm w-2/5"
+                                                                className: "px-5 py-1 text-sm w-2/5"
                                                               }, React.createElement("pre", {
                                                                     className: "overflow-x-scroll overflow-y-scroll"
                                                                   }, Belt_Array.map(argumentDependency.logs, (function (output) {
-                                                                            return JSON.stringify(output, null, 2);
-                                                                          })).join("\n"))));
+                                                                          var match = output.level;
+                                                                          var color = match === "warn" ? Comps.colors.yellow : (
+                                                                              match === "error" ? Comps.colors.red : Comps.colors["gray-6"]
+                                                                            );
+                                                                          return React.createElement("span", {
+                                                                                      style: {
+                                                                                        color: color
+                                                                                      }
+                                                                                    }, JSON.stringify(output.body));
+                                                                        })))));
                                               }))
                                       });
                                 var badges = [
@@ -872,29 +1072,42 @@ function Package$ChainLogs(Props) {
                                   slowRequest ? slow(undefined) : null
                                 ];
                                 return React.createElement("div", {
-                                            className: "shadow-lg pt-4 ml-2 mr-2 rounded-lg"
+                                            className: "shadow-lg ml-2 mr-2 rounded-lg border-t",
+                                            style: {
+                                              borderColor: Comps.colors["gray-1"]
+                                            }
                                           }, React.createElement("div", {
-                                                className: "block bg-white py-3 border-t pb-4"
+                                                className: "block py-3 pb-4"
                                               }, React.createElement("div", {
-                                                    className: "px-4 py-2 flex  justify-between"
-                                                  }, React.createElement("span", {
-                                                        className: "text-sm font-semibold text-gray-900"
-                                                      }, request.id), React.createElement("div", {
+                                                    className: "px-4 py-2 flex justify-between",
+                                                    style: {
+                                                      color: Comps.colors["gray-6"]
+                                                    }
+                                                  }, React.createElement("div", undefined, React.createElement("span", {
+                                                            className: "text-sm  mr-2"
+                                                          }, request.id), badges, serviceImages), React.createElement("div", {
                                                         className: "flex"
-                                                      }, badges, React.createElement("span", {
-                                                            className: "px-4 text-sm font-semibold text-gray-600"
-                                                          }, String(fakeRequestLength) + "ms"), serviceImages)), argumentDependenciesTable, React.createElement("div", {
+                                                      }, React.createElement("span", {
+                                                            className: "px-4 text-sm  ",
+                                                            style: {
+                                                              borderColor: Comps.colors["gray-6"]
+                                                            }
+                                                          }, String(fakeRequestLength) + "ms"))), argumentDependenciesTable, React.createElement("div", {
                                                     className: "px-4 py-2 text-sm font-semibold text-gray-700"
                                                   }, Belt_Array.map(result.result, (function (result) {
                                                           return React.createElement(ReactJsonView, {
                                                                       src: Belt_Option.getWithDefault((result == null) ? undefined : Caml_option.some(result), {}),
                                                                       name: request.id,
+                                                                      theme: "monokai",
                                                                       collapsed: true,
                                                                       displayDataTypes: false
                                                                     });
                                                         })))));
                               })), React.createElement("div", {
-                              className: "w-full m-4"
+                              className: "w-full m-4",
+                              style: {
+                                color: Comps.colors["gray-6"]
+                              }
                             }, "Raw API Requests"), Belt_Array.map(Belt_Option.getWithDefault(Belt_Option.flatMap(trace.trace.extensions, (function (extensions) {
                                         return extensions.apiRequests;
                                       })), []), (function (apiRequest) {
@@ -902,14 +1115,19 @@ function Package$ChainLogs(Props) {
                                 return React.createElement("div", {
                                             className: "shadow-lg pt-4 ml-2 mr-2 rounded-lg"
                                           }, React.createElement("div", {
-                                                className: "block bg-white py-3 border-t pb-4"
+                                                className: "block py-3 border-t pb-4",
+                                                style: {
+                                                  backgroundColor: Comps.colors["gray-15"],
+                                                  color: Comps.colors["gray-6"]
+                                                }
                                               }, React.createElement("div", {
-                                                    className: "px-4 py-2 flex  justify-between"
+                                                    className: "px-4 py-2 flex justify-between"
                                                   }, React.createElement("span", {
-                                                        className: "inline-block  text-sm font-semibold text-gray-900 truncate"
+                                                        className: "inline-block text-sm font-semibold truncate"
                                                       }, title)), React.createElement(ReactJsonView, {
                                                     src: apiRequest,
                                                     name: "apiCall",
+                                                    theme: "monokai",
                                                     collapsed: true,
                                                     displayDataTypes: false
                                                   })));
@@ -918,22 +1136,27 @@ function Package$ChainLogs(Props) {
   return React.createElement("div", {
               className: "flex flex-col",
               style: {
+                backgroundColor: Comps.colors["gray-8"],
                 height: "calc(100vh - 56px)"
               }
             }, React.createElement("div", {
                   className: "flex-1 flex overflow-x-hidden"
                 }, React.createElement("div", {
-                      className: "p-6 bg-gray-100 overflow-y-auto",
+                      className: "p-6 overflow-y-auto",
                       style: {
                         width: "256px"
                       }
                     }, React.createElement("nav", undefined, React.createElement("h2", {
-                              className: "font-semibold text-gray-600 uppercase tracking-wide"
+                              className: "font-semibold uppercase tracking-wide",
+                              style: {
+                                color: Comps.colors["gray-6"]
+                              }
                             }, "Logs"), categories)), React.createElement("main", {
-                      className: "flex flex-1 bg-gray-200 w-full"
+                      className: "flex flex-1 w-full"
                     }, React.createElement("div", {
-                          className: "overflow-y-auto overflow-hidden",
+                          className: "overflow-y-auto overflow-hidden border-l border-r p-6",
                           style: {
+                            borderColor: Comps.colors["gray-1"],
                             width: "334px"
                           },
                           onClick: (function (param) {
@@ -945,38 +1168,45 @@ function Package$ChainLogs(Props) {
                                                   };
                                           }));
                             })
-                        }, React.createElement("div", {
-                              className: "px-4 py-2 flex items-center justify-between border-l border-r border-b"
-                            }, React.createElement("button", {
-                                  className: "text-sm flex items-center font-semibold text-gray-600"
-                                }, React.createElement("span", undefined, "Traces")), React.createElement("button", {
-                                  className: "text-sm flex items-center font-semibold text-gray-600"
+                        }, React.createElement("h2", {
+                              className: "font-semibold uppercase tracking-wide",
+                              style: {
+                                color: Comps.colors["gray-6"]
+                              }
+                            }, "Traces"), React.createElement("div", {
+                              className: "flex items-center my-4 rounded-md inline-block",
+                              style: {
+                                backgroundColor: Comps.colors["gray-7"]
+                              }
+                            }, React.createElement("div", {
+                                  className: "pl-2"
+                                }, React.createElement(Icons.Search.make, {
+                                      color: Comps.colors["gray-4"]
+                                    })), React.createElement("input", {
+                                  className: "w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white",
+                                  id: "search",
+                                  style: {
+                                    backgroundColor: Comps.colors["gray-7"]
+                                  },
+                                  spellCheck: false,
+                                  placeholder: "Search",
+                                  type: "text",
+                                  onChange: (function ($$event) {
+                                      var value = $$event.target.value;
+                                      return Curry._1(setState, (function (oldState) {
+                                                    var other = value.trim();
+                                                    var tmp = other === "" ? undefined : other;
+                                                    return {
+                                                            inspected: oldState.inspected,
+                                                            filter: oldState.filter,
+                                                            search: tmp
+                                                          };
+                                                  }));
+                                    })
                                 })), React.createElement("div", {
                               className: "pb-4"
-                            }, React.createElement("div", {
-                                  className: "mt-3"
-                                }, React.createElement("span", {
-                                      className: "-mx-3 text-sm font-medium flex items-center justify-between bg-gray-200 rounded-lg"
-                                    }, React.createElement("input", {
-                                          className: "focus:bg-gray-200 focus:text-gray-900 focus:placeholder-gray-700 pl-4 pr-4 py-2 leading-none block w-full bg-gray-900 rounded-lg text-sm placeholder-gray-400 text-white focus:border-none focus:outline-none outline-none",
-                                          placeholder: "Search",
-                                          onChange: (function ($$event) {
-                                              var value = $$event.target.value;
-                                              return Curry._1(setState, (function (oldState) {
-                                                            var other = value.trim();
-                                                            var tmp = other === "" ? undefined : other;
-                                                            return {
-                                                                    inspected: oldState.inspected,
-                                                                    filter: oldState.filter,
-                                                                    search: tmp
-                                                                  };
-                                                          }));
-                                            })
-                                        }))), filteredTracesList)), React.createElement("div", {
-                          className: "flex flex-col flex-1 w-auto inline-block overflow-y-auto overflow-hidden bg-gray-100",
-                          style: {
-                            maxWidth: "850px"
-                          }
+                            }, filteredTracesList)), React.createElement("div", {
+                          className: "flex flex-col flex-1 w-auto inline-block overflow-y-auto overflow-hidden"
                         }, inspectedTrace))));
 }
 
@@ -997,10 +1227,6 @@ function Package(Props) {
           devJsonChain
         ];
         var initialChains$1 = Belt_Array.concat(Chain.loadFromLocalStorage(undefined), initialChains);
-        var chain = Belt_Option.getWithDefault(Belt_Array.get(initialChains$1, 0), Chain.makeEmptyChain("new_chain"));
-        Belt_Array.keep(Chain.Trace.loadFromLocalStorage(undefined), (function (trace) {
-                return Caml_obj.caml_equal(Caml_option.some(trace.chainId), chain.id);
-              }));
         var package_version = [
           1,
           0,
@@ -1009,7 +1235,9 @@ function Package(Props) {
         var $$package = {
           name: "bushido-fns",
           version: package_version,
-          chains: initialChains$1
+          chains: initialChains$1,
+          traceRetentionPolicy: "all",
+          traceRetentionDays: 5
         };
         return {
                 inspected: /* Package */0,
@@ -1050,7 +1278,9 @@ function Package(Props) {
                                     package: {
                                       name: init.name,
                                       version: init.version,
-                                      chains: Belt_Array.concat(oldState.package.chains, [newChain])
+                                      chains: Belt_Array.concat(oldState.package.chains, [newChain]),
+                                      traceRetentionPolicy: init.traceRetentionPolicy,
+                                      traceRetentionDays: init.traceRetentionDays
                                     },
                                     initialPackage: oldState.initialPackage
                                   };
@@ -1094,8 +1324,19 @@ function Package(Props) {
                                       version: init.version,
                                       chains: Belt_Array.keep(oldState.package.chains, (function (chain) {
                                               return Caml_obj.caml_notequal(chain.id, targetChain.id);
-                                            }))
+                                            })),
+                                      traceRetentionPolicy: init.traceRetentionPolicy,
+                                      traceRetentionDays: init.traceRetentionDays
                                     },
+                                    initialPackage: oldState.initialPackage
+                                  };
+                          }));
+            }),
+          onEditPackage: (function (newPackage) {
+              return Curry._1(setState, (function (oldState) {
+                            return {
+                                    inspected: oldState.inspected,
+                                    package: newPackage,
                                     initialPackage: oldState.initialPackage
                                   };
                           }));
@@ -1153,13 +1394,14 @@ function Package(Props) {
                                       name: init.name,
                                       version: init.version,
                                       chains: Belt_Array.map(oldState.package.chains, (function (oldChain) {
-                                              console.log("Looking to save chain: ", oldChain.id, newChain.id);
                                               if (Caml_obj.caml_equal(oldChain.id, newChain.id)) {
                                                 return newChain;
                                               } else {
                                                 return oldChain;
                                               }
-                                            }))
+                                            })),
+                                      traceRetentionPolicy: init.traceRetentionPolicy,
+                                      traceRetentionDays: init.traceRetentionDays
                                     },
                                     initialPackage: oldState.initialPackage
                                   };
@@ -1188,7 +1430,9 @@ function Package(Props) {
                                               } else {
                                                 return oldChain;
                                               }
-                                            }))
+                                            })),
+                                      traceRetentionPolicy: init.traceRetentionPolicy,
+                                      traceRetentionDays: init.traceRetentionDays
                                     },
                                     initialPackage: oldState.initialPackage
                                   };
@@ -1213,15 +1457,7 @@ function Package(Props) {
     if (exit === 1) {
       tmp = navButton((function (param) {
               
-            }), (function (param) {
-              var newName = prompt("Rename chain", chain.name);
-              if (newName !== undefined && newName !== "") {
-                return Curry._1(setState, (function (oldState) {
-                              return oldState;
-                            }));
-              }
-              
-            }), React.createElement("strong", undefined, " >" + chain.name));
+            }), undefined, React.createElement("strong", undefined, " >" + chain.name));
     }
     return React.createElement("nav", {
                 className: "p-4 text-white",

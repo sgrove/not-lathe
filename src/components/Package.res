@@ -6,13 +6,22 @@ module DevTimeJson = {
   @module("../DevTime_Json.js") external descuriChain: Chain.t = "descuriChain"
 }
 
-type info = {
+type logLevel = [#info | #warn | #error]
+
+type logLine<'logBody> = {
+  level: logLevel,
+  body: array<'logBody>,
+}
+
+type t = {
   name: string,
   version: (int, int, int),
   chains: array<Chain.t>,
+  traceRetentionPolicy: [#all | #onlyErrors | #never],
+  traceRetentionDays: int,
 }
 
-let stringVersion = (info: info) => {
+let stringVersion = (info: t) => {
   let (major, minor, patch) = info.version
   j`${major->string_of_int}.${minor->string_of_int}.${patch->string_of_int}`
 }
@@ -67,7 +76,7 @@ module PackageEditor = {
   }
 
   // TODO: Detect field removable, renames, etc. and make it breaking change
-  let diffPackage = (~schema, a: info, b: info): option<diff> => {
+  let diffPackage = (~schema, a: t, b: t): option<diff> => {
     let aFns = a.chains->Belt.Array.map(chain => {
       let typeDef = Chain.typeScriptDefinition(~schema, chain)
       typeDef
@@ -94,8 +103,6 @@ module PackageEditor = {
       })
     })
 
-    Js.log4("Diff a / b: ", a, b, (addedFunctions, removedFunctions, changedFunctions))
-
     switch (addedFunctions, removedFunctions, changedFunctions) {
     | ([], [], []) => None
     | (_, _, _) =>
@@ -116,7 +123,7 @@ module PackageEditor = {
     }
   }
 
-  let computeNewVersion = (package: info, diff) => {
+  let computeNewVersion = (package: t, diff) => {
     let (major, minor, patch) = package.version
 
     let newVersion = switch diff->versionBumpForDiff {
@@ -142,12 +149,13 @@ module PackageEditor = {
   @react.component
   let make = (
     ~schema,
-    ~initialPackage: info,
-    ~package: info,
+    ~initialPackage: t,
+    ~package: t,
     ~onCreateChain,
     ~onInspectChain,
     ~onEditChain,
     ~onDeleteChain,
+    ~onEditPackage,
   ) => {
     open React
 
@@ -169,17 +177,8 @@ module PackageEditor = {
           </h1>
           <div className="m-2">
             <Comps.Button
-            // style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}
               onClick={_ => {
-                switch Utils.prompt(
-                  "New chain name",
-                  ~default=Some("new_chain"),
-                )->Belt.Option.mapWithDefault("", name => name->Js.String2.trim) {
-                | "" => ()
-                | other =>
-                  let chain = Chain.makeEmptyChain(other)
-                  onCreateChain(chain)
-                }
+                setState(oldState => {...oldState, view: Settings})
               }}>
               <Icons.Gears className="inline-block " color={Comps.colors["gray-4"]} />
               {" Package Settings"->string}
@@ -202,10 +201,9 @@ module PackageEditor = {
             <Comps.Button
             // style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}
               onClick={_ => {
-                switch Utils.prompt(
-                  "New chain name",
-                  ~default=Some("new_chain"),
-                )->Belt.Option.mapWithDefault("", name => name->Js.String2.trim) {
+                switch Utils.prompt("New chain name", ~default=Some("newChain"))
+                ->Js.Nullable.toOption
+                ->Belt.Option.mapWithDefault("", name => name->Js.String2.trim) {
                 | "" => ()
                 | other =>
                   let chain = Chain.makeEmptyChain(other)
@@ -252,7 +250,7 @@ module PackageEditor = {
                       <span
                         className="font-medium cursor-pointer mr-2"
                         onClick={_ => {
-                          onInspectChain(chain)
+                          onEditChain(~chain, ~trace=None)
                         }}>
                         {chain.name->string}
                       </span>
@@ -343,7 +341,118 @@ module PackageEditor = {
       </div>
       {switch state.view {
       | Nothing => null
-      | Settings => <Comps.Modal> {"Settings"->string} </Comps.Modal>
+      | Settings =>
+        <Comps.Modal>
+          <div className="flex w-full flex-col">
+            <div className="flex flex-grow flex-row h-full">
+              <table className="">
+                <thead>
+                  <tr
+                    className="text-gray-600 text-sm leading-normal"
+                    style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}>
+                    <th className="py-3 px-6 text-left"> {j`Name`->string} </th>
+                    <th className="py-3 px-6 text-left"> {j`Setting`->string} </th>
+                  </tr>
+                </thead>
+                <tbody className={""}>
+                  <tr
+                    style={
+                      let style = ReactDOMStyle.make(
+                        ~backgroundColor=Comps.colors["gray-15"],
+                        ~marginTop="5px",
+                        ~color=Comps.colors["gray-6"],
+                        (),
+                      )
+                      style
+                    }
+                    className={"rounded-md border-4 border-gray-900 "}>
+                    <td className="py-3 px-6 text-left whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className="font-medium cursor-pointer mr-2">
+                          {"Trace Retention Policy: "->string}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-6 ">
+                      <Comps.Select
+                        value={switch package.traceRetentionPolicy {
+                        | #all => "all"
+                        | #onlyErrors => "onlyErrors"
+                        | #never => "never"
+                        }}
+                        onChange={event => {
+                          let value = ReactEvent.Form.target(event)["value"]
+                          let policy = switch value {
+                          | "all" => Some(#all)
+                          | "onlyErrors" => Some(#onlyErrors)
+                          | "never" => Some(#never)
+                          | _ => None
+                          }
+
+                          policy->Belt.Option.forEach(policy => {
+                            let newPackage = {...package, traceRetentionPolicy: policy}
+                            onEditPackage(newPackage)
+                          })
+                        }}>
+                        <option value="all"> {"Keep trace for every invocation"->string} </option>
+                        <option value="onlyErrors">
+                          {"Only keep trace for invocations with errors"->string}
+                        </option>
+                        <option value="never"> {"Never retain any trace data"->string} </option>
+                      </Comps.Select>
+                    </td>
+                  </tr>
+                  <tr
+                    style={
+                      let style = ReactDOMStyle.make(
+                        ~backgroundColor=Comps.colors["gray-15"],
+                        ~marginTop="5px",
+                        ~color=Comps.colors["gray-6"],
+                        (),
+                      )
+                      style
+                    }
+                    className={"rounded-md border-4 border-gray-900 "}>
+                    <td className="py-3 px-6 text-left whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className="font-medium cursor-pointer mr-2">
+                          {"Days to retain trace data: "->string}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-6 ">
+                      <input
+                        disabled={package.traceRetentionPolicy == #never}
+                        className="bg-transparent border-none px-2 leading-tight outline-none text-white"
+                        type_="number"
+                        value={package.traceRetentionDays->string_of_int}
+                        placeholder="days"
+                        onChange={event => {
+                          let value = ReactEvent.Form.target(event)["value"]
+                          try {
+                            let number = value->int_of_string
+                            let newPackage = {...package, traceRetentionDays: number}
+                            onEditPackage(newPackage)
+                          } catch {
+                          | _ => ()
+                          }
+                        }}
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="w-full ml-auto flex">
+              <Comps.Button
+              // className="bg-transparent hover:bg-gray-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded flex-grow"
+                className="flex-grow"
+                onClick={_ => setState(oldState => {...oldState, view: Nothing})}>
+                {j`Close`->string}
+              </Comps.Button>
+            </div>
+          </div>
+        </Comps.Modal>
       | Publish(diff) =>
         <Comps.Modal>
           <div className="w-full h-full shadow-md rounded my-6 text-white flex flex-col">
@@ -502,7 +611,10 @@ module ChainLogs = {
       | Slow => "Slow"
       }
 
-      let className = category == state.filter ? " bg-gray-200" : ""
+      let style =
+        category == state.filter
+          ? ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-16"], ())
+          : ReactDOMStyle.make()
 
       let filterFn = filterFn(category)
 
@@ -511,13 +623,22 @@ module ChainLogs = {
 
       <div className="mt-3">
         <div
-          className={"-mx-3 inline-block py-1 px-3 text-sm font-medium flex items-center hover:bg-gray-200 cursor-pointer justify-between rounded-lg" ++
-          className}
+          style
+          className={"-mx-3 inline-block py-1 px-3 text-sm font-medium flex items-center hover:bg-gray-700 cursor-pointer justify-between rounded-lg"}
           onClick={_ => setState(oldState => {...oldState, filter: category, inspected: None})}>
-          <span> <span className="text-gray-900"> {name->string} </span> </span>
+          <span>
+            <span style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+              {name->string}
+            </span>
+          </span>
           {categoryCount > 0
             ? <span
-                className="inline-block px-4 py-1 text-center py-1 leading-none text-xs font-semibold text-gray-700 bg-gray-300 rounded-full">
+                className="inline-block px-2 py-1 text-center py-1 leading-none text-xs font-semibold text-gray-700 rounded-full"
+                style={ReactDOMStyle.make(
+                  ~backgroundColor=Comps.colors["gray-17"],
+                  ~color=Comps.colors["gray-6"],
+                  (),
+                )}>
                 {categoryCount->string_of_int->string}
               </span>
             : null}
@@ -531,7 +652,7 @@ module ChainLogs = {
         b.createdAt->Js.Date.fromString->Obj.magic - a.createdAt->Js.Date.fromString->Obj.magic
       })
       ->Belt.Array.map(trace => {
-        let className = Some(trace.trace.id) == state.inspected ? "bg-gray-300" : ""
+        let className = Some(trace.trace.id) == state.inspected ? "bg-gray-600" : ""
 
         let hasErrors = Obj.magic(
           trace.trace,
@@ -547,25 +668,29 @@ module ChainLogs = {
         })
 
         <button
-          className={"block bg-white w-full text-left py-3 border-t hover:bg-gray-300 " ++
-          className}
+          className={"block w-full text-left py-2 border-b hover:bg-gray-700 " ++ className}
+          style={ReactDOMStyle.make(
+            ~color=Comps.colors["gray-6"],
+            ~borderColor=Comps.colors["gray-1"],
+            (),
+          )}
           onClick={event => {
             event->ReactEvent.Mouse.stopPropagation
             setState(oldState => {...oldState, inspected: Some(trace.trace.id)})
           }}>
-          <div className="px-4 flex justify-between">
-            <span className="text-xs font-semibold text-gray-900">
-              {trace.trace.id->Uuid.toString->string}
-            </span>
+          <div className="px-2 flex justify-between">
+            <span className="text-xs font-semibold"> {trace.trace.id->Uuid.toString->string} </span>
           </div>
-          <div className="px-4 flex justify-between">
-            <span className="text-xs font-semibold text-gray-600">
+          <div className="px-2 flex justify-between items-center">
+            <span
+              className="text-xs font-semibold"
+              style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}>
               {trace.createdAt->Js.Date.fromString->Utils.Date.timeAgo->string}
             </span>
+            <span className="text-xs font-semibold text-gray-900 px-4 py-2">
+              {hasErrors ? errored() : noErrors()}
+            </span>
           </div>
-          <span className="text-xs font-semibold text-gray-900 px-4 py-2">
-            {hasErrors ? errored() : noErrors()}
-          </span>
         </button>
       })
 
@@ -597,10 +722,7 @@ module ChainLogs = {
           }
         })
 
-        Js.log2("trace->apiMetrics: ", trace)
-
         let apiMetrics = trace.trace.extensions->Belt.Option.flatMap(extensions => {
-          Js.log2("Extensions: ", extensions)
           extensions.metrics->Belt.Option.flatMap(metrics => metrics.api)
         })
 
@@ -611,16 +733,24 @@ module ChainLogs = {
             : null,
         ]
 
+        let variables = trace.variables->Belt.Option.getWithDefault(Js.Json.parseExn("{}"))
+
+        let variableEntries = variables->Obj.magic->Js.Dict.entries
+
         <>
           <div className="shadow-lg ml-2 mr-2 ">
             <div className="pb-4">
-              {<div className="block bg-white py-3 border-t">
-                <div className="px-4 py-2 flex  justify-between">
-                  <span>
-                    {j`Trace: `->string} <code> {trace.trace.id->Uuid.toString->string} </code>
-                  </span>
+              {<div className="block py-3 border-t">
+                <div className="px-4 py-2 flex justify-between">
                   <div>
+                    <span
+                      className="mr-2"
+                      style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+                      <code> {trace.trace.id->Uuid.toString->string} </code>
+                    </span>
                     {badges->array}
+                  </div>
+                  <div>
                     <Comps.Button
                       onClick={_ => {
                         onEditChain(~chain, ~trace)
@@ -630,19 +760,27 @@ module ChainLogs = {
                   </div>
                 </div>
               </div>}
+              <div
+                className="w-full m-4"
+                style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+                {"General"->string}
+              </div>
               <CollapsableTable
-                className="min-w-full leading-normal"
-                head={<tr>
+                className="min-w-full leading-normal text-xs"
+                head={<tr className="text-left mb-2">
                   <th
-                    className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                    className="px-5 py-3 font-semibold tracking-wider">
                     {j`Host`->string}
                   </th>
                   <th
-                    className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                    className="px-5 py-3 font-semibold tracking-wider">
                     {j`Request Count`->string}
                   </th>
                   <th
-                    className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                    className="px-5 py-3 font-semibold tracking-wider">
                     {j`Total ms / host`->string}
                   </th>
                 </tr>}>
@@ -650,14 +788,20 @@ module ChainLogs = {
                   let avoidedReqs =
                     apiMetrics->Belt.Option.mapWithDefault(0, m => m.avoidedRequestCount)
 
-                  <tr>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm w-2/5">
+                  <tr
+                    className="rounded-sm"
+                    style={ReactDOMStyle.make(
+                      ~color=Comps.colors["gray-6"],
+                      ~backgroundColor=Comps.colors["gray-15"],
+                      (),
+                    )}>
+                    <td className="px-5 py-5 text-sm w-2/5">
                       <div className="flex items-center">
                         <code> {"All hosts"->string} </code>
                       </div>
                     </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-gray-900 whitespace-no-wrap text-center">
+                    <td className="px-5 py-5 text-sm w-2/5">
+                      <p className="whitespace-no-wrap">
                         {(apiMetrics
                         ->Belt.Option.mapWithDefault(0, m => m.requestCount)
                         ->string_of_int ++ " reqs")->string}
@@ -667,8 +811,8 @@ module ChainLogs = {
                         }}
                       </p>
                     </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-gray-900 whitespace-no-wrap text-center">
+                    <td className="px-5 py-5 text-sm w-2/5">
+                      <p className="whitespace-no-wrap">
                         {(apiMetrics
                         ->Belt.Option.mapWithDefault(0, m => m.totalRequestMs)
                         ->string_of_int ++ "ms total")->string}
@@ -687,19 +831,25 @@ module ChainLogs = {
                   byHost
                   ->Belt.Array.map(((host, metrics)) => {
                     let metrics = metrics->Obj.magic
-                    <tr>
-                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm w-2/5">
+                    <tr
+                      className="rounded-sm"
+                      style={ReactDOMStyle.make(
+                        ~color=Comps.colors["gray-6"],
+                        ~backgroundColor=Comps.colors["gray-15"],
+                        (),
+                      )}>
+                      <td className="px-5 py-5 text-sm w-2/5">
                         <div className="flex items-center">
                           <code> {(host ++ ": ")->string} </code>
                         </div>
                       </td>
-                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <p className="text-gray-900 whitespace-no-wrap text-center">
+                      <td className="px-5 py-5 text-sm w-2/5">
+                        <p className="whitespace-no-wrap">
                           {(metrics["requestCount"]->string_of_int ++ " reqs")->string}
                         </p>
                       </td>
-                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                        <p className="text-gray-900 whitespace-no-wrap text-center">
+                      <td className="px-5 py-5 text-sm w-2/5">
+                        <p className="whitespace-no-wrap">
                           {(metrics["totalRequestMs"]->string_of_int ++ "ms total")->string}
                         </p>
                       </td>
@@ -712,30 +862,32 @@ module ChainLogs = {
           </div>
           <div className="shadow-lg ml-2 mr-2 ">
             <div className="pb-4">
-              {<div className="block bg-white border-t">
-                <div className="px-4 py-2 flex  justify-between">
-                  <span> {j`Trace Variables `->string} </span>
+              {<div className="block" style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+                <div className="px-4 py-2 flex justify-between">
+                  {switch variableEntries {
+                  | [] => <span> {j`No variables in trace`->string} </span>
+                  | _ => <span> {j`Trace Variables `->string} </span>
+                  }}
                 </div>
               </div>}
-              <CollapsableTable
-                className="min-w-full leading-normal"
-                head={<tr>
-                  <th
-                    className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    {j`Name`->string}
-                  </th>
-                  <th
-                    className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    {j`value`->string}
-                  </th>
-                </tr>}>
-                {
-                  let variables =
-                    trace.variables->Belt.Option.getWithDefault(Js.Json.parseExn("{}"))
-
-                  variables
-                  ->Obj.magic
-                  ->Js.Dict.entries
+              {switch variableEntries {
+              | [] => null
+              | entries =>
+                <CollapsableTable
+                  className="min-w-full leading-normal"
+                  head={<tr className="text-left mb-2">
+                    <th
+                      style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                      className="px-5 py-3 font-semibold tracking-wider">
+                      {j`Name`->string}
+                    </th>
+                    <th
+                      style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                      className="px-5 py-3 font-semibold tracking-wider">
+                      {j`Value`->string}
+                    </th>
+                  </tr>}>
+                  {entries
                   ->Belt.Array.map(((key, value)) => {
                     <tr>
                       <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm w-2/5">
@@ -749,9 +901,9 @@ module ChainLogs = {
                       </td>
                     </tr>
                   })
-                  ->array
-                }
-              </CollapsableTable>
+                  ->array}
+                </CollapsableTable>
+              }}
             </div>
           </div>
           <div>
@@ -759,13 +911,6 @@ module ChainLogs = {
             ->Belt.Array.map(result => {
               let request = result["request"]
 
-              let hasErrors = try {
-                result["result"]->Belt.Array.some(result => {
-                  result["errors"]->Js.Null_undefined.toOption->Belt.Option.isSome
-                })
-              } catch {
-              | _ => false
-              }
               let chainRequest = chain.requests->Belt.Array.getBy(chainRequest => {
                 request["id"] == chainRequest.id
               })
@@ -783,8 +928,8 @@ module ChainLogs = {
                         title=friendlyServiceName
                         width="24px"
                         src=url
-                        className={" h-6 w-6 rounded-full object-cover transform hover:scale-125 " ++ (
-                          idx > 0 ? "-m-1" : ""
+                        className={" h-6 w-6 rounded-full object-cover transform hover:scale-125 inline-block border-2 border-gray-300 " ++ (
+                          idx > 0 ? "-m-1" : "ml-2"
                         )}
                       />
                     )
@@ -813,35 +958,48 @@ module ChainLogs = {
                   ? null
                   : <CollapsableTable
                       className="min-w-full leading-normal"
-                      head={<tr>
+                      head={<tr className="text-left mb-2">
                         <th
-                          className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                          className="px-5 py tracking-wider font-normal">
                           {"Name / Status"->string}
                         </th>
                         <th
-                          className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                          className="px-5 py tracking-wider font-normal">
                           {"Value"->string}
                         </th>
                         <th
-                          className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}
+                          className="px-5 py tracking-wider font-normal">
                           {"Logs"->string}
                         </th>
                       </tr>}>
                       {argumentDependencies
+                      ->Obj.magic
                       ->Belt.Array.map(argumentDependency => {
                         let status =
                           argumentDependency["error"]
                           ->Js.Nullable.toOption
-                          ->Belt.Option.mapWithDefault(noErrors(), _ => errored())
+                          ->Belt.Option.mapWithDefault(null, _ => errored())
 
                         let argumentDependency = Obj.magic(argumentDependency)
-                        <tr>
-                          <td className="px-5 py-1 border-b border-gray-200 bg-white text-sm w-2/5">
+                        <tr
+                          className="border-b-2"
+                          style={ReactDOMStyle.make(
+                            ~backgroundColor=Comps.colors["gray-15"],
+                            ~borderColor=Comps.colors["gray-8"],
+                            ~color=Comps.colors["gray-6"],
+                            (),
+                          )}>
+                          <td className="px-5 py-1 text-sm w-2/5">
                             {status} {" "->string} {argumentDependency["name"]->string}
                           </td>
-                          <td className="px-5 py-1 border-b border-gray-200 bg-white text-sm w-2/5">
+                          <td className="px-5 py-1 text-sm w-2/5">
                             <pre className="overflow-x-scroll w-full overflow-y-scroll">
                               {argumentDependency["returnValues"]
+                              ->Js.Null_undefined.toOption
+                              ->Belt.Option.getWithDefault([])
                               ->Belt.Array.get(0)
                               ->Belt.Option.mapWithDefault("", value => {
                                 value->Js.Json.stringifyWithSpace(2)
@@ -849,14 +1007,20 @@ module ChainLogs = {
                               ->string}
                             </pre>
                           </td>
-                          <td className="px-5 py-1 border-b border-gray-200 bg-white text-sm w-2/5">
+                          <td className="px-5 py-1 text-sm w-2/5">
                             <pre className="overflow-x-scroll overflow-y-scroll">
                               {argumentDependency["logs"]
-                              ->Belt.Array.map(output =>
-                                output->Obj.magic->Js.Json.stringifyWithSpace(2)
-                              )
-                              ->Js.Array2.joinWith("\n")
-                              ->string}
+                              ->Belt.Array.map((output: logLine<'a>) => {
+                                let color = switch output.level {
+                                | #info => Comps.colors["gray-6"]
+                                | #warn => Comps.colors["yellow"]
+                                | #error => Comps.colors["red"]
+                                }
+                                <span style={ReactDOMStyle.make(~color, ())}>
+                                  {output.body->Obj.magic->Js.Json.stringify->string}
+                                </span>
+                              })
+                              ->array}
                             </pre>
                           </td>
                         </tr>
@@ -866,18 +1030,24 @@ module ChainLogs = {
 
               let badges = [hasErrors ? errored() : null, slowRequest ? slow() : null]
 
-              <div className="shadow-lg pt-4 ml-2 mr-2 rounded-lg">
-                <div className="block bg-white py-3 border-t pb-4">
-                  <div className="px-4 py-2 flex  justify-between">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {request["id"]->string}
-                    </span>
-                    <div className="flex">
+              <div
+                className="shadow-lg ml-2 mr-2 rounded-lg border-t"
+                style={ReactDOMStyle.make(~borderColor=Comps.colors["gray-1"], ())}>
+                <div className="block py-3 pb-4">
+                  <div
+                    className="px-4 py-2 flex justify-between"
+                    style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+                    <div>
+                      <span className="text-sm  mr-2"> {request["id"]->string} </span>
                       {badges->array}
-                      <span className="px-4 text-sm font-semibold text-gray-600">
+                      serviceImages
+                    </div>
+                    <div className="flex">
+                      <span
+                        className="px-4 text-sm  "
+                        style={ReactDOMStyle.make(~borderColor=Comps.colors["gray-6"], ())}>
                         {j`${fakeRequestLength->string_of_int}ms`->string}
                       </span>
-                      serviceImages
                     </div>
                   </div>
                   {argumentDependenciesTable}
@@ -892,6 +1062,7 @@ module ChainLogs = {
                         collapsed=true
                         name={request["id"]}
                         displayDataTypes=false
+                        theme="monokai"
                       />
                     })
                     ->array}
@@ -900,7 +1071,10 @@ module ChainLogs = {
               </div>
             })
             ->array}
-            <div className="w-full m-4"> {"Raw API Requests"->string} </div>
+            <div
+              className="w-full m-4" style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+              {"Raw API Requests"->string}
+            </div>
             {trace.trace.extensions
             ->Belt.Option.flatMap(extensions => extensions.apiRequests)
             ->Belt.Option.getWithDefault([])
@@ -909,14 +1083,24 @@ module ChainLogs = {
               let title = `${apiRequest["method"]} ${apiRequest["uri"]}`
 
               <div className="shadow-lg pt-4 ml-2 mr-2 rounded-lg">
-                <div className="block bg-white py-3 border-t pb-4">
-                  <div className="px-4 py-2 flex  justify-between">
-                    <span className="inline-block  text-sm font-semibold text-gray-900 truncate">
+                <div
+                  className="block py-3 border-t pb-4"
+                  style={ReactDOMStyle.make(
+                    ~color=Comps.colors["gray-6"],
+                    ~backgroundColor=Comps.colors["gray-15"],
+                    (),
+                  )}>
+                  <div className="px-4 py-2 flex justify-between">
+                    <span className="inline-block text-sm font-semibold truncate">
                       {title->string}
                     </span>
                   </div>
                   <ReactJsonView
-                    src={apiRequest} collapsed=true name={"apiCall"} displayDataTypes=false
+                    src={apiRequest}
+                    collapsed=true
+                    name={"apiCall"}
+                    displayDataTypes=false
+                    theme="monokai"
                   />
                 </div>
               </div>
@@ -926,55 +1110,62 @@ module ChainLogs = {
         </>
       })
 
-    <div className="flex flex-col" style={ReactDOMStyle.make(~height="calc(100vh - 56px)", ())}>
+    <div
+      className="flex flex-col"
+      style={ReactDOMStyle.make(
+        ~height="calc(100vh - 56px)",
+        ~backgroundColor=Comps.colors["gray-8"],
+        (),
+      )}>
       <div className="flex-1 flex overflow-x-hidden">
-        <div
-          className="p-6 bg-gray-100 overflow-y-auto"
-          style={ReactDOMStyle.make(~width="256px", ())}>
+        <div className="p-6 overflow-y-auto" style={ReactDOMStyle.make(~width="256px", ())}>
           <nav>
-            <h2 className="font-semibold text-gray-600 uppercase tracking-wide">
+            <h2
+              className="font-semibold uppercase tracking-wide"
+              style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
               {j`Logs`->string}
             </h2>
             {categories->array}
           </nav>
         </div>
-        <main className="flex flex-1 bg-gray-200 w-full">
+        <main className="flex flex-1 w-full">
           <div
-            style={ReactDOMStyle.make(~width="334px", ())}
-            className="overflow-y-auto overflow-hidden"
+            style={ReactDOMStyle.make(~width="334px", ~borderColor=Comps.colors["gray-1"], ())}
+            className="overflow-y-auto overflow-hidden border-l border-r p-6"
             onClick={_ => setState(oldState => {...oldState, inspected: None})}>
-            <div className="px-4 py-2 flex items-center justify-between border-l border-r border-b">
-              <button className="text-sm flex items-center font-semibold text-gray-600">
-                <span> {j`Traces`->string} </span>
-              </button>
-              <button className="text-sm flex items-center font-semibold text-gray-600" />
+            <h2
+              className="font-semibold uppercase tracking-wide"
+              style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+              {j`Traces`->string}
+            </h2>
+            <div
+              className="flex items-center my-4 rounded-md inline-block"
+              style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}>
+              <div className="pl-2"> <Icons.Search color={Comps.colors["gray-4"]} /> </div>
+              <input
+                className="w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white"
+                style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}
+                id="search"
+                spellCheck=false
+                type_="text"
+                placeholder="Search"
+                onChange={event => {
+                  let value = ReactEvent.Form.target(event)["value"]
+                  setState(oldState => {
+                    ...oldState,
+                    search: switch value->Js.String2.trim {
+                    | "" => None
+                    | other => Some(other)
+                    },
+                  })
+                }}
+              />
             </div>
-            <div className="pb-4">
-              <div className="mt-3">
-                <span
-                  className="-mx-3 text-sm font-medium flex items-center justify-between bg-gray-200 rounded-lg">
-                  <input
-                    onChange={event => {
-                      let value = ReactEvent.Form.target(event)["value"]
-                      setState(oldState => {
-                        ...oldState,
-                        search: switch value->Js.String2.trim {
-                        | "" => None
-                        | other => Some(other)
-                        },
-                      })
-                    }}
-                    className="focus:bg-gray-200 focus:text-gray-900 focus:placeholder-gray-700 pl-4 pr-4 py-2 leading-none block w-full bg-gray-900 rounded-lg text-sm placeholder-gray-400 text-white focus:border-none focus:outline-none outline-none"
-                    placeholder="Search"
-                  />
-                </span>
-              </div>
-              {filteredTracesList->array}
-            </div>
+            <div className="pb-4"> {filteredTracesList->array} </div>
           </div>
           <div
-            style={ReactDOMStyle.make(~maxWidth="850px", ())}
-            className="flex flex-col flex-1 w-auto inline-block overflow-y-auto overflow-hidden bg-gray-100">
+          // style={ReactDOMStyle.make(~maxWidth="850px", ())}
+            className="flex flex-col flex-1 w-auto inline-block overflow-y-auto overflow-hidden">
             {inspectedTrace}
           </div>
         </main>
@@ -985,7 +1176,7 @@ module ChainLogs = {
 
 type inspectable = Package | Chain(Chain.t) | Edit({chain: Chain.t, trace: option<Chain.Trace.t>})
 
-type state = {inspected: inspectable, package: info, initialPackage: info}
+type state = {inspected: inspectable, package: t, initialPackage: t}
 
 @react.component
 let make = (~schema, ~config) => {
@@ -1000,24 +1191,16 @@ let make = (~schema, ~config) => {
 
     let initialChains = Chain.loadFromLocalStorage()->Belt.Array.concat(initialChains)
 
-    let chain =
-      initialChains
-      ->Belt.Array.get(0)
-      ->Belt.Option.getWithDefault(Chain.makeEmptyChain("new_chain"))
-
-    let traces =
-      Chain.Trace.loadFromLocalStorage()->Belt.Array.keep(trace => Some(trace.chainId) == chain.id)
-    // let trace = traces->Belt.Array.reverse->Belt.Array.get(0)
-
-    let package: info = {
+    let package: t = {
       name: "bushido-fns",
       version: (1, 0, 1),
       chains: initialChains,
+      traceRetentionDays: 5,
+      traceRetentionPolicy: #all,
     }
 
     {
       inspected: Package,
-      //Edit({chain: chain, trace: trace}),
       package: package,
       initialPackage: package,
     }
@@ -1060,7 +1243,6 @@ let make = (~schema, ~config) => {
             package: {
               ...oldState.package,
               chains: oldState.package.chains->Belt.Array.map(oldChain => {
-                Js.log3("Looking to save chain: ", oldChain.id, newChain.id)
                 oldChain.id == newChain.id ? newChain : oldChain
               }),
             },
@@ -1092,6 +1274,12 @@ let make = (~schema, ~config) => {
       schema
       package=state.package
       initialPackage=state.initialPackage
+      onEditPackage={newPackage => {
+        setState(oldState => {
+          ...oldState,
+          package: newPackage,
+        })
+      }}
       onDeleteChain={targetChain => {
         targetChain->Chain.deleteFromLocalStorage
         setState(oldState => {
@@ -1148,22 +1336,7 @@ let make = (~schema, ~config) => {
       | Package => React.null
       | Chain(chain)
       | Edit({chain}) =>
-        navButton(
-          ~onClick=_ => (),
-          ~onDoubleClick={
-            _ => {
-              let newName = Utils.prompt("Rename chain", ~default=Some(chain.name))
-              switch newName {
-              | None | Some("") => ()
-              | Some(newName) =>
-                setState(oldState => {
-                  oldState
-                })
-              }
-            }
-          },
-          <strong> {(" >" ++ chain.name)->string} </strong>,
-        )
+        navButton(~onClick=_ => (), <strong> {(" >" ++ chain.name)->string} </strong>)
       }}
     </nav>
   }

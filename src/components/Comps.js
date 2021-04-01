@@ -19,6 +19,8 @@ var colors = {
   "gray-13": "#34373C",
   "gray-14": "#1b1d1f",
   "gray-15": "#282C31",
+  "gray-16": "#2E3237",
+  "gray-17": "#3B434B",
   red: "#EB5757",
   orange: "#F2994A",
   yellow: "#F2C94C",

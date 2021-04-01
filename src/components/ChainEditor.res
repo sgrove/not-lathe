@@ -1409,7 +1409,7 @@ module Main = {
     ~oneGraphAuth: OneGraphAuth.t,
     ~onSaveChain,
     ~onClose,
-    ~onSaveAndClose,
+    ~onSaveAndClose as _,
     ~trace: option<Chain.Trace.t>,
   ) => {
     let (_missingAuthServices, setMissingAuthServices) = React.useState(() => [])
@@ -2666,10 +2666,9 @@ ${newScript}`
 
                 let coercerName = switch name {
                 | None =>
-                  Utils.prompt(
-                    "Coercer function name: ",
-                    ~default=Some(defaultCoercerName),
-                  )->Belt.Option.getWithDefault(defaultCoercerName)
+                  Utils.prompt("Coercer function name: ", ~default=Some(defaultCoercerName))
+                  ->Js.Nullable.toOption
+                  ->Belt.Option.getWithDefault(defaultCoercerName)
                 | Some(name) => name
                 }
 
