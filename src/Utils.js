@@ -4,18 +4,6 @@ import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 
-var capitalizeFirstLetter = (function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.slice(1);
-});
-
-var distinctStrings = (function(arr) {
-return [...(new Set(arr))]
-});
-
-var replaceRange = (function replaceRange(s, start, end, substitute) {
-    return s.substring(0, start) + substitute + s.substring(end);
-});
-
 var services = Js_dict.fromArray([
       [
         "adroll",
@@ -517,14 +505,26 @@ var camelize = (function camelize(text) {
     });
 });
 
+var capitalizeFirstLetter = (function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+});
+
+var distinctStrings = (function(arr) {
+return [...(new Set(arr))]
+});
+
+var replaceRange = (function replaceRange(s, start, end, substitute) {
+    return s.substring(0, start) + substitute + s.substring(end);
+});
+
 var $$String$1 = {
-  camelize: camelize
+  camelize: camelize,
+  capitalizeFirstLetter: capitalizeFirstLetter,
+  distinctStrings: distinctStrings,
+  replaceRange: replaceRange
 };
 
 export {
-  capitalizeFirstLetter ,
-  distinctStrings ,
-  replaceRange ,
   services ,
   serviceImageUrl ,
   windowLocationOrigin ,

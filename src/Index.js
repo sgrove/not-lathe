@@ -4,7 +4,7 @@ import * as Uuid from "uuid";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as Debug from "./Debug.js";
 import * as Icons from "./Icons.js";
-import * as Utils from "./bindings/Utils.js";
+import * as Utils from "./Utils.js";
 import * as React from "react";
 import * as Graphql from "graphql";
 import * as GraphQLJs from "./bindings/GraphQLJs.js";

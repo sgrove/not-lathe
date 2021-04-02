@@ -8,7 +8,7 @@ import * as Comps from "./Comps.js";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as Debug from "../Debug.js";
 import * as Icons from "../Icons.js";
-import * as Utils from "../bindings/Utils.js";
+import * as Utils from "../Utils.js";
 import * as Acorn$1 from "acorn";
 import * as React from "react";
 import * as $$String from "bs-platform/lib/es6/string.mjs";
@@ -801,7 +801,7 @@ function requestScriptTypeScriptSignature(request, schema, chain) {
               }
             })));
   var upstreamRequestDependencyIds = request.dependencyRequestIds;
-  var upstreamRequestIds = Utils.distinctStrings(Belt_Array.concat(upstreamArgDepRequestIds, upstreamRequestDependencyIds));
+  var upstreamRequestIds = Utils.$$String.distinctStrings(Belt_Array.concat(upstreamArgDepRequestIds, upstreamRequestDependencyIds));
   var dependencyRequests = Belt_Array.keepMap(chain.requests, (function (request) {
           var match = upstreamRequestIds.indexOf(request.id);
           if (match === -1) {
@@ -1312,7 +1312,7 @@ function ChainEditor$Diagram(Props) {
                                                         var newArgDep_maxRecur = argDep$1.maxRecur;
                                                         var newArgDep_ifMissing = argDep$1.ifMissing;
                                                         var newArgDep_ifList = argDep$1.ifList;
-                                                        var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
+                                                        var newArgDep_fromRequestIds = Utils.$$String.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
                                                         var newArgDep_name = argDep$1.name;
                                                         var newArgDep = {
                                                           functionFromScript: newArgDep_functionFromScript,
@@ -1343,7 +1343,7 @@ function ChainEditor$Diagram(Props) {
                                                   id: request.id,
                                                   variableDependencies: varDeps,
                                                   operation: request.operation,
-                                                  dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
+                                                  dependencyRequestIds: Utils.$$String.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
                                                 };
                                         }));
                                   var sortedRequests = Chain.toposortRequests(newRequests);
@@ -3062,7 +3062,7 @@ function ChainEditor$Main(Props) {
                                                         var newArgDep_maxRecur = argDep$1.maxRecur;
                                                         var newArgDep_ifMissing = argDep$1.ifMissing;
                                                         var newArgDep_ifList = argDep$1.ifList;
-                                                        var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
+                                                        var newArgDep_fromRequestIds = Utils.$$String.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest.id]));
                                                         var newArgDep_name = argDep$1.name;
                                                         var newArgDep = {
                                                           functionFromScript: newArgDep_functionFromScript,
@@ -3093,7 +3093,7 @@ function ChainEditor$Main(Props) {
                                                   id: request.id,
                                                   variableDependencies: varDeps,
                                                   operation: request.operation,
-                                                  dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
+                                                  dependencyRequestIds: Utils.$$String.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
                                                 };
                                         }));
                                   var init = oldState.chain;
@@ -3289,7 +3289,27 @@ function ChainEditor$Main(Props) {
                       onCopy: (function (payload) {
                           var dataPath = Belt_Array.concat(["payload"], payload.path);
                           var re = new RegExp("\\[.+\\]", "g");
-                          var binding = Caml_array.get(dataPath, dataPath.length - 1 | 0).replace(re, "");
+                          var len = dataPath.length;
+                          var tmp;
+                          if (len >= 3) {
+                            var parent = Caml_array.get(dataPath, dataPath.length - 2 | 0);
+                            var field = Utils.$$String.capitalizeFirstLetter(Caml_array.get(dataPath, dataPath.length - 1 | 0));
+                            tmp = parent + field;
+                          } else {
+                            switch (len) {
+                              case 0 :
+                                  tmp = "unknown";
+                                  break;
+                              case 1 :
+                                  tmp = dataPath[0];
+                                  break;
+                              case 2 :
+                                  tmp = dataPath[1];
+                                  break;
+                              
+                            }
+                          }
+                          var binding = tmp.replace(re, "");
                           return Curry._1(setState, (function (oldState) {
                                         var parsed;
                                         try {
@@ -3318,7 +3338,7 @@ function ChainEditor$Main(Props) {
                                         var newScript;
                                         if (assignmentExpressionRange !== undefined) {
                                           var newBinding = assignmentExpressionRange.name + " = " + dataPath.join("?.");
-                                          newScript = Utils.replaceRange(oldState.chain.script, assignmentExpressionRange.start + 1 | 0, assignmentExpressionRange.end, newBinding);
+                                          newScript = Utils.$$String.replaceRange(oldState.chain.script, assignmentExpressionRange.start + 1 | 0, assignmentExpressionRange.end, newBinding);
                                         } else if (lineNumber !== undefined) {
                                           var newBinding$1 = "\tlet " + binding + " = " + dataPath.join("?.");
                                           var temp = oldState.chain.script.split("\n");
@@ -3413,7 +3433,7 @@ function ChainEditor$Main(Props) {
                                                 var newArgDep_maxRecur = argDep$1.maxRecur;
                                                 var newArgDep_ifMissing = argDep$1.ifMissing;
                                                 var newArgDep_ifList = argDep$1.ifList;
-                                                var newArgDep_fromRequestIds = Utils.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest$1.id]));
+                                                var newArgDep_fromRequestIds = Utils.$$String.distinctStrings(Belt_Array.concat(argDep$1.fromRequestIds, [sourceRequest$1.id]));
                                                 var newArgDep_name = argDep$1.name;
                                                 var newArgDep = {
                                                   functionFromScript: newArgDep_functionFromScript,
@@ -3444,7 +3464,7 @@ function ChainEditor$Main(Props) {
                                           id: request.id,
                                           variableDependencies: varDeps,
                                           operation: request.operation,
-                                          dependencyRequestIds: Utils.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest$1.id]))
+                                          dependencyRequestIds: Utils.$$String.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest$1.id]))
                                         };
                                 }));
                           var request = Belt_Array.getBy(newRequests, (function (request) {

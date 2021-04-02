@@ -687,7 +687,7 @@ type requestScriptNames = {
 }
 
 let requestScriptNames = (request: request) => {
-  let title = request.operation.title->Utils.capitalizeFirstLetter
+  let title = request.operation.title->Utils.String.capitalizeFirstLetter
   let functionName = j`makeVariablesFor${title}`
   let returnTypeName = j`${title}Variables`
   let inputTypeName = j`${title}Input`
@@ -998,7 +998,7 @@ let servicesRequired = chain => {
   chain.requests
   ->Belt.Array.map(request => request.operation.services)
   ->Belt.Array.concatMany
-  ->Utils.distinctStrings
+  ->Utils.String.distinctStrings
 }
 
 exception CircularDependencyDetected
@@ -1091,7 +1091,7 @@ let gatherAllReferencedServices = (~schema: GraphQLJs.schema, chain: t) => {
     ->Belt.Array.concatMany
 
   Belt.Array.concat(requestServices, blockServices)
-  ->Utils.distinctStrings
+  ->Utils.String.distinctStrings
   ->Belt.SortArray.stableSortBy((a, b) => String.compare(a, b))
 }
 

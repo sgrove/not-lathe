@@ -3,7 +3,7 @@
 import * as Card from "./Card.js";
 import * as Uuid from "./bindings/Uuid.js";
 import * as Uuid$1 from "uuid";
-import * as Utils from "./bindings/Utils.js";
+import * as Utils from "./Utils.js";
 import * as $$String from "bs-platform/lib/es6/string.mjs";
 import * as Graphql from "graphql";
 import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";
@@ -481,7 +481,7 @@ function compileAsObj(chain) {
 }
 
 function requestScriptNames(request) {
-  var title = Utils.capitalizeFirstLetter(request.operation.title);
+  var title = Utils.$$String.capitalizeFirstLetter(request.operation.title);
   var functionName = "makeVariablesFor" + title;
   var returnTypeName = title + "Variables";
   var inputTypeName = title + "Input";
@@ -701,7 +701,7 @@ function deleteFromLocalStorage(chain) {
 }
 
 function servicesRequired(chain) {
-  return Utils.distinctStrings(Belt_Array.concatMany(Belt_Array.map(chain.requests, (function (request) {
+  return Utils.$$String.distinctStrings(Belt_Array.concatMany(Belt_Array.map(chain.requests, (function (request) {
                         return request.operation.services;
                       }))));
 }
@@ -805,7 +805,7 @@ function gatherAllReferencedServices(schema, chain) {
                             return service.slug;
                           }));
             })));
-  return Belt_SortArray.stableSortBy(Utils.distinctStrings(Belt_Array.concat(requestServices, blockServices)), $$String.compare);
+  return Belt_SortArray.stableSortBy(Utils.$$String.distinctStrings(Belt_Array.concat(requestServices, blockServices)), $$String.compare);
 }
 
 var docId$1 = "localChainTraces";

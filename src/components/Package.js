@@ -4,7 +4,7 @@ import * as Chain from "../Chain.js";
 import * as Comps from "./Comps.js";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as Icons from "../Icons.js";
-import * as Utils from "../bindings/Utils.js";
+import * as Utils from "../Utils.js";
 import * as React from "react";
 import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
 import * as Caml_obj from "bs-platform/lib/es6/caml_obj.mjs";

@@ -851,7 +851,10 @@ let requestScriptTypeScriptSignature = (
   let upstreamRequestDependencyIds = request.dependencyRequestIds
 
   let upstreamRequestIds =
-    Belt.Array.concat(upstreamArgDepRequestIds, upstreamRequestDependencyIds)->Utils.distinctStrings
+    Belt.Array.concat(
+      upstreamArgDepRequestIds,
+      upstreamRequestDependencyIds,
+    )->Utils.String.distinctStrings
 
   let inputType = {
     let dependencyRequests = chain.requests->Belt.Array.keepMap(request => {
@@ -1323,7 +1326,7 @@ module Diagram = {
                       ...argDep,
                       fromRequestIds: argDep.fromRequestIds
                       ->Belt.Array.concat([source.id])
-                      ->Utils.distinctStrings,
+                      ->Utils.String.distinctStrings,
                     }
 
                     Chain.ArgumentDependency(newArgDep)
@@ -1339,7 +1342,7 @@ module Diagram = {
                   variableDependencies: varDeps,
                   dependencyRequestIds: request.dependencyRequestIds
                   ->Belt.Array.concat([source.id])
-                  ->Utils.distinctStrings,
+                  ->Utils.String.distinctStrings,
                 }
               }
             })
@@ -2596,7 +2599,7 @@ ${newScript}`
                             ...argDep,
                             fromRequestIds: argDep.fromRequestIds
                             ->Belt.Array.concat([sourceRequest.id])
-                            ->Utils.distinctStrings,
+                            ->Utils.String.distinctStrings,
                           }
 
                           Chain.ArgumentDependency(newArgDep)
@@ -2613,7 +2616,7 @@ ${newScript}`
                       variableDependencies: varDeps,
                       dependencyRequestIds: request.dependencyRequestIds
                       ->Belt.Array.concat([sourceRequest.id])
-                      ->Utils.distinctStrings,
+                      ->Utils.String.distinctStrings,
                     }
                   }
                 })
@@ -2850,8 +2853,16 @@ ${newScript}`
                   let {path} = payload
                   let dataPath = ["payload"]->Belt.Array.concat(path)
                   let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
-                  let binding =
-                    dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
+                  let binding = switch dataPath {
+                  | [] => "unknown"
+                  | [field]
+                  | [_, field] => field
+                  | other =>
+                    let parent = other[other->Js.Array2.length - 2]
+                    let field =
+                      other[other->Js.Array2.length - 1]->Utils.String.capitalizeFirstLetter
+                    `${parent}${field}`
+                  }->Js.String2.replaceByRe(re, "")
 
                   setState(oldState => {
                     let parsed = try {
@@ -2906,7 +2917,7 @@ ${newScript}`
                     | (Some({name, start, end}), _) =>
                       let newBinding = j`${name} = ${dataPath->Js.Array2.joinWith("?.")}`
 
-                      oldState.chain.script->Utils.replaceRange(
+                      oldState.chain.script->Utils.String.replaceRange(
                         ~start=start + 1,
                         ~end,
                         ~by=newBinding,
@@ -3101,7 +3112,7 @@ ${newScript}`
                                   ...argDep,
                                   fromRequestIds: argDep.fromRequestIds
                                   ->Belt.Array.concat([sourceRequest.id])
-                                  ->Utils.distinctStrings,
+                                  ->Utils.String.distinctStrings,
                                 }
 
                                 Chain.ArgumentDependency(newArgDep)
@@ -3118,7 +3129,7 @@ ${newScript}`
                             variableDependencies: varDeps,
                             dependencyRequestIds: request.dependencyRequestIds
                             ->Belt.Array.concat([sourceRequest.id])
-                            ->Utils.distinctStrings,
+                            ->Utils.String.distinctStrings,
                           }
                         }
                       })
