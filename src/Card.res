@@ -2197,6 +2197,96 @@ Once you've made a custom GitHub app, set the client id/secret for it in your On
 }",
     kind: Query,
   },
+  {
+    title: "ReadData",
+    id: "ffeff87d-423a-445d-b388-a611e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["firebase"],
+    description: "TODO",
+    body: "query ReadData($databaseName: String!, $path: String!) {
+  firebase {
+    readData(databaseName: $databaseName, path: $path) {
+      json
+    }
+  }
+}",
+    kind: Query,
+  },
+  {
+    title: "PushToList",
+    id: "dfeff87d-424a-445d-b388-a611e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["firebase"],
+    description: "TODO",
+    body: "mutation PushToList(
+  $databaseName: String!
+  $path: String!
+  $data: JSON!
+) {
+  firebase {
+    pushData(
+      input: {
+        data: $data
+        path: $path
+        databaseName: $databaseName
+      }
+    ) {
+      json
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "SetData",
+    id: "bfeff87d-425a-445d-b388-a611e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["firebase"],
+    description: "TODO",
+    body: "mutation SetData(
+  $databaseName: String!
+  $path: String!
+  $data: JSON!
+) {
+  firebase {
+    setData(
+      input: {
+        data: $data
+        path: $path
+        databaseName: $databaseName
+      }
+    ) {
+      json
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "UpdateData",
+    id: "afeff87d-426a-445d-b388-a611e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["firebase"],
+    description: "TODO",
+    body: "mutation UpdateData(
+  $databaseName: String!
+  $path: String!
+  $updates: [FirebaseUpdateDataUpdateArg!]!
+) {
+  firebase {
+    updateData(
+      input: {
+        path: $path
+        databaseName: $databaseName
+        updates: $updates
+      }
+    ) {
+      json
+    }
+  }
+}",
+    kind: Mutation,
+  },
 ]
 
 let blockServices = (~schema, block: block): array<GraphQLUtils.service> => {

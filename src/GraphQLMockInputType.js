@@ -830,6 +830,14 @@ const services = [
     simpleSlug: "facebook",
   },
   {
+    friendlyServiceName: "Firebase",
+    service: "FIREBASE",
+    slug: "firebase",
+    supportsCustomServiceAuth: true,
+    supportsOauthLogin: true,
+    simpleSlug: "firebase",
+  },
+  {
     friendlyServiceName: "GitHub",
     service: "GITHUB",
     slug: "github",
@@ -1250,10 +1258,13 @@ export function gatherAllReferencedTypes(schema, query) {
 export function gatherAllReferencedServices(schema, query) {
   const referencedTypes = gatherAllReferencedTypes(schema, query);
 
+  console.log("Referenced types: ", referencedTypes);
+
   const referencedServices = new Set([]);
 
   referencedTypes.forEach((typeName) => {
     services.forEach((service) => {
+      console.log("\ttypeName: ", typeName, service.simpleSlug);
       if (typeName.startsWith(service.simpleSlug)) {
         referencedServices.add(service);
       }

@@ -122,9 +122,7 @@ module BlockSearch = {
 
     let (state, setState) = useState(() => {
       search: None,
-      results: blocks
-      ->Belt.Array.copy
-      ->Js.Array2.sortInPlaceWith((a, b) =>
+      results: blocks->Belt.SortArray.stableSortBy((a, b) =>
         String.compare(a.title->Js.String2.toLocaleLowerCase, b.title->Js.String2.toLocaleLowerCase)
       ),
     })
@@ -338,10 +336,10 @@ module NodeLabel = {
   ) => {
     let services =
       block.services
-      ->Belt.Array.keepMap(service =>
+      ->Belt.Array.keepMap(service => {
         service
         ->Utils.serviceImageUrl
-        ->Belt.Option.map(((url, friendlyServiceName)) =>
+        ->Belt.Option.map(((url, friendlyServiceName)) => {
           <img
             key={friendlyServiceName}
             className="shadow-lg rounded-full"
@@ -352,8 +350,8 @@ module NodeLabel = {
             width="16px"
             height="16px"
           />
-        )
-      )
+        })
+      })
       ->React.array
 
     open React

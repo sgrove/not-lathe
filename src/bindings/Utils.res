@@ -76,6 +76,7 @@ let services = Js.Dict.fromArray([
   ("usps", ("usps.com", "USPS")),
   ("wordpress", ("wordpress.com", "Wordpress")),
   // Exceptions
+  ("firebase", ("firebase.events", "Firebase")),
   ("rss", ("rss.com", "RSS")),
 ])
 

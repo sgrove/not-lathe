@@ -733,6 +733,42 @@ var blocks = [
     kind: /* Query */0,
     contributedBy: "@sgrove",
     services: ["github"]
+  },
+  {
+    id: Uuid.parseExn("ffeff87d-423a-445d-b388-a611e11810ea"),
+    title: "ReadData",
+    description: "TODO",
+    body: "query ReadData($databaseName: String!, $path: String!) {\n  firebase {\n    readData(databaseName: $databaseName, path: $path) {\n      json\n    }\n  }\n}",
+    kind: /* Query */0,
+    contributedBy: "@sgrove",
+    services: ["firebase"]
+  },
+  {
+    id: Uuid.parseExn("dfeff87d-424a-445d-b388-a611e11810ea"),
+    title: "PushToList",
+    description: "TODO",
+    body: "mutation PushToList(\n  $databaseName: String!\n  $path: String!\n  $data: JSON!\n) {\n  firebase {\n    pushData(\n      input: {\n        data: $data\n        path: $path\n        databaseName: $databaseName\n      }\n    ) {\n      json\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["firebase"]
+  },
+  {
+    id: Uuid.parseExn("bfeff87d-425a-445d-b388-a611e11810ea"),
+    title: "SetData",
+    description: "TODO",
+    body: "mutation SetData(\n  $databaseName: String!\n  $path: String!\n  $data: JSON!\n) {\n  firebase {\n    setData(\n      input: {\n        data: $data\n        path: $path\n        databaseName: $databaseName\n      }\n    ) {\n      json\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["firebase"]
+  },
+  {
+    id: Uuid.parseExn("afeff87d-426a-445d-b388-a611e11810ea"),
+    title: "UpdateData",
+    description: "TODO",
+    body: "mutation UpdateData(\n  $databaseName: String!\n  $path: String!\n  $updates: [FirebaseUpdateDataUpdateArg!]!\n) {\n  firebase {\n    updateData(\n      input: {\n        path: $path\n        databaseName: $databaseName\n        updates: $updates\n      }\n    ) {\n      json\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["firebase"]
   }
 ];
 

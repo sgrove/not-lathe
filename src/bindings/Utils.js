@@ -431,6 +431,13 @@ var services = Js_dict.fromArray([
         ]
       ],
       [
+        "firebase",
+        [
+          "firebase.events",
+          "Firebase"
+        ]
+      ],
+      [
         "rss",
         [
           "rss.com",

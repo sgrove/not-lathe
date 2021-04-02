@@ -100,9 +100,9 @@ function ChainEditor$BlockSearch(Props) {
   var match = React.useState(function () {
         return {
                 search: undefined,
-                results: blocks.slice(0).sort(function (a, b) {
-                      return $$String.compare(a.title.toLocaleLowerCase(), b.title.toLocaleLowerCase());
-                    })
+                results: Belt_SortArray.stableSortBy(blocks, (function (a, b) {
+                        return $$String.compare(a.title.toLocaleLowerCase(), b.title.toLocaleLowerCase());
+                      }))
               };
       });
   var setState = match[1];
