@@ -1337,7 +1337,7 @@ function Inspector$Request(Props) {
                             return ;
                           } else {
                             return Curry._1(onPotentialVariableSourceConnect, {
-                                        TAG: 2,
+                                        TAG: 3,
                                         sourceRequest: connectionDrag.sourceRequest,
                                         sourceDom: connectionDrag.sourceDom,
                                         target: {

@@ -61,31 +61,30 @@ return value
 function guessProjecType(owner, name) {
   var __x = Curry._2(_guessProjecType, owner, name);
   return __x.then(function (result) {
-              var typ;
+              var tmp;
               switch (result) {
                 case "netlify/*" :
-                    typ = {
+                    tmp = {
                       _0: "any",
                       [Symbol.for("name")]: "Netlify"
                     };
                     break;
                 case "netlify/next.js" :
-                    typ = {
+                    tmp = {
                       _0: "nextjs",
                       [Symbol.for("name")]: "Netlify"
                     };
                     break;
                 case "next.js" :
-                    typ = /* Nextjs */1;
+                    tmp = /* Nextjs */1;
                     break;
                 case "unknown" :
-                    typ = /* Unknown */0;
+                    tmp = /* Unknown */0;
                     break;
                 default:
-                  typ = /* Unknown */0;
+                  tmp = /* Unknown */0;
               }
-              console.log(owner, name, friendlyOfProjectType(typ));
-              return Promise.resolve(typ);
+              return Promise.resolve(tmp);
             });
 }
 

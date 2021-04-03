@@ -10,6 +10,12 @@ type connectionDrag =
   | Empty
   | StartedSource({sourceRequest: Chain.request, sourceDom: Dom.element})
   | StartedTarget({target: target, sourceDom: Dom.element})
+  | CompletedPendingVariable({
+      sourceRequest: Chain.request,
+      sourceDom: Dom.element,
+      targetRequest: Chain.request,
+      windowPosition: (int, int),
+    })
   | Completed({
       sourceRequest: Chain.request,
       sourceDom: Dom.element,
@@ -32,6 +38,7 @@ let toSimpleString = connectionDrag => {
   | Empty => "Empty"
   | StartedSource(_) => "StartedSource"
   | StartedTarget(_) => "StartedTarget"
+  | CompletedPendingVariable(_) => "CompletedPendingVariable"
   | Completed(_) => "Completed"
   | CompletedWithTypeMismatch(_) => "CompletedWithTypeMismatch"
   }

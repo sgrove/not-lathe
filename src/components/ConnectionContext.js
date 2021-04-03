@@ -11,9 +11,11 @@ function toSimpleString(connectionDrag) {
         return "StartedSource";
     case /* StartedTarget */1 :
         return "StartedTarget";
-    case /* Completed */2 :
+    case /* CompletedPendingVariable */2 :
+        return "CompletedPendingVariable";
+    case /* Completed */3 :
         return "Completed";
-    case /* CompletedWithTypeMismatch */3 :
+    case /* CompletedWithTypeMismatch */4 :
         return "CompletedWithTypeMismatch";
     
   }

@@ -86,7 +86,6 @@ return value
         Unknown
       }
 
-      Js.log3(owner, name, friendlyOfProjectType(typ))
       typ->Js.Promise.resolve
     }, _)
   }

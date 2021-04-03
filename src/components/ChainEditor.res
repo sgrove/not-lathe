@@ -361,14 +361,25 @@ module NodeLabel = {
     let domRef = React.useRef(Js.Nullable.null)
 
     let className = switch (connectionDrag, block.kind, mouseHover) {
+    | (ConnectionContext.StartedSource({sourceRequest}), _, true)
+    | (CompletedPendingVariable({sourceRequest}), _, true)
+      if Some(sourceRequest) != request => "node-drop drag-target drop-ready"
     | (ConnectionContext.StartedSource({sourceRequest}), _, _)
-    | (Completed({sourceRequest}), _, _) if Some(sourceRequest) == request => "drag-source"
+    | (CompletedPendingVariable({sourceRequest}), _, _)
+      if Some(sourceRequest) != request => "node-drop drag-target"
+
+    | (ConnectionContext.StartedSource({sourceRequest}), _, _)
+    | (Completed({sourceRequest}), _, _)
+      if Some(sourceRequest) == request => "node-drop drag-source no-drop"
+    | (ConnectionContext.StartedSource({sourceRequest}), _, _)
+    | (CompletedPendingVariable({sourceRequest}), _, _)
+      if Some(sourceRequest) == request => "node-drop drag-source no-drop"
+
     | (ConnectionContext.StartedTarget(_), Fragment, _) => ""
     | (ConnectionContext.StartedTarget({target: Variable({targetRequest})}), _, _)
       if Some(targetRequest) == request => " node-drop drag-source no-drop"
     | (ConnectionContext.StartedTarget(_), _, true) => " node-drop drag-target drop-ready"
     | (ConnectionContext.StartedTarget(_), _, false) => " node-drop drag-target"
-
     | _ => ""
     }
 
@@ -393,15 +404,24 @@ module NodeLabel = {
         }
       }}
       onMouseUp={event => {
-        request->Belt.Option.forEach(sourceRequest => {
-          switch connectionDrag {
-          | StartedTarget(dragInfo) =>
-            let clientX = event->ReactEvent.Mouse.clientX
-            let clientY = event->ReactEvent.Mouse.clientY
-            let mouseClientPosition = (clientX, clientY)
+        request->Belt.Option.forEach(request => {
+          let clientX = event->ReactEvent.Mouse.clientX
+          let clientY = event->ReactEvent.Mouse.clientY
+          let mouseClientPosition = (clientX, clientY)
 
+          switch connectionDrag {
+          | StartedSource({sourceRequest} as dragInfo) if sourceRequest != request =>
+            let connectionDrag = ConnectionContext.CompletedPendingVariable({
+              sourceRequest: dragInfo.sourceRequest,
+              sourceDom: dragInfo.sourceDom,
+              windowPosition: mouseClientPosition,
+              targetRequest: request,
+            })
+            onPotentialVariableSourceConnect(~connectionDrag)
+
+          | StartedTarget(dragInfo) =>
             let connectionDrag = ConnectionContext.Completed({
-              sourceRequest: sourceRequest,
+              sourceRequest: request,
               sourceDom: dragInfo.sourceDom,
               windowPosition: mouseClientPosition,
               target: dragInfo.target,
@@ -1085,6 +1105,7 @@ ${chain.script}`
             switch connectionDragRef.current {
             | Empty
             | Completed(_)
+            | CompletedPendingVariable(_)
             | CompletedWithTypeMismatch(_)
             | StartedTarget(_) => ()
             | StartedSource({sourceRequest, sourceDom}) =>
@@ -1413,9 +1434,10 @@ module Main = {
     ~onSaveAndClose as _,
     ~trace: option<Chain.Trace.t>,
   ) => {
-    let (_missingAuthServices, setMissingAuthServices) = React.useState(() => [])
+    open React
+    let (_missingAuthServices, setMissingAuthServices) = useState(() => [])
 
-    let (state, setState) = React.useState(() => {
+    let (state, setState) = useState(() => {
       let scriptFunctions = try {
         let parsedScript = Acorn.parse(
           initialChain.script,
@@ -1459,7 +1481,7 @@ module Main = {
       }
     })
 
-    React.useEffect0(() => {
+    useEffect0(() => {
       let diagramFromChain = chain =>
         diagramFromChain(
           chain,
@@ -1567,7 +1589,7 @@ module Main = {
       setState(oldState => {...oldState, inspected: inspected})
     }
 
-    React.useEffect1(() => {
+    useEffect1(() => {
       try {
         let parsedScript = Acorn.parse(
           state.chain.script,
@@ -1583,12 +1605,12 @@ module Main = {
       None
     }, [state.chain.script])
 
-    React.useEffect1(() => {
+    useEffect1(() => {
       setState(oldState => {...oldState, chain: {...oldState.chain, name: initialChain.name}})
       None
     }, [initialChain.name])
 
-    React.useEffect1(() => {
+    useEffect1(() => {
       state.chain.requests->Belt.Array.length > 3
         ? fitView({
             padding: 0.2,
@@ -2083,7 +2105,7 @@ ${newScript}`
                     addBlock(block)
                   })
                 }}>
-                {state.diagram->Belt.Option.mapWithDefault(React.null, diagram =>
+                {state.diagram->Belt.Option.mapWithDefault(null, diagram =>
                   <Diagram
                     setState
                     diagram
@@ -2115,7 +2137,7 @@ ${newScript}`
                       ~display="flex",
                       (),
                     )}>
-                    <div className="flex-grow"> {"Chain JavaScript"->React.string} </div>
+                    <div className="flex-grow"> {"Chain JavaScript"->string} </div>
                     <div>
                       <button
                         onClick={_ => {
@@ -2140,7 +2162,7 @@ ${newScript}`
                   </Comps.Header>
                 </div>
                 {false
-                  ? React.null
+                  ? null
                   : <Script
                       schema={state.schema}
                       chain={state.chain}
@@ -2248,7 +2270,7 @@ ${newScript}`
             </ReactResizePanel>
           </div>
           {switch state.blockEdit {
-          | Nothing => React.null
+          | Nothing => null
           | Create(block) as action | Edit(block) as action =>
             let isCreateAction = switch action {
             | Create(_) => true
@@ -2546,7 +2568,68 @@ ${newScript}`
             <Comps.Modal> {editor} </Comps.Modal>
           }}
           {switch state.connectionDrag {
-          | Empty => React.null
+          | Empty => null
+          | CompletedPendingVariable({targetRequest, windowPosition: (x, y)} as dragInfo) =>
+            let variableDependencies =
+              targetRequest.variableDependencies->Belt.SortArray.stableSortBy((a, b) => {
+                String.compare(a.name, b.name)
+              })
+
+            let onClick = variableDependency => {
+              let connectionDrag = switch variableDependency {
+              | None => ConnectionContext.Empty
+              | Some(variableDependency) =>
+                let variableTarget: ConnectionContext.variableTarget = {
+                  targetRequest: targetRequest,
+                  variableDependency: variableDependency,
+                }
+
+                ConnectionContext.Completed({
+                  sourceRequest: dragInfo.sourceRequest,
+                  sourceDom: dragInfo.sourceDom,
+                  windowPosition: (x, y),
+                  target: Variable(variableTarget),
+                })
+              }
+
+              setState(oldState => {...oldState, connectionDrag: connectionDrag})
+            }
+
+            <div
+              className="absolute graphql-structure-container rounded-sm text-gray-200"
+              style={ReactDOMRe.Style.make(
+                ~width="500px",
+                ~top=j`${y->string_of_int}px`,
+                ~left=j`${x->string_of_int}px`,
+                ~maxHeight="200px",
+                ~overflowY="scroll",
+                ~color=Comps.colors["gray-6"],
+                ~zIndex="999",
+                (),
+              )}>
+              <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
+                {"Choose destination variable: "->string}
+              </span>
+              <ul>
+                <li
+                  className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
+                  key="CANCEL"
+                  onClick={_ => onClick(None)}>
+                  {"Cancel"->string}
+                </li>
+                {variableDependencies
+                ->Belt.Array.map(variableDependency => {
+                  <li
+                    className="cursor-pointer graphql-structure-preview-entry"
+                    onClick={_ => onClick(Some(variableDependency))}
+                    key=variableDependency.name>
+                    {("$" ++ variableDependency.name)->string}
+                  </li>
+                })
+                ->array}
+              </ul>
+            </div>
+
           | CompletedWithTypeMismatch({
               sourceRequest,
               variableTarget,
@@ -2556,7 +2639,6 @@ ${newScript}`
               targetVariableType,
               sourceType,
             }) =>
-            open React
             let onClick: option<string> => unit = name => {
               setState(oldState => {
                 let parsed = try {
@@ -3170,7 +3252,7 @@ ${newScript}`
               }}
             />
           | StartedTarget({target: Script(_)}) => // TODO!
-            React.null
+            null
           }}
         </ConnectionContext.Provider>
       </InspectedContextProvider>
