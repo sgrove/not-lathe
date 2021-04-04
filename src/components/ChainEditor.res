@@ -1580,6 +1580,14 @@ module Main = {
 
     let {fitView} = ReactFlow.useZoomPanHelper()
 
+    // TODO: Possibly make this all of the fragments that exist in the user's block library
+    let availableFragments = state.chain.blocks->Belt.Array.keepMap(block => {
+      switch block.kind {
+      | Fragment => Some(GraphQLJs.parse(block.body).definitions[0])
+      | _ => None
+      }
+    })
+
     let onRequestInspected = request => {
       let inspected: Inspector.inspectable = Request({
         chain: state.chain,
@@ -2281,6 +2289,7 @@ ${newScript}`
               <BlockEditor
                 schema={state.schema}
                 block
+                availableFragments
                 onClose={() => {
                   setState(oldState => {...oldState, blockEdit: Nothing})
                 }}

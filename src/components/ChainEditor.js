@@ -1713,6 +1713,14 @@ function ChainEditor$Main(Props) {
   };
   var match$2 = ReactFlowRenderer.useZoomPanHelper();
   var fitView = match$2.fitView;
+  var availableFragments = Belt_Array.keepMap(state.chain.blocks, (function (block) {
+          var match = block.kind;
+          if (match !== 3) {
+            return ;
+          } else {
+            return Caml_array.get(Graphql.parse(block.body).definitions, 0);
+          }
+        }));
   var onRequestInspected = function (request) {
     var inspected_0 = state.chain;
     var inspected = {
@@ -2928,7 +2936,8 @@ function ChainEditor$Main(Props) {
               catch (exn){
                 return ;
               }
-            })
+            }),
+          availableFragments: availableFragments
         });
     tmp$2 = React.createElement(Comps.Modal.make, {
           children: editor

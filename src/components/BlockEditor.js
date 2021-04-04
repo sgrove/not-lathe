@@ -8,7 +8,7 @@ import * as GraphQLJs from "../bindings/GraphQLJs.js";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as BsReactMonaco from "../bindings/BsReactMonaco.js";
-import GraphiqlExplorer from "graphiql-explorer";
+import GraphiqlExplorer from "@sgrove/graphiql-explorer";
 
 var GraphiQLExplorer = {};
 
@@ -17,6 +17,7 @@ function BlockEditor(Props) {
   var initialBlock = Props.block;
   var onClose = Props.onClose;
   var onSave = Props.onSave;
+  var availableFragments = Props.availableFragments;
   var match = React.useState(function () {
         return initialBlock;
       });
@@ -52,7 +53,8 @@ function BlockEditor(Props) {
               query: block.body,
               width: "100%",
               height: "100%",
-              onEdit: updateBlock
+              onEdit: updateBlock,
+              availableFragments: availableFragments
             }));
   var editor = React.createElement(BsReactMonaco.Editor.make, {
         height: "100%",

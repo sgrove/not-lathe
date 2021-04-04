@@ -1201,6 +1201,7 @@ let make = (~schema, ~config) => {
 
     {
       inspected: Package,
+      // Edit({chain: initialChains[0], trace: None}),
       package: package,
       initialPackage: package,
     }

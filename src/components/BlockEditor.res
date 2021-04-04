@@ -1,5 +1,5 @@
 module GraphiQLExplorer = {
-  @module("graphiql-explorer") @react.component
+  @module("@sgrove/graphiql-explorer") @react.component
   external make: (
     ~schema: GraphQLJs.schema,
     ~explorerIsOpen: bool,
@@ -7,11 +7,18 @@ module GraphiQLExplorer = {
     ~width: string=?,
     ~height: string=?,
     ~onEdit: string => unit=?,
+    ~availableFragments: array<GraphQLJs.graphqlOperationDefinition>=?,
   ) => React.element = "default"
 }
 
 @react.component
-let make = (~schema: GraphQLJs.schema, ~block as initialBlock: Card.block, ~onClose, ~onSave) => {
+let make = (
+  ~schema: GraphQLJs.schema,
+  ~block as initialBlock: Card.block,
+  ~onClose,
+  ~onSave,
+  ~availableFragments,
+) => {
   let (block, setBlock) = React.useState(() => initialBlock)
 
   React.useEffect1(() => {
@@ -38,6 +45,7 @@ let make = (~schema: GraphQLJs.schema, ~block as initialBlock: Card.block, ~onCl
         query={block.body}
         explorerIsOpen=true
         onEdit={updateBlock}
+        availableFragments
       />
     </div>
   }
