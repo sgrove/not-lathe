@@ -1192,7 +1192,7 @@ module ConnectorLine = {
     let (anchorX, anchorY) = {
       let rect = Obj.magic(getBoundingClientRect(source))
 
-      let scrollY = Utils.windowScrollY()->Belt.Option.getWithDefault(0)
+      let scrollY = Utils.Window.scrollY()->Belt.Option.getWithDefault(0)
 
       (rect["x"] + rect["width"] / 2, rect["y"] + rect["height"] / 2 + scrollY)
     }
@@ -1433,6 +1433,7 @@ module Main = {
     ~onClose,
     ~onSaveAndClose as _,
     ~trace: option<Chain.Trace.t>,
+    ~helpOpen: bool,
   ) => {
     open React
     let (_missingAuthServices, setMissingAuthServices) = useState(() => [])
@@ -1598,20 +1599,23 @@ module Main = {
     }
 
     useEffect1(() => {
-      try {
-        let parsedScript = Acorn.parse(
-          state.chain.script,
-          Acorn.parseOptions(~ecmaVersion=2020, ~sourceType=#"module", ()),
-        )
-
-        let functionNames = Acorn.collectExportedFunctionNames(parsedScript)
-        setState(oldState => {...oldState, scriptFunctions: functionNames})
-      } catch {
-      | _ => ()
+      let handler = event => {
+        Js.log2("onCopy: ", event)
       }
+      let r = Utils.Window.addEventListener(~event="copy", ~handler)
+      Js.log3("Installed handler ", r, handler)
 
-      None
-    }, [state.chain.script])
+      Some(() => Utils.Window.removeEventListener(~event="copy", ~handler))
+    }, [state.chain.blocks])
+
+    useEffect1(() => {
+      let handler = event => {
+        Js.log2("onPaste: ", event)
+      }
+      Utils.Window.addEventListener(~event="paste", ~handler)
+
+      Some(() => Utils.Window.removeEventListener(~event="paste", ~handler))
+    }, [state.chain.blocks])
 
     useEffect1(() => {
       setState(oldState => {...oldState, chain: {...oldState.chain, name: initialChain.name}})
@@ -3265,6 +3269,37 @@ ${newScript}`
           }}
         </ConnectionContext.Provider>
       </InspectedContextProvider>
+      {helpOpen
+        ? <Comps.Modal>
+            <div className="w-full h-full m-2 bg-gray-900">
+              <h1 style={ReactDOMStyle.make(~color=Comps.colors["gray-6"], ())}>
+                {"Draw connections with drag and drop:"->string}
+              </h1>
+              <ul style={ReactDOMStyle.make(~color=Comps.colors["gray-4"], ())}>
+                {
+                  let connectionsHelp =
+                    Help.videoTutorials->Belt.Array.keep((video: Help.videoTutorialLink) =>
+                      video.category == Connections
+                    )
+
+                  connectionsHelp
+                  ->Belt.Array.map(video => {
+                    <li key=video.title>
+                      {video.oneLineDescription->string}
+                      <a
+                        href=video.link
+                        target="_blank"
+                        style={ReactDOMStyle.make(~color=Comps.colors["blue-1"], ())}>
+                        {"[Tutorial video]"->string}
+                      </a>
+                    </li>
+                  })
+                  ->array
+                }
+              </ul>
+            </div>
+          </Comps.Modal>
+        : null}
     </div>
   }
 }
@@ -3278,6 +3313,7 @@ let make = (
   ~onClose,
   ~onSaveAndClose,
   ~trace: option<Chain.Trace.t>,
+  ~helpOpen: bool,
 ) => {
   let oneGraphAuth = OneGraphAuth.create(
     OneGraphAuth.createOptions(~appId=config.oneGraphAppId, ()),
@@ -3285,7 +3321,9 @@ let make = (
   oneGraphAuth
   ->Belt.Option.map(oneGraphAuth => {
     <ReactFlow.Provider>
-      <Main schema initialChain config oneGraphAuth onSaveChain onClose onSaveAndClose trace />
+      <Main
+        schema initialChain config oneGraphAuth onSaveChain onClose onSaveAndClose trace helpOpen
+      />
     </ReactFlow.Provider>
   })
   ->Belt.Option.getWithDefault("Loading Chain Editor..."->React.string)

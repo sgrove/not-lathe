@@ -1656,7 +1656,7 @@ module Request = {
             }}>
             <option value={"variable"}> {"Variable Input"->string} </option>
             <option value={"argument"}> {"Computed Value"->string} </option>
-            <option disabled=true value={"probe"}> {"GraphQL Probe"->string} </option>
+            <option disabled=true value={"probe"}> {"Direct Connection"->string} </option>
           </Comps.Select>
         </div>
         <div
@@ -2302,7 +2302,7 @@ let make = (
       | Nothing(_) => null
       | _ =>
         <span className="text-white cursor-pointer" onClick={_ => onReset()}>
-          {"X"->React.string}
+          {j`⨂`->React.string}
         </span>
       }}
     </nav>

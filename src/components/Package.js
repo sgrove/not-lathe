@@ -16,6 +16,7 @@ import * as ChainEditor from "./ChainEditor.js";
 import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import ReactJsonView from "react-json-view";
 import * as DevTime_JsonJs from "../DevTime_Json.js";
+import * as ReactHotkeysHook from "react-hotkeys-hook";
 
 var traces = DevTime_JsonJs.traces;
 
@@ -1242,11 +1243,38 @@ function Package(Props) {
         return {
                 inspected: /* Package */0,
                 package: $$package,
-                initialPackage: $$package
+                initialPackage: $$package,
+                helpOpen: false
               };
       });
   var setState = match[1];
   var state = match[0];
+  ReactHotkeysHook.useHotkeys("shift+/", (function ($$event, _handler) {
+          $$event.preventDefault();
+          $$event.stopPropagation();
+          return Curry._1(setState, (function (oldState) {
+                        return {
+                                inspected: oldState.inspected,
+                                package: oldState.package,
+                                initialPackage: oldState.initialPackage,
+                                helpOpen: !oldState.helpOpen
+                              };
+                      }));
+        }), {}, undefined);
+  ReactHotkeysHook.useHotkeys("esc", (function ($$event, _handler) {
+          return Curry._1(setState, (function (oldState) {
+                        if (oldState.helpOpen) {
+                          return {
+                                  inspected: oldState.inspected,
+                                  package: oldState.package,
+                                  initialPackage: oldState.initialPackage,
+                                  helpOpen: false
+                                };
+                        } else {
+                          return oldState;
+                        }
+                      }));
+        }), {}, undefined);
   var navButton = function (onClick, onDoubleClick, content) {
     var tmp = {
       className: "mr-2",
@@ -1282,7 +1310,8 @@ function Package(Props) {
                                       traceRetentionPolicy: init.traceRetentionPolicy,
                                       traceRetentionDays: init.traceRetentionDays
                                     },
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             }),
@@ -1295,7 +1324,8 @@ function Package(Props) {
                                       [Symbol.for("name")]: "Chain"
                                     },
                                     package: oldState.package,
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             }),
@@ -1309,7 +1339,8 @@ function Package(Props) {
                                       [Symbol.for("name")]: "Edit"
                                     },
                                     package: oldState.package,
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             }),
@@ -1328,7 +1359,8 @@ function Package(Props) {
                                       traceRetentionPolicy: init.traceRetentionPolicy,
                                       traceRetentionDays: init.traceRetentionDays
                                     },
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             }),
@@ -1337,7 +1369,8 @@ function Package(Props) {
                             return {
                                     inspected: oldState.inspected,
                                     package: newPackage,
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             })
@@ -1360,7 +1393,8 @@ function Package(Props) {
                                       [Symbol.for("name")]: "Edit"
                                     },
                                     package: oldState.package,
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             })
@@ -1403,7 +1437,8 @@ function Package(Props) {
                                       traceRetentionPolicy: init.traceRetentionPolicy,
                                       traceRetentionDays: init.traceRetentionDays
                                     },
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             }),
@@ -1412,7 +1447,8 @@ function Package(Props) {
                             return {
                                     inspected: /* Package */0,
                                     package: oldState.package,
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             }),
@@ -1434,11 +1470,13 @@ function Package(Props) {
                                       traceRetentionPolicy: init.traceRetentionPolicy,
                                       traceRetentionDays: init.traceRetentionDays
                                     },
-                                    initialPackage: oldState.initialPackage
+                                    initialPackage: oldState.initialPackage,
+                                    helpOpen: oldState.helpOpen
                                   };
                           }));
             }),
-          trace: chain.trace
+          trace: chain.trace,
+          helpOpen: state.helpOpen
         });
   }
   var makeNav = function (inspected) {
@@ -1472,7 +1510,8 @@ function Package(Props) {
                                     return {
                                             inspected: /* Package */0,
                                             package: oldState.package,
-                                            initialPackage: oldState.initialPackage
+                                            initialPackage: oldState.initialPackage,
+                                            helpOpen: oldState.helpOpen
                                           };
                                   }));
                     }), undefined, " > " + state.package.name), tmp);

@@ -1492,7 +1492,7 @@ function Inspector$Request(Props) {
                                 }, "Computed Value"), React.createElement("option", {
                                   disabled: true,
                                   value: "probe"
-                                }, "GraphQL Probe"))), React.createElement("div", {
+                                }, "Direct Connection"))), React.createElement("div", {
                           className: "text-grey-darkest p-2 text-gray-200 overflow-scroll rounded-b-sm " + (
                             isOpen ? "" : "hidden"
                           )
@@ -2073,7 +2073,7 @@ function Inspector(Props) {
           onClick: (function (param) {
               return Curry._1(onReset, undefined);
             })
-        }, "X");
+        }, "⨂");
   var tmp$2;
   var exit = 0;
   switch (inspected.TAG | 0) {

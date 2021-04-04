@@ -74,17 +74,32 @@ let serviceImageUrl = (~size=25, ~greyscale=false, service) => {
   ))
 }
 
-let windowLocationOrigin: unit => option<string> = () => {
-  %external(window)->Belt.Option.map((window: Dom.window) =>
-    Obj.magic(window)["location"]["origin"]
-  )
-}
 @val external prompt: (string, ~default: option<string>) => Js.Nullable.t<string> = "prompt"
 @val external alert: string => unit = "alert"
 @val external confirm: string => bool = "confirm"
 
-let windowScrollY: unit => option<int> = () => {
-  %external(window)->Belt.Option.map((window: Dom.window) => Obj.magic(window)["scrollY"])
+module Window = {
+  let scrollY: unit => option<int> = () => {
+    %external(window)->Belt.Option.map((window: Dom.window) => Obj.magic(window)["scrollY"])
+  }
+
+  let locationOrigin: unit => option<string> = () => {
+    %external(window)->Belt.Option.map((window: Dom.window) =>
+      Obj.magic(window)["location"]["origin"]
+    )
+  }
+
+  let addEventListener = (~event: string, ~handler): unit => {
+    %external(window)->Belt.Option.forEach((window: Dom.window) =>
+      Obj.magic(window)["addEventListener"](event, handler)
+    )
+  }
+
+  let removeEventListener = (~event: string, ~handler): unit => {
+    %external(window)->Belt.Option.forEach((window: Dom.window) =>
+      Obj.magic(window)["removeEventListener"](event, handler)
+    )
+  }
 }
 
 module Date = {

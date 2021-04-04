@@ -1176,7 +1176,7 @@ module ChainLogs = {
 
 type inspectable = Package | Chain(Chain.t) | Edit({chain: Chain.t, trace: option<Chain.Trace.t>})
 
-type state = {inspected: inspectable, package: t, initialPackage: t}
+type state = {inspected: inspectable, package: t, initialPackage: t, helpOpen: bool}
 
 @react.component
 let make = (~schema, ~config) => {
@@ -1204,8 +1204,31 @@ let make = (~schema, ~config) => {
       // Edit({chain: initialChains[0], trace: None}),
       package: package,
       initialPackage: package,
+      helpOpen: false,
     }
   })
+
+  ReactHotKeysHook.useHotkeys(
+    ~keys="shift+/",
+    ~callback=(event, _handler) => {
+      event->ReactEvent.Keyboard.preventDefault
+      event->ReactEvent.Keyboard.stopPropagation
+      setState(oldState => {...oldState, helpOpen: !oldState.helpOpen})
+    },
+    ~options=ReactHotKeysHook.options(),
+    ~deps=None,
+  )
+
+  ReactHotKeysHook.useHotkeys(
+    ~keys="esc",
+    ~callback=(event, _handler) => {
+      setState(oldState => {
+        oldState.helpOpen ? {...oldState, helpOpen: false} : oldState
+      })
+    },
+    ~options=ReactHotKeysHook.options(),
+    ~deps=None,
+  )
 
   let navButton = (~onClick, ~onDoubleClick=?, content) => {
     <button className="mr-2" ?onDoubleClick onClick> content </button>
@@ -1231,6 +1254,7 @@ let make = (~schema, ~config) => {
       schema
       initialChain=chain
       trace
+      helpOpen=state.helpOpen
       onSaveChain={(newChain: Chain.t) => {
         setState(oldState => {
           newChain->Chain.saveToLocalStorage

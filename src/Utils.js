@@ -448,17 +448,36 @@ function serviceImageUrl(sizeOpt, greyscaleOpt, service) {
               }));
 }
 
-function windowLocationOrigin(param) {
+function scrollY(param) {
+  return Belt_Option.map(Caml_option.undefined_to_opt(typeof window === "undefined" ? undefined : window), (function ($$window) {
+                return $$window.scrollY;
+              }));
+}
+
+function locationOrigin(param) {
   return Belt_Option.map(Caml_option.undefined_to_opt(typeof window === "undefined" ? undefined : window), (function ($$window) {
                 return $$window.location.origin;
               }));
 }
 
-function windowScrollY(param) {
-  return Belt_Option.map(Caml_option.undefined_to_opt(typeof window === "undefined" ? undefined : window), (function ($$window) {
-                return $$window.scrollY;
+function addEventListener($$event, handler) {
+  return Belt_Option.forEach(Caml_option.undefined_to_opt(typeof window === "undefined" ? undefined : window), (function ($$window) {
+                return $$window.addEventListener($$event, handler);
               }));
 }
+
+function removeEventListener($$event, handler) {
+  return Belt_Option.forEach(Caml_option.undefined_to_opt(typeof window === "undefined" ? undefined : window), (function ($$window) {
+                return $$window.removeEventListener($$event, handler);
+              }));
+}
+
+var $$Window = {
+  scrollY: scrollY,
+  locationOrigin: locationOrigin,
+  addEventListener: addEventListener,
+  removeEventListener: removeEventListener
+};
 
 function timeAgo(date) {
   var dateMs = date.getTime();
@@ -527,8 +546,7 @@ var $$String$1 = {
 export {
   services ,
   serviceImageUrl ,
-  windowLocationOrigin ,
-  windowScrollY ,
+  $$Window ,
   $$Date ,
   $$String$1 as $$String,
   

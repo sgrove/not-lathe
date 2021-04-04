@@ -77,7 +77,7 @@ module Inner = {
           </div>
         </div>
       | Dead({error}) =>
-        let origin = Utils.windowLocationOrigin()->Belt.Option.getWithDefault("")
+        let origin = Utils.Window.locationOrigin()->Belt.Option.getWithDefault("")
         <>
           <div className="flex h-screen">
             <div className="m-auto">

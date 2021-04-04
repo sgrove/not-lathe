@@ -63,6 +63,18 @@ let make = (
       onChange={(newOperationDoc, _) => updateBlock(newOperationDoc)}
     />
   open React
+
+  ReactHotKeysHook.useHotkeys(
+    ~keys="esc",
+    ~callback=(event, _handler) => {
+      event->ReactEvent.Keyboard.preventDefault
+      event->ReactEvent.Keyboard.stopPropagation
+      onClose()
+    },
+    ~options=ReactHotKeysHook.options(),
+    ~deps=None,
+  )
+
   <div className="flex w-full flex-col">
     <div className="flex flex-grow flex-row h-full"> {explorer} {editor} </div>
     <div className="w-full ml-auto flex">

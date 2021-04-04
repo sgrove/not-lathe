@@ -103,7 +103,7 @@ function Index$Inner(Props) {
                                 }, msg._0))))));
         break;
     case /* Dead */1 :
-        var origin = Belt_Option.getWithDefault(Utils.windowLocationOrigin(undefined), "");
+        var origin = Belt_Option.getWithDefault(Utils.$$Window.locationOrigin(undefined), "");
         tmp = React.createElement(React.Fragment, undefined, React.createElement("div", {
                   className: "flex h-screen"
                 }, React.createElement("div", {

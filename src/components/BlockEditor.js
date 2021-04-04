@@ -8,6 +8,7 @@ import * as GraphQLJs from "../bindings/GraphQLJs.js";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as BsReactMonaco from "../bindings/BsReactMonaco.js";
+import * as ReactHotkeysHook from "react-hotkeys-hook";
 import GraphiqlExplorer from "@sgrove/graphiql-explorer";
 
 var GraphiQLExplorer = {};
@@ -71,6 +72,11 @@ function BlockEditor(Props) {
             return updateBlock(newOperationDoc);
           })
       });
+  ReactHotkeysHook.useHotkeys("esc", (function ($$event, _handler) {
+          $$event.preventDefault();
+          $$event.stopPropagation();
+          return Curry._1(onClose, undefined);
+        }), {}, undefined);
   return React.createElement("div", {
               className: "flex w-full flex-col"
             }, React.createElement("div", {
