@@ -769,6 +769,33 @@ var blocks = [
     kind: /* Mutation */1,
     contributedBy: "@sgrove",
     services: ["firebase"]
+  },
+  {
+    id: Uuid.parseExn("afeff87d-426a-395d-b388-a611e11810ea"),
+    title: "PostTweet",
+    description: "TODO",
+    body: "mutation PostTweet(\n  $status: String!\n  $displayCoordinates: Boolean = false\n) {\n  twitter {\n    postStatus(input: { status: $status }) {\n      tweet {\n        id\n        text\n      }\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["twitter"]
+  },
+  {
+    id: Uuid.parseExn("afeff87d-426a-393d-b388-a611e11810ea"),
+    title: "SetStatus",
+    description: "TODO",
+    body: "mutation SetStatus(\n  $message: String!\n  $limitedAvailability: Boolean = false\n) {\n  gitHub {\n    changeUserStatus(\n      input: {\n        message: $message\n        limitedAvailability: $limitedAvailability\n      }\n    ) {\n      status {\n        id\n        message\n        indicatesLimitedAvailability\n        updatedAt\n      }\n    }\n  }\n}",
+    kind: /* Mutation */1,
+    contributedBy: "@sgrove",
+    services: ["github"]
+  },
+  {
+    id: Uuid.parseExn("afeff87d-426a-393d-b388-a611a21810ea"),
+    title: "CurrentlyListeningTo",
+    description: "TODO",
+    body: "query CurrentlyListeningTo {\n  spotify {\n    me {\n      player {\n        currentlyPlayingType\n        isPlaying\n        progressMs\n        repeatState\n        shuffleState\n        item {\n          id\n          name\n          previewUrl\n          trackNumber\n          uri\n          album {\n            name\n            uri\n            images {\n              url\n            }\n          }\n          artists {\n            name\n            images {\n              url\n            }\n            uri\n          }\n        }\n      }\n    }\n  }\n}",
+    kind: /* Query */0,
+    contributedBy: "@sgrove",
+    services: ["spotify"]
   }
 ];
 

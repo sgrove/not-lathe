@@ -2287,6 +2287,97 @@ Once you've made a custom GitHub app, set the client id/secret for it in your On
 }",
     kind: Mutation,
   },
+  {
+    title: "PostTweet",
+    id: "afeff87d-426a-395d-b388-a611e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["twitter"],
+    description: "TODO",
+    body: "mutation PostTweet(
+  $status: String!
+  $displayCoordinates: Boolean = false
+) {
+  twitter {
+    postStatus(input: { status: $status }) {
+      tweet {
+        id
+        text
+      }
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "SetStatus",
+    id: "afeff87d-426a-393d-b388-a611e11810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["github"],
+    description: "TODO",
+    body: "mutation SetStatus(
+  $message: String!
+  $limitedAvailability: Boolean = false
+) {
+  gitHub {
+    changeUserStatus(
+      input: {
+        message: $message
+        limitedAvailability: $limitedAvailability
+      }
+    ) {
+      status {
+        id
+        message
+        indicatesLimitedAvailability
+        updatedAt
+      }
+    }
+  }
+}",
+    kind: Mutation,
+  },
+  {
+    title: "CurrentlyListeningTo",
+    id: "afeff87d-426a-393d-b388-a611a21810ea"->Uuid.parseExn,
+    contributedBy: Some("@sgrove"),
+    services: ["spotify"],
+    description: "TODO",
+    body: "query CurrentlyListeningTo {
+  spotify {
+    me {
+      player {
+        currentlyPlayingType
+        isPlaying
+        progressMs
+        repeatState
+        shuffleState
+        item {
+          id
+          name
+          previewUrl
+          trackNumber
+          uri
+          album {
+            name
+            uri
+            images {
+              url
+            }
+          }
+          artists {
+            name
+            images {
+              url
+            }
+            uri
+          }
+        }
+      }
+    }
+  }
+}",
+    kind: Query,
+  },
 ]
 
 let blockServices = (~schema, block: block): array<GraphQLUtils.service> => {
