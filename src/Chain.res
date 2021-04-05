@@ -736,8 +736,35 @@ type compiledChainWithMeta = {
   chains: array<compiledChainMeta>,
 }
 
-let compileOperationDoc = (chain: t): compiledChainWithMeta => {
-  let blockOperations = chain.blocks->Belt.Array.joinWith("\n", x => x.body)
+let compileOperationDoc = (
+  ~schema,
+  ~webhookUrl,
+  // ="https://serve.onegraph.com/dev/null",
+  chain: t,
+): compiledChainWithMeta => {
+  let blockOperations =
+    chain.blocks
+    ->Belt.Array.map(block => {
+      switch block.kind {
+      | Subscription =>
+        let body = block.body
+        let parsed = body->GraphQLJs.parse
+        let definition = parsed.definitions->Belt.Array.getUnsafe(0)
+
+        let newDefinition = GraphQLJs.Mock.patchSubscriptionWebhookField({
+          "schema": schema,
+          "definition": definition,
+          "webhookUrl": webhookUrl,
+        })
+
+        let newBody = newDefinition->GraphQLJs.printAst
+
+        {...block, body: newBody}
+
+      | _ => block
+      }
+    })
+    ->Belt.Array.joinWith("\n", x => x.body)
 
   let exposedVariables =
     chain.requests

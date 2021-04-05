@@ -207,6 +207,13 @@ module Mock = {
   > = "gatherFragmentDefinitions"
 
   @module("../GraphQLMockInputType.js")
+  external patchSubscriptionWebhookField: {
+    "definition": graphqlOperationDefinition,
+    "schema": schema,
+    "webhookUrl": string,
+  } => graphqlAst = "patchSubscriptionWebhookField"
+
+  @module("../GraphQLMockInputType.js")
   external compileComputeToIdentityQuery: graphqlOperationDefinition => graphqlOperationDefinition =
     "compileComputeToIdentityQuery"
 }

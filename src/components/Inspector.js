@@ -321,11 +321,21 @@ function internallyPatchChain(chain) {
 }
 
 function transformChain(chain) {
-  return Chain.compileOperationDoc(internallyPatchChain(chain));
+  var arg = internallyPatchChain(chain);
+  return function (param) {
+    return function (param$1) {
+      return Chain.compileOperationDoc(param, param$1, arg);
+    };
+  };
 }
 
-function remoteChainCalls(appId, chainId, chain) {
-  var compiled = Chain.compileOperationDoc(internallyPatchChain(chain));
+function webhookUrlForAppId(appId) {
+  return "https://websmee.com/hook/" + appId;
+}
+
+function remoteChainCalls(schema, appId, chainId, chain) {
+  var webhookUrl = "https://websmee.com/hook/" + appId;
+  var compiled = Curry._1(transformChain(chain)(schema), webhookUrl);
   var targetChain = compiled.chains[0];
   var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
             var key = exposed.exposedName;
@@ -502,8 +512,9 @@ function remoteChainCalls(appId, chainId, chain) {
         };
 }
 
-function transformAndExecuteChain(chain, oneGraphAuth, variables) {
-  var compiled = Chain.compileOperationDoc(internallyPatchChain(chain));
+function transformAndExecuteChain(chain, schema, oneGraphAuth, variables) {
+  var webhookUrl = "https://websmee.com/hook/" + oneGraphAuth.appId;
+  var compiled = Curry._1(transformChain(chain)(schema), webhookUrl);
   var targetChain = compiled.chains[0];
   return OneGraphRe.fetchOneGraph(oneGraphAuth, compiled.operationDoc, targetChain.operationName, variables);
 }
@@ -558,6 +569,7 @@ var Block = {
 };
 
 function Inspector$GitHub(Props) {
+  var schema = Props.schema;
   var chain = Props.chain;
   var savedChainId = Props.savedChainId;
   var oneGraphAuth = Props.oneGraphAuth;
@@ -565,7 +577,7 @@ function Inspector$GitHub(Props) {
   var appId = oneGraphAuth.appId;
   var remoteChainCalls$1 = Belt_Option.flatMap(savedChainId, (function (chainId) {
           return Belt_Option.map(loadedChain, (function (loadedChain) {
-                        return remoteChainCalls(appId, chainId, loadedChain);
+                        return remoteChainCalls(schema, appId, chainId, loadedChain);
                       }));
         }));
   var match = React.useState(function () {
@@ -1132,6 +1144,7 @@ var closedArrow = React.createElement("div", {
             })));
 
 function Inspector$Request(Props) {
+  var appId = Props.appId;
   var request = Props.request;
   var chain = Props.chain;
   var onChainUpdated = Props.onChainUpdated;
@@ -1545,7 +1558,8 @@ function Inspector$Request(Props) {
                       }));
         }));
   var editor = React.useRef(undefined);
-  var compiledDoc = Chain.compileOperationDoc(chain);
+  var webhookUrl = "https://websmee.com/hook/" + appId;
+  var compiledDoc = Chain.compileOperationDoc(schema, webhookUrl, chain);
   var content = compiledDoc.operationDoc;
   React.useEffect((function () {
           Belt_Option.forEach(editor.current, (function (editor) {
@@ -1761,7 +1775,8 @@ function Inspector$Nothing(Props) {
   var initialChain = Props.initialChain;
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
-  var compiledOperation = Chain.compileOperationDoc(chain);
+  var webhookUrl = "https://websmee.com/hook/" + oneGraphAuth.appId;
+  var compiledOperation = Chain.compileOperationDoc(schema, webhookUrl, chain);
   var missingAuthServices = Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, findMissingAuthServicesFromChainResult), []);
   var authButtons = Belt_Array.map(missingAuthServices, (function (service) {
           return React.createElement(Comps.Button.make, {
@@ -1779,10 +1794,13 @@ function Inspector$Nothing(Props) {
   var setFormVariables = match[1];
   var formVariables = match[0];
   var match$1 = React.useState(function () {
-        return "inspector";
+        return "form";
       });
   var setOpenedTab = match$1[1];
   var openedTab = match$1[0];
+  var isSubscription = Belt_Array.some(chain.requests, (function (request) {
+          return request.operation.kind === /* Subscription */2;
+        }));
   var form = Belt_Option.getWithDefault(Belt_Option.map(targetChain, (function (targetChain) {
               return Belt_Array.map(targetChain.exposedVariables, (function (exposedVariable) {
                             var def_variable = {
@@ -1848,14 +1866,15 @@ function Inspector$Nothing(Props) {
             children: null
           }, form, authButtons, React.createElement(Comps.Button.make, {
                 onClick: (function (param) {
-                    return Curry._1(transformAndExecuteChain, Caml_option.some(formVariables));
+                    var variables = Caml_option.some(formVariables);
+                    return Curry._1(transformAndExecuteChain, variables);
                   }),
                 className: "w-full",
                 children: null
               }, React.createElement(Icons.RunLink.make, {
                     className: "inline-block",
                     color: Comps.colors["gray-6"]
-                  }), "  Run chain")), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
+                  }), isSubscription ? " Start chain" : "  Run chain")), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
                   return React.createElement(Inspector$ChainResultsViewer, {
                               chain: chain,
                               chainExecutionResults: Caml_option.some(chainExecutionResults)
@@ -1894,7 +1913,7 @@ function Inspector$Nothing(Props) {
             onChange: (function ($$event) {
                 return Belt_Option.forEach(savedChainId, (function (chainId) {
                               var appId = oneGraphAuth.appId;
-                              var remoteChainCalls$1 = remoteChainCalls(appId, chainId, chain);
+                              var remoteChainCalls$1 = remoteChainCalls(schema, appId, chainId, chain);
                               var match = $$event.target.value;
                               var value;
                               switch (match) {
@@ -1942,6 +1961,7 @@ function Inspector$Nothing(Props) {
               }, "Copy ScriptKit usage"), React.createElement("option", {
                 value: "id"
               }, "Copy Chain Id")), null);
+  var compiled = transformChain(chain)(schema);
   var inspectorTab = React.createElement(React.Fragment, undefined, isChainViable ? null : React.createElement("div", {
               className: "m-2 w-full text-center flex flex-1 flex-grow flex-col justify-items-center justify-center items-center justify-items align-middle",
               style: {
@@ -1965,6 +1985,18 @@ function Inspector$Nothing(Props) {
                 return Curry._1(onClose, undefined);
               }),
             children: "Cancel changes"
+          }), React.createElement(Inspector$CollapsableSection, {
+            title: "Internal Debug info",
+            defaultOpen: false,
+            children: React.createElement(Comps.Pre.make, {
+                  children: JSON.stringify(chain, null, 2)
+                })
+          }), React.createElement(Inspector$CollapsableSection, {
+            title: "Compiled Executable Chain",
+            defaultOpen: false,
+            children: React.createElement(Comps.Pre.make, {
+                  children: JSON.stringify(compiled, null, 2)
+                })
           }));
   return React.createElement(React.Fragment, undefined, React.createElement("div", {
                   className: "w-full flex ml-2 border-b justify-around",
@@ -2051,6 +2083,8 @@ function Inspector(Props) {
   var initialChain = Props.initialChain;
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
+  var subscriptionClient = Props.subscriptionClient;
+  var appId = Props.appId;
   var tmp;
   switch (inspected.TAG | 0) {
     case /* Nothing */0 :
@@ -2092,7 +2126,8 @@ function Inspector(Props) {
               trace: inspected.trace,
               initialChain: initialChain,
               onSaveChain: onSaveChain,
-              onClose: onClose
+              onClose: onClose,
+              subscriptionClient: subscriptionClient
             });
         break;
     case /* Block */1 :
@@ -2112,6 +2147,7 @@ function Inspector(Props) {
     var request = inspected.request;
     var cachedResult = Js_dict.get(requestValueCache, request.id);
     tmp$2 = React.createElement(Inspector$Request, {
+          appId: appId,
           request: request,
           chain: chain,
           onChainUpdated: onChainUpdated,
@@ -2125,7 +2161,8 @@ function Inspector(Props) {
           onDeleteEdge: onDeleteEdge,
           onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
           onDragStart: onDragStart,
-          trace: trace
+          trace: trace,
+          subscriptionClient: subscriptionClient
         });
   }
   return React.createElement("div", {
@@ -2168,6 +2205,7 @@ export {
   findMissingAuthServicesFromChainResult ,
   internallyPatchChain ,
   transformChain ,
+  webhookUrlForAppId ,
   remoteChainCalls ,
   transformAndExecuteChain ,
   Block ,

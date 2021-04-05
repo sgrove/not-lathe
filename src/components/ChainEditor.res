@@ -60,6 +60,7 @@ type state = {
   requestValueCache: Js.Dict.t<Js.Json.t>,
   debugUIItems: array<debuggable>,
   connectionDrag: ConnectionContext.connectionDrag,
+  subscriptionClient: option<OneGraphSubscriptionClient.t>,
 }
 
 let makeBlankBlock = (kind): Card.block => {
@@ -1479,7 +1480,27 @@ module Main = {
         requestValueCache: Js.Dict.empty(),
         debugUIItems: [],
         connectionDrag: Empty,
+        subscriptionClient: None,
       }
+    })
+
+    useEffect0(() => {
+      let _options = OneGraphSubscriptionClient.clientOptions(~oneGraphAuth, ())
+      // Uncomment when OG supports chain subscriptions over websockets
+      // let client = OneGraphSubscriptionClient.makeClient(
+      //   ~appId=config.oneGraphAppId,
+      //   ~options,
+      //   ~webSocketImpl=None,
+      // )
+
+      // setState(oldState => {...oldState, subscriptionClient: Some(client)})
+
+      Some(
+        () => {
+          ()
+          // client->OneGraphSubscriptionClient.unsubscribeAll
+        },
+      )
     })
 
     useEffect0(() => {
@@ -1636,7 +1657,7 @@ module Main = {
       let ast = request.operation.body->GraphQLJs.parse
       let operationName = ast.definitions[0].name.value
 
-      // TODO: Only send referenced fragments
+      // TODO: Optimize to only send referenced fragments
       let chainFragments =
         state.chain.blocks
         ->Belt.Array.keepMap(block => {
@@ -1904,8 +1925,10 @@ ${newScript}`
 
     let sidebar = {
       <Inspector
+        appId=config.oneGraphAppId
         inspected={state.inspected}
         chain={state.chain}
+        subscriptionClient=state.subscriptionClient
         initialChain
         trace
         onAddBlock={addBlock}
@@ -1962,7 +1985,8 @@ ${newScript}`
           selectRequestFunctionScript(request)
         }}
         onPersistChain={() => {
-          let compiled = state.chain->Inspector.transformChain
+          let webhookUrl = Inspector.webhookUrlForAppId(~appId=config.oneGraphAppId)
+          let compiled = state.chain->Inspector.transformChain(~schema, ~webhookUrl)
           let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
           let freeVariables =
             targetChain.exposedVariables->Belt.Array.map(exposed => exposed.exposedName)
@@ -1995,8 +2019,9 @@ ${newScript}`
         }}
         chainExecutionResults={state.chainExecutionResults}
         transformAndExecuteChain={(~variables) => {
+          Js.log2("transformAndExecuteChain: ", variables)
           state.chain
-          ->Inspector.transformAndExecuteChain(~oneGraphAuth, ~variables)
+          ->Inspector.transformAndExecuteChain(~schema, ~oneGraphAuth, ~variables)
           ->Js.Promise.then_(
             result => {
               let json = result->Obj.magic
@@ -2028,6 +2053,47 @@ ${newScript}`
           )
           ->ignore
         }}
+        // transformAndExecuteChainSubscription={(~variables) => {
+        //   Js.log2("transformAndExecuteChainSubscription: ", variables)
+        //   state.subscriptionClient->Belt.Option.forEach(subscriptionClient => {
+        //     state.chain->Inspector.transformAndExecuteChainSubscription(
+        //       ~schema,
+        //       ~subscriptionClient,
+        //       ~variables,
+        //       ~onData=data => {
+        //         Js.log3("Got data from ", state.chain.name, data)
+
+        //         let json = data->Obj.magic
+
+        //         setState(oldState => {
+        //           // XXX This is a stand-in for OG's eventual server-side chain trace storage
+        //           let newTrace = oldState.chain.id->Belt.Option.map(chainId => {
+        //             json["id"] = Uuid.v4()
+
+        //             let trace: Chain.Trace.t = {
+        //               chainId: chainId,
+        //               createdAt: Js.Date.make()->Js.Date.toUTCString,
+        //               trace: json,
+        //               variables: variables,
+        //             }
+
+        //             trace
+        //           })
+
+        //           newTrace->Belt.Option.forEach(Chain.Trace.saveToLocalStorage)
+
+        //           {...oldState, chainExecutionResults: json}
+        //         })
+        //       },
+        //       ~onError=error => {
+        //         Js.log3("Got error from ", state.chain.name, error)
+        //       },
+        //       ~onClosed=() => {
+        //         Js.log2("Closed subscription for ", state.chain.name)
+        //       },
+        //     )
+        //   })
+        // }}
         onLogin={service => {
           oneGraphAuth->OneGraphAuth.login(service)->Js.Promise.then_(_ => {
             oneGraphAuth->OneGraphAuth.isLoggedIn(service)->Js.Promise.then_(isLoggedIn => {

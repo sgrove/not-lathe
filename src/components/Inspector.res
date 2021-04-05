@@ -347,8 +347,13 @@ let transformChain = chain => {
   compiled
 }
 
-let remoteChainCalls = (~appId, ~chainId, chain: Chain.t) => {
-  let compiled = chain->transformChain
+let webhookUrlForAppId = (~appId) => {
+  j`https://websmee.com/hook/${appId}`
+}
+
+let remoteChainCalls = (~schema, ~appId, ~chainId, chain: Chain.t) => {
+  let webhookUrl = webhookUrlForAppId(~appId)
+  let compiled = chain->transformChain(~schema, ~webhookUrl)
   let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
 
   let freeVariables =
@@ -667,8 +672,10 @@ export default async function handler(req, res) {
   }
 }
 
-let transformAndExecuteChain = (chain, ~oneGraphAuth, ~variables) => {
-  let compiled = chain->transformChain
+let transformAndExecuteChain = (chain, ~schema, ~oneGraphAuth, ~variables) => {
+  let webhookUrl = webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
+
+  let compiled = chain->transformChain(~schema, ~webhookUrl)
 
   let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
 
@@ -681,6 +688,36 @@ let transformAndExecuteChain = (chain, ~oneGraphAuth, ~variables) => {
 
   promise
 }
+
+// let transformAndExecuteChainSubscription = (
+//   chain,
+//   ~schema,
+//   ~subscriptionClient: OneGraphSubscriptionClient.t,
+//   ~variables,
+//   ~onData,
+//   ~onError,
+//   ~onClosed,
+// ) => {
+//   let webhookUrl = webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
+//   let compiled = chain->transformChain(~schema, ~appId)
+
+//   let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
+
+//   let payload: OneGraphSubscriptionClient.operationOptions<'a, 'b> = {
+//     query: compiled.operationDoc,
+//     operationName: targetChain.operationName,
+//     variables: variables,
+//     context: None,
+//   }
+
+//   Js.log(targetChain.operationName)
+//   Js.log(compiled.operationDoc)
+//   Js.log(variables)
+
+//   subscriptionClient
+//   ->OneGraphSubscriptionClient.request(payload)
+//   ->OneGraphSubscriptionClient.subscribe(~onData, ~onError, ~onClosed)
+// }
 
 module Block = {
   @react.component
@@ -735,7 +772,7 @@ module GitHub = {
   }
 
   @react.component
-  let make = (~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
+  let make = (~schema, ~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
     let loadedChain = Some(chain)
     // Chain.loadFromLocalStorage()->Belt.Array.getBy(chain =>
     //   chain.id == savedChainId->Belt.Option.map(Uuid.parseExn)
@@ -747,7 +784,9 @@ module GitHub = {
 
     let remoteChainCalls =
       savedChainId->Belt.Option.flatMap(chainId =>
-        loadedChain->Belt.Option.map(loadedChain => remoteChainCalls(~appId, ~chainId, loadedChain))
+        loadedChain->Belt.Option.map(loadedChain =>
+          remoteChainCalls(~schema, ~appId, ~chainId, loadedChain)
+        )
       )
 
     let (state, setState) = React.useState(() => {
@@ -1429,6 +1468,7 @@ let closedArrow =
 module Request = {
   @react.component
   let make = (
+    ~appId,
     ~request: Chain.request,
     ~chain: Chain.t,
     ~onChainUpdated,
@@ -1443,6 +1483,7 @@ module Request = {
     ~onPotentialVariableSourceConnect,
     ~onDragStart,
     ~trace: option<Chain.Trace.t>,
+    ~subscriptionClient,
   ) => {
     open React
     let connectionDrag = useContext(ConnectionContext.context)
@@ -1712,7 +1753,8 @@ module Request = {
 
     let editor = React.useRef(None)
 
-    let compiledDoc = chain->Chain.compileOperationDoc
+    let webhookUrl = webhookUrlForAppId(~appId)
+    let compiledDoc = chain->Chain.compileOperationDoc(~schema, ~webhookUrl)
 
     let content = compiledDoc.operationDoc
 
@@ -1948,6 +1990,7 @@ module Nothing = {
     ~onLogin: string => unit,
     ~onPersistChain: unit => unit,
     ~transformAndExecuteChain,
+    // ~transformAndExecuteChainSubscription,
     ~onDeleteRequest,
     ~onRequestInspected,
     ~savedChainId,
@@ -1956,8 +1999,10 @@ module Nothing = {
     ~initialChain,
     ~onSaveChain,
     ~onClose,
+    ~subscriptionClient,
   ) => {
-    let compiledOperation = chain->Chain.compileOperationDoc
+    let webhookUrl = webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
+    let compiledOperation = chain->Chain.compileOperationDoc(~schema, ~webhookUrl)
 
     let missingAuthServices =
       chainExecutionResults
@@ -1977,7 +2022,10 @@ module Nothing = {
     let targetChain = compiledOperation.chains->Belt.Array.get(0)
 
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
-    let (openedTab, setOpenedTab) = React.useState(() => #inspector)
+    let (openedTab, setOpenedTab) = React.useState(() => #form)
+
+    let isSubscription =
+      chain.requests->Belt.Array.some(request => request.operation.kind == Subscription)
 
     let form =
       targetChain
@@ -2055,11 +2103,15 @@ module Nothing = {
             onClick={_ => {
               let variables = Some(formVariables->Obj.magic)
 
-              transformAndExecuteChain(~variables)
+              switch isSubscription {
+              | false => transformAndExecuteChain(~variables)
+              | true => transformAndExecuteChain(~variables)
+              // | true => transformAndExecuteChainSubscription(~variables)
+              }
             }}
             className="w-full">
             <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
-            {"  Run chain"->React.string}
+            {(isSubscription ? " Start chain" : "  Run chain")->React.string}
           </Comps.Button>
         </CollapsableSection>
         {chainExecutionResults
@@ -2102,7 +2154,7 @@ module Nothing = {
             savedChainId->Belt.Option.forEach(chainId => {
               let appId = oneGraphAuth->OneGraphAuth.appId
 
-              let remoteChainCalls = remoteChainCalls(~appId, ~chainId, chain)
+              let remoteChainCalls = remoteChainCalls(~appId, ~chainId, ~schema, chain)
 
               let value = switch ReactEvent.Form.target(event)["value"] {
               | "form" => Some(j`http://localhost:3003/form?form_id=${chainId}`)
@@ -2179,22 +2231,22 @@ ${remoteChainCalls.netlify.code}
               {"Save Changes"->string}
             </Comps.Button>}
         <Comps.Button onClick={_ => {onClose()}}> {"Cancel changes"->string} </Comps.Button>
-        // <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
-        //   <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
-        // </CollapsableSection>
-        // <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
-        //   <Comps.Pre>
-        //     {
-        //       let transformed = chain->internallyPatchChain
-        //       let script = transformed.script
+        <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
+          <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
+        </CollapsableSection>
+        <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
+          <Comps.Pre>
+            {
+              let compiled = chain->transformChain(~schema)
+              // let script = transformed.script
 
-        //       // let script = Obj.magic(transformed)["script"]
+              // let script = Obj.magic(transformed)["script"]
 
-        //       // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
-        //       script->React.string
-        //     }
-        //   </Comps.Pre>
-        // </CollapsableSection>
+              // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
+              compiled->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string
+            }
+          </Comps.Pre>
+        </CollapsableSection>
       </>
 
     <>
@@ -2268,6 +2320,7 @@ let make = (
   ~chainExecutionResults: option<Js.Json.t>,
   ~onLogin: string => unit,
   ~transformAndExecuteChain,
+  // ~transformAndExecuteChainSubscription,
   ~onPersistChain,
   ~savedChainId: option<string>,
   ~onRequestCodeInspected,
@@ -2283,6 +2336,8 @@ let make = (
   ~initialChain,
   ~onSaveChain,
   ~onClose,
+  ~subscriptionClient,
+  ~appId,
 ) => {
   open React
 
@@ -2318,6 +2373,7 @@ let make = (
           chainExecutionResults
           onLogin
           transformAndExecuteChain
+          // transformAndExecuteChainSubscription
           onPersistChain
           savedChainId
           onDeleteRequest
@@ -2326,6 +2382,7 @@ let make = (
           initialChain
           onSaveChain
           onClose
+          subscriptionClient
         />
       | Block(block) => <Block schema block onAddBlock />
       | Request({request})
@@ -2346,6 +2403,8 @@ let make = (
           onPotentialVariableSourceConnect
           onDragStart
           trace
+          subscriptionClient
+          appId
         />
       }}
     </div>

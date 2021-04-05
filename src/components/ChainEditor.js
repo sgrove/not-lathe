@@ -1281,7 +1281,8 @@ function ChainEditor$Diagram(Props) {
                                                       savedChainId: oldState.savedChainId,
                                                       requestValueCache: oldState.requestValueCache,
                                                       debugUIItems: oldState.debugUIItems,
-                                                      connectionDrag: oldState.connectionDrag
+                                                      connectionDrag: oldState.connectionDrag,
+                                                      subscriptionClient: oldState.subscriptionClient
                                                     };
                                             }));
                               }));
@@ -1330,7 +1331,8 @@ function ChainEditor$Diagram(Props) {
                                         savedChainId: oldState.savedChainId,
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: oldState.connectionDrag
+                                        connectionDrag: oldState.connectionDrag,
+                                        subscriptionClient: oldState.subscriptionClient
                                       };
                               }));
                 }),
@@ -1358,7 +1360,8 @@ function ChainEditor$Diagram(Props) {
                                         savedChainId: oldState.savedChainId,
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: oldState.connectionDrag
+                                        connectionDrag: oldState.connectionDrag,
+                                        subscriptionClient: oldState.subscriptionClient
                                       };
                               }));
                 }),
@@ -1457,7 +1460,8 @@ function ChainEditor$Diagram(Props) {
                                           savedChainId: oldState.savedChainId,
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: oldState.connectionDrag
+                                          connectionDrag: oldState.connectionDrag,
+                                          subscriptionClient: oldState.subscriptionClient
                                         };
                                 }));
                   } else {
@@ -1546,11 +1550,17 @@ function ChainEditor$Main(Props) {
                 savedChainId: undefined,
                 requestValueCache: {},
                 debugUIItems: [],
-                connectionDrag: /* Empty */0
+                connectionDrag: /* Empty */0,
+                subscriptionClient: undefined
               };
       });
   var setState = match$1[1];
   var state = match$1[0];
+  React.useEffect((function () {
+          return (function (param) {
+                    
+                  });
+        }), []);
   React.useEffect((function () {
           var diagramFromChain$1 = function (chain) {
             return diagramFromChain(chain, (function (block) {
@@ -1575,7 +1585,8 @@ function ChainEditor$Main(Props) {
                                                 savedChainId: oldState.savedChainId,
                                                 requestValueCache: oldState.requestValueCache,
                                                 debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: oldState.connectionDrag
+                                                connectionDrag: oldState.connectionDrag,
+                                                subscriptionClient: oldState.subscriptionClient
                                               };
                                       }));
                         }), (function (param, request, domRef) {
@@ -1604,7 +1615,8 @@ function ChainEditor$Main(Props) {
                                                 savedChainId: oldState.savedChainId,
                                                 requestValueCache: oldState.requestValueCache,
                                                 debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: connectionDrag
+                                                connectionDrag: connectionDrag,
+                                                subscriptionClient: oldState.subscriptionClient
                                               };
                                       }));
                         }), schema, (function (param) {
@@ -1629,7 +1641,8 @@ function ChainEditor$Main(Props) {
                           savedChainId: oldState.savedChainId,
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag
+                          connectionDrag: oldState.connectionDrag,
+                          subscriptionClient: oldState.subscriptionClient
                         };
                 }));
           
@@ -1652,7 +1665,8 @@ function ChainEditor$Main(Props) {
                           savedChainId: oldState.savedChainId,
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
-                          connectionDrag: connectionDrag
+                          connectionDrag: connectionDrag,
+                          subscriptionClient: oldState.subscriptionClient
                         };
                 }));
   };
@@ -1679,7 +1693,8 @@ function ChainEditor$Main(Props) {
                                         savedChainId: oldState.savedChainId,
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: oldState.connectionDrag
+                                        connectionDrag: oldState.connectionDrag,
+                                        subscriptionClient: oldState.subscriptionClient
                                       };
                               }));
                 }), (function (param, request, domRef) {
@@ -1708,7 +1723,8 @@ function ChainEditor$Main(Props) {
                                         savedChainId: oldState.savedChainId,
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: connectionDrag
+                                        connectionDrag: connectionDrag,
+                                        subscriptionClient: oldState.subscriptionClient
                                       };
                               }));
                 }), schema, onPotentialVariableSourceConnect, undefined);
@@ -1748,7 +1764,8 @@ function ChainEditor$Main(Props) {
                           savedChainId: oldState.savedChainId,
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag
+                          connectionDrag: oldState.connectionDrag,
+                          subscriptionClient: oldState.subscriptionClient
                         };
                 }));
   };
@@ -1799,7 +1816,8 @@ function ChainEditor$Main(Props) {
                           savedChainId: oldState.savedChainId,
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag
+                          connectionDrag: oldState.connectionDrag,
+                          subscriptionClient: oldState.subscriptionClient
                         };
                 }));
           
@@ -1846,7 +1864,8 @@ function ChainEditor$Main(Props) {
                                     savedChainId: oldState.savedChainId,
                                     requestValueCache: newOne,
                                     debugUIItems: oldState.debugUIItems,
-                                    connectionDrag: oldState.connectionDrag
+                                    connectionDrag: oldState.connectionDrag,
+                                    subscriptionClient: oldState.subscriptionClient
                                   };
                           })));
         });
@@ -1974,7 +1993,8 @@ function ChainEditor$Main(Props) {
                           savedChainId: oldState.savedChainId,
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag
+                          connectionDrag: oldState.connectionDrag,
+                          subscriptionClient: oldState.subscriptionClient
                         };
                 }));
   };
@@ -2114,7 +2134,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag
+                                  connectionDrag: oldState.connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           }),
@@ -2141,7 +2162,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag
+                                  connectionDrag: oldState.connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           })
@@ -2212,7 +2234,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag
+                                  connectionDrag: oldState.connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           }),
@@ -2239,7 +2262,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag
+                                  connectionDrag: oldState.connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           }),
@@ -2261,7 +2285,8 @@ function ChainEditor$Main(Props) {
             
           }),
         transformAndExecuteChain: (function (variables) {
-            var __x = Inspector.transformAndExecuteChain(state.chain, oneGraphAuth, variables);
+            console.log("transformAndExecuteChain: ", variables);
+            var __x = Inspector.transformAndExecuteChain(state.chain, schema, oneGraphAuth, variables);
             __x.then(function (result) {
                   return Promise.resolve(Curry._1(setState, (function (oldState) {
                                     var newTrace = Belt_Option.map(oldState.chain.id, (function (chainId) {
@@ -2290,14 +2315,16 @@ function ChainEditor$Main(Props) {
                                             savedChainId: oldState.savedChainId,
                                             requestValueCache: oldState.requestValueCache,
                                             debugUIItems: oldState.debugUIItems,
-                                            connectionDrag: oldState.connectionDrag
+                                            connectionDrag: oldState.connectionDrag,
+                                            subscriptionClient: oldState.subscriptionClient
                                           };
                                   })));
                 });
             
           }),
         onPersistChain: (function (param) {
-            var compiled = Inspector.transformChain(state.chain);
+            var webhookUrl = Inspector.webhookUrlForAppId(config.oneGraphAppId);
+            var compiled = Curry._1(Inspector.transformChain(state.chain)(schema), webhookUrl);
             var targetChain = compiled.chains[0];
             var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
                     return exposed.exposedName;
@@ -2323,7 +2350,8 @@ function ChainEditor$Main(Props) {
                                                   savedChainId: docId,
                                                   requestValueCache: oldState.requestValueCache,
                                                   debugUIItems: oldState.debugUIItems,
-                                                  connectionDrag: oldState.connectionDrag
+                                                  connectionDrag: oldState.connectionDrag,
+                                                  subscriptionClient: oldState.subscriptionClient
                                                 };
                                         }));
                           }
@@ -2386,7 +2414,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag
+                                  connectionDrag: oldState.connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           }),
@@ -2415,7 +2444,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag
+                                  connectionDrag: oldState.connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           }),
@@ -2440,14 +2470,17 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: connectionDrag
+                                  connectionDrag: connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           }),
         trace: trace,
         initialChain: initialChain,
         onSaveChain: onSaveChain,
-        onClose: onClose
+        onClose: onClose,
+        subscriptionClient: state.subscriptionClient,
+        appId: config.oneGraphAppId
       });
   var tmp = {
     schema: state.schema,
@@ -2530,7 +2563,8 @@ function ChainEditor$Main(Props) {
                                 savedChainId: oldState.savedChainId,
                                 requestValueCache: oldState.requestValueCache,
                                 debugUIItems: oldState.debugUIItems,
-                                connectionDrag: oldState.connectionDrag
+                                connectionDrag: oldState.connectionDrag,
+                                subscriptionClient: oldState.subscriptionClient
                               };
                       }));
         }
@@ -2563,7 +2597,8 @@ function ChainEditor$Main(Props) {
                               savedChainId: oldState.savedChainId,
                               requestValueCache: oldState.requestValueCache,
                               debugUIItems: oldState.debugUIItems,
-                              connectionDrag: oldState.connectionDrag
+                              connectionDrag: oldState.connectionDrag,
+                              subscriptionClient: oldState.subscriptionClient
                             };
                     }));
       }),
@@ -2604,7 +2639,8 @@ function ChainEditor$Main(Props) {
                               savedChainId: oldState.savedChainId,
                               requestValueCache: oldState.requestValueCache,
                               debugUIItems: oldState.debugUIItems,
-                              connectionDrag: connectionDrag
+                              connectionDrag: connectionDrag,
+                              subscriptionClient: oldState.subscriptionClient
                             };
                     }));
       })
@@ -2641,7 +2677,8 @@ function ChainEditor$Main(Props) {
                                     savedChainId: oldState.savedChainId,
                                     requestValueCache: oldState.requestValueCache,
                                     debugUIItems: oldState.debugUIItems,
-                                    connectionDrag: oldState.connectionDrag
+                                    connectionDrag: oldState.connectionDrag,
+                                    subscriptionClient: oldState.subscriptionClient
                                   };
                           }));
             }),
@@ -2919,7 +2956,8 @@ function ChainEditor$Main(Props) {
                                       savedChainId: oldState.savedChainId,
                                       requestValueCache: oldState.requestValueCache,
                                       debugUIItems: oldState.debugUIItems,
-                                      connectionDrag: oldState.connectionDrag
+                                      connectionDrag: oldState.connectionDrag,
+                                      subscriptionClient: oldState.subscriptionClient
                                     };
                             }));
               }
@@ -2960,7 +2998,8 @@ function ChainEditor$Main(Props) {
                                           savedChainId: oldState.savedChainId,
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: /* Empty */0
+                                          connectionDrag: /* Empty */0,
+                                          subscriptionClient: oldState.subscriptionClient
                                         };
                                 }));
                   }),
@@ -2988,7 +3027,8 @@ function ChainEditor$Main(Props) {
                                             savedChainId: oldState.savedChainId,
                                             requestValueCache: oldState.requestValueCache,
                                             debugUIItems: oldState.debugUIItems,
-                                            connectionDrag: /* Empty */0
+                                            connectionDrag: /* Empty */0,
+                                            subscriptionClient: oldState.subscriptionClient
                                           };
                                   }));
                     }),
@@ -3045,7 +3085,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: connectionDrag
+                                  connectionDrag: connectionDrag,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           };
@@ -3285,7 +3326,8 @@ function ChainEditor$Main(Props) {
                                           savedChainId: oldState.savedChainId,
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: /* Empty */0
+                                          connectionDrag: /* Empty */0,
+                                          subscriptionClient: oldState.subscriptionClient
                                         };
                                 }));
                   } else {
@@ -3397,7 +3439,8 @@ function ChainEditor$Main(Props) {
                                           savedChainId: oldState.savedChainId,
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: Belt_Option.getWithDefault(newConnectionDrag, /* Empty */0)
+                                          connectionDrag: Belt_Option.getWithDefault(newConnectionDrag, /* Empty */0),
+                                          subscriptionClient: oldState.subscriptionClient
                                         };
                                 }));
                   }
@@ -3535,7 +3578,8 @@ function ChainEditor$Main(Props) {
                                                 savedChainId: oldState.savedChainId,
                                                 requestValueCache: oldState.requestValueCache,
                                                 debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: /* Empty */0
+                                                connectionDrag: /* Empty */0,
+                                                subscriptionClient: oldState.subscriptionClient
                                               };
                                       }));
                         })
@@ -3727,7 +3771,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: /* Empty */0
+                                  connectionDrag: /* Empty */0,
+                                  subscriptionClient: oldState.subscriptionClient
                                 };
                         }));
           };
@@ -3893,7 +3938,8 @@ function ChainEditor$Main(Props) {
                                                                   savedChainId: oldState.savedChainId,
                                                                   requestValueCache: oldState.requestValueCache,
                                                                   debugUIItems: oldState.debugUIItems,
-                                                                  connectionDrag: oldState.connectionDrag
+                                                                  connectionDrag: oldState.connectionDrag,
+                                                                  subscriptionClient: oldState.subscriptionClient
                                                                 };
                                                         }));
                                           })
@@ -3942,7 +3988,8 @@ function ChainEditor$Main(Props) {
                                                                                             savedChainId: oldState.savedChainId,
                                                                                             requestValueCache: oldState.requestValueCache,
                                                                                             debugUIItems: oldState.debugUIItems,
-                                                                                            connectionDrag: oldState.connectionDrag
+                                                                                            connectionDrag: oldState.connectionDrag,
+                                                                                            subscriptionClient: oldState.subscriptionClient
                                                                                           };
                                                                                   }));
                                                                     }));

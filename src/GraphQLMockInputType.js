@@ -756,6 +756,61 @@ export function compileComputeToIdentityQuery(definition) {
   };
 }
 
+// A hack to make working with subscriptions easier during user-testing
+// TODO: Remove once OG supports chains over subscriptions.
+// Doesn't patch e.g. fragments
+export function patchSubscriptionWebhookField({
+  schema,
+  definition,
+  webhookUrl,
+}) {
+  if (definition.operation !== "subscription") {
+    return definition;
+  }
+
+  const subscriptionType = schema.getSubscriptionType();
+
+  const newSelections = definition.selectionSet.selections.map((selection) => {
+    if (selection.kind !== "Field") return selection;
+
+    const field = subscriptionType.getFields()[selection.name.value];
+    const fieldHasWebhookUrlArg = field.args.some(
+      (arg) => arg.name === "webhookUrl"
+    );
+    const selectionHasWebhookUrlArg = selection.arguments.some(
+      (arg) => arg.name.value === "webhookUrl"
+    );
+
+    if (fieldHasWebhookUrlArg && !selectionHasWebhookUrlArg) {
+      return {
+        ...selection,
+        arguments: [
+          ...selection.arguments,
+          {
+            kind: "Argument",
+            name: {
+              kind: "Name",
+              value: "webhookUrl",
+            },
+            value: {
+              kind: "StringValue",
+              value: webhookUrl,
+              block: false,
+            },
+          },
+        ],
+      };
+    }
+
+    return selection;
+  });
+
+  return {
+    ...definition,
+    selectionSet: { ...definition.selectionSet, selections: newSelections },
+  };
+}
+
 const services = [
   {
     friendlyServiceName: "Adroll",

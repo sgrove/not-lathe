@@ -97,6 +97,10 @@ function gatherFragmentDefinitions(prim) {
   return GraphQLMockInputTypeJs.gatherFragmentDefinitions(prim);
 }
 
+function patchSubscriptionWebhookField(prim) {
+  return GraphQLMockInputTypeJs.patchSubscriptionWebhookField(prim);
+}
+
 function compileComputeToIdentityQuery(prim) {
   return GraphQLMockInputTypeJs.compileComputeToIdentityQuery(prim);
 }
@@ -110,6 +114,7 @@ var Mock = {
   typeScriptSignatureForOperations: typeScriptSignatureForOperations,
   typeScriptSignatureForOperationVariables: typeScriptSignatureForOperationVariables,
   gatherFragmentDefinitions: gatherFragmentDefinitions,
+  patchSubscriptionWebhookField: patchSubscriptionWebhookField,
   compileComputeToIdentityQuery: compileComputeToIdentityQuery
 };
 

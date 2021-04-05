@@ -504,8 +504,31 @@ function callForProbe(request, variableName, probe) {
   return "export function " + requestScriptName + "_" + variableName + " (payload) {\n  return " + path + "\n}";
 }
 
-function compileOperationDoc(chain) {
-  var blockOperations = Belt_Array.joinWith(chain.blocks, "\n", (function (x) {
+function compileOperationDoc(schema, webhookUrl, chain) {
+  var blockOperations = Belt_Array.joinWith(Belt_Array.map(chain.blocks, (function (block) {
+              var match = block.kind;
+              if (match !== 2) {
+                return block;
+              }
+              var body = block.body;
+              var parsed = Graphql.parse(body);
+              var definition = parsed.definitions[0];
+              var newDefinition = GraphQLJs.Mock.patchSubscriptionWebhookField({
+                    schema: schema,
+                    definition: definition,
+                    webhookUrl: webhookUrl
+                  });
+              var newBody = Graphql.print(newDefinition);
+              return {
+                      id: block.id,
+                      title: block.title,
+                      description: block.description,
+                      body: newBody,
+                      kind: block.kind,
+                      contributedBy: block.contributedBy,
+                      services: block.services
+                    };
+            })), "\n", (function (x) {
           return x.body;
         }));
   var exposedVariables = Belt_Array.concatMany(Belt_Array.map(chain.requests, (function (request) {
