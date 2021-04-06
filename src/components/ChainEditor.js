@@ -26,6 +26,7 @@ import * as TypeScript from "../bindings/TypeScript.js";
 import * as Typescript from "typescript";
 import Typescript$1 from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
+import * as Belt_Result from "bs-platform/lib/es6/belt_Result.mjs";
 import * as BlockEditor from "./BlockEditor.js";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as GraphQLUtils from "../bindings/GraphQLUtils.js";
@@ -78,6 +79,21 @@ function makeBlankBlock(kind) {
         };
 }
 
+function namedGraphQLScalarTypeScriptType(typ) {
+  switch (typ) {
+    case "Float" :
+    case "Int" :
+        return "number";
+    case "JSON" :
+        return "any";
+    case "ID" :
+    case "String" :
+        return "string";
+    default:
+      return typ;
+  }
+}
+
 function compileChain(schema, chain) {
   try {
     var compiled = Chain.compileAsObj(chain);
@@ -98,6 +114,7 @@ function ChainEditor$BlockSearch(Props) {
   var onInspect = Props.onInspect;
   var blocks = Props.blocks;
   var onCreate = Props.onCreate;
+  var inputRef = React.useRef(null);
   var match = React.useState(function () {
         return {
                 search: undefined,
@@ -161,6 +178,7 @@ function ChainEditor$BlockSearch(Props) {
                             }, React.createElement(Icons.Search.make, {
                                   color: Comps.colors["gray-4"]
                                 })), React.createElement("input", {
+                              ref: inputRef,
                               className: "w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white",
                               id: "search",
                               style: {
@@ -253,7 +271,16 @@ function ChainEditor$BlockSearch(Props) {
                                                 return Curry._1(onInspect, block);
                                               }),
                                             onDoubleClick: (function (param) {
-                                                return Curry._1(onAdd, block);
+                                                Curry._1(onAdd, block);
+                                                return Belt_Option.forEach(Caml_option.nullable_to_opt(inputRef.current), (function (dom) {
+                                                              dom.value = "";
+                                                              return Curry._1(setState, (function (oldState) {
+                                                                            return {
+                                                                                    search: undefined,
+                                                                                    results: oldState.results
+                                                                                  };
+                                                                          }));
+                                                            }));
                                               }),
                                             onDragStart: (function ($$event) {
                                                 var dataTransfer = $$event.dataTransfer;
@@ -939,21 +966,22 @@ function requestScriptTypeScriptSignature(request, schema, chain) {
 }
 
 function monacoTypelibForChain(schema, chain) {
-  var types = Belt_Array.map(chain.requests, (function (request) {
+  var computedRequests = Belt_Array.keep(chain.requests, Chain.requestHasComputedVariables);
+  var types = Belt_Array.map(computedRequests, (function (request) {
           return requestScriptTypeScriptSignature(request, schema, chain);
         }));
   var dDotTsDefs = Belt_Array.map(types, (function (typeSigs) {
             return typeSigs.functionFromScriptInputType + "\n" + typeSigs.functionFromScriptOutputType + "\n";
           })).join("\n\n");
   var dDotTs = "type EmptyObject = Record<any, never>\n\n" + dDotTsDefs;
-  var names = Belt_Array.map(chain.requests, Chain.requestScriptNames);
+  var names = Belt_Array.map(computedRequests, Chain.requestScriptNames);
   var importedNames = Belt_Array.concatMany(Belt_Array.map(names, (function (param) {
                 return [
                         param.inputTypeName,
                         param.returnTypeName
                       ];
               }))).join(", ");
-  var importLine = "import { " + importedNames + " } from 'oneGraphStudio';";
+  var importLine = names.length !== 0 ? "import { " + importedNames + " } from 'oneGraphStudio';" : "";
   return {
           importLine: importLine,
           dDotTs: dDotTs
@@ -972,15 +1000,64 @@ function ChainEditor$Script(Props) {
       });
   var setLocalContent = match[1];
   var localContent = match[0];
+  var match$1 = React.useState(function () {
+        return [];
+      });
+  var setHighlights = match$1[1];
   var content = chain.script;
   var editor = React.useRef(undefined);
   var monaco = React.useRef(undefined);
-  var match$1 = monacoTypelibForChain(schema, chain);
-  var types = match$1.dDotTs;
+  var match$2 = monacoTypelibForChain(schema, chain);
+  var types = match$2.dDotTs;
   var connectionDrag = React.useContext(ConnectionContext.context);
   var connectionDragRef = React.useRef(connectionDrag);
   React.useEffect((function () {
           connectionDragRef.current = connectionDrag;
+          var match = editor.current;
+          var match$1 = monaco.current;
+          if (match !== undefined) {
+            var editor$1 = Caml_option.valFromOption(match);
+            var exit = 0;
+            if (match$1 !== undefined && !(typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0)) {
+              var monaco$1 = Caml_option.valFromOption(match$1);
+              var __x = TypeScript.VirtualFileSystem.makeWithFileSystem(function (fsMap) {
+                    fsMap.set("main.ts", chain.script);
+                    
+                  });
+              __x.then(function (param) {
+                    var parsed = param[1].getSourceFile("main.ts");
+                    return Promise.resolve(Belt_Option.forEach(parsed, (function (parsed) {
+                                      var variableDeclarations = TypeScript.findAllVariableDeclarationsInFunctions(parsed);
+                                      var decorations = Belt_Array.map(variableDeclarations, (function (node) {
+                                              var start = parsed.getLineAndCharacterOfPosition(node.pos);
+                                              var end = parsed.getLineAndCharacterOfPosition(node.end);
+                                              return {
+                                                      range: BsReactMonaco.makeRange(monaco$1, start.line + 1 | 0, start.character + 1 | 0, end.line + 1 | 0, end.character + 1 | 0),
+                                                      options: {
+                                                        className: "script-drop drag-target"
+                                                      }
+                                                    };
+                                            }));
+                                      Debug.assignToWindowForDeveloperDebug("OtherEditor", editor$1);
+                                      Debug.assignToWindowForDeveloperDebug("OtherMonaco", monaco$1);
+                                      Debug.assignToWindowForDeveloperDebug("OtherDecorations", decorations);
+                                      var deltas = editor$1.deltaDecorations([], decorations);
+                                      return Curry._1(setHighlights, (function (_oldHighlights) {
+                                                    return deltas;
+                                                  }));
+                                    })));
+                  });
+            } else {
+              exit = 1;
+            }
+            if (exit === 1) {
+              Curry._1(setHighlights, (function (oldHighlights) {
+                      editor$1.deltaDecorations(oldHighlights, []);
+                      return [];
+                    }));
+            }
+            
+          }
           
         }), [ConnectionContext.toSimpleString(connectionDrag)]);
   React.useEffect((function () {
@@ -1008,7 +1085,8 @@ function ChainEditor$Script(Props) {
                   var importLine = match.importLine;
                   BsReactMonaco.TypeScript.addLib(monaco, match.dDotTs, content);
                   var hasImport = Belt_Option.isSome(Caml_option.null_to_opt(chain.script.match(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"))));
-                  return Curry._1(onChange, hasImport ? chain.script.replace(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"), importLine) : importLine + "\n\n" + chain.script);
+                  var newScript = hasImport ? chain.script.replace(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"), importLine) : importLine + "\n\n" + chain.script;
+                  return Curry._1(onChange, newScript.trim());
                 }));
           
         }), [types]);
@@ -1191,6 +1269,7 @@ function ChainEditor$ConnectorLine(Props) {
                           d: "M0 0v4l2-2z",
                           fill: "green"
                         })), React.createElement("line", {
+                      className: "pointer-events-none",
                       style: {
                         cursor: "none"
                       },
@@ -1202,7 +1281,7 @@ function ChainEditor$ConnectorLine(Props) {
                       y1: String(startY),
                       y2: String(endY)
                     }), React.createElement("line", {
-                      className: "moving-path",
+                      className: "moving-path pointer-events-none",
                       style: {
                         cursor: "none"
                       },
@@ -1774,8 +1853,7 @@ function ChainEditor$Main(Props) {
             console.log("onCopy: ", $$event);
             
           };
-          var r = Utils.$$Window.addEventListener("copy", handler);
-          console.log("Installed handler ", r, handler);
+          Utils.$$Window.addEventListener("copy", handler);
           return (function (param) {
                     return Utils.$$Window.removeEventListener("copy", handler);
                   });
@@ -1940,7 +2018,8 @@ function ChainEditor$Main(Props) {
             inspectedReq.contents = newReq;
             var names = Chain.requestScriptNames(newReq);
             var nameExistsInScript = Belt_Option.isSome(Caml_option.null_to_opt(newChain.script.match(new RegExp("export function " + names.functionName))));
-            var newScript = nameExistsInScript ? newChain.script : newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}");
+            var match$1 = Chain.requestHasComputedVariables(newReq);
+            var newScript = match$1 && !nameExistsInScript ? newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}") : newChain.script;
             var newChain_name = newChain.name;
             var newChain_id = newChain.id;
             var newChain_scriptDependencies = newChain.scriptDependencies;
@@ -1954,8 +2033,8 @@ function ChainEditor$Main(Props) {
               requests: newChain_requests,
               blocks: newChain_blocks
             };
-            var match$1 = monacoTypelibForChain(schema, newChain$1);
-            var importLine = match$1.importLine;
+            var match$2 = monacoTypelibForChain(schema, newChain$1);
+            var importLine = match$2.importLine;
             var hasImport = Belt_Option.isSome(Caml_option.null_to_opt(newScript.match(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"))));
             var newScript$1 = hasImport ? newScript.replace(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"), importLine) : importLine + "\n\n" + newScript;
             return {
@@ -2044,10 +2123,11 @@ function ChainEditor$Main(Props) {
                           }))
                   };
           }));
+    var newScript = Belt_Result.getWithDefault(Inspector.deleteRequestFunctionIfEmpty(undefined, oldChain.script, targetRequest, undefined), oldChain.script).trim();
     return {
             name: oldChain.name,
             id: oldChain.id,
-            script: oldChain.script,
+            script: newScript,
             scriptDependencies: oldChain.scriptDependencies,
             requests: newRequests,
             blocks: Belt_Array.keep(oldChain.blocks, (function (oldBlock) {
@@ -2285,7 +2365,6 @@ function ChainEditor$Main(Props) {
             
           }),
         transformAndExecuteChain: (function (variables) {
-            console.log("transformAndExecuteChain: ", variables);
             var __x = Inspector.transformAndExecuteChain(state.chain, schema, oneGraphAuth, variables);
             __x.then(function (result) {
                   return Promise.resolve(Curry._1(setState, (function (oldState) {
@@ -2479,7 +2558,6 @@ function ChainEditor$Main(Props) {
         initialChain: initialChain,
         onSaveChain: onSaveChain,
         onClose: onClose,
-        subscriptionClient: state.subscriptionClient,
         appId: config.oneGraphAppId
       });
   var tmp = {
@@ -2817,9 +2895,21 @@ function ChainEditor$Main(Props) {
                                         operation: block,
                                         dependencyRequestIds: newReq_dependencyRequestIds
                                       };
-                                      var names = Chain.requestScriptNames(newReq);
-                                      var nameExistsInScript = Belt_Option.isSome(Caml_option.null_to_opt(newChain.script.match(new RegExp("export function " + names.functionName))));
-                                      var newScript = nameExistsInScript ? newChain.script : newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}");
+                                      var returnProperties = Belt_Array.keepMap(variableDependencies, (function (varDep) {
+                                              var match = varDep.dependency;
+                                              switch (match.TAG | 0) {
+                                                case /* ArgumentDependency */0 :
+                                                    return [
+                                                            varDep.name,
+                                                            varDep.name
+                                                          ];
+                                                case /* Direct */1 :
+                                                case /* GraphQLProbe */2 :
+                                                    return ;
+                                                
+                                              }
+                                            }));
+                                      var newScript = Inspector.ensureRequestFunctionExists(undefined, returnProperties, newChain.script, newReq, undefined);
                                       var newChain_name = newChain.name;
                                       var newChain_id = newChain.id;
                                       var newChain_scriptDependencies = newChain.scriptDependencies;
@@ -3156,26 +3246,30 @@ function ChainEditor$Main(Props) {
                     operationDoc: chainFragmentsDoc
                   }),
               onCopy: (function (param) {
+                  var path = param.path;
                   var printedType = param.printedType;
-                  var dataPath = Belt_Array.concat(["payload"], param.path);
+                  var dataPath = Belt_Array.concat(["payload"], path);
                   var nullableTargetVariableType = Belt_Option.map(targetVariableType, (function (typ) {
                           return typ.replace(new RegExp("!", "g"), "");
                         }));
                   var nullablePrintedType = printedType.replace(new RegExp("!", "g"), "");
-                  var match = nullablePrintedType;
+                  var match = nullablePrintedType.toLocaleLowerCase();
+                  var match$1 = Belt_Option.map(nullableTargetVariableType, (function (prim) {
+                          return prim.toLocaleLowerCase();
+                        }));
                   var typesMatch;
                   var exit = 0;
                   var exit$1 = 0;
-                  if (nullableTargetVariableType !== undefined && match === nullableTargetVariableType) {
+                  if (match$1 !== undefined && match === match$1) {
                     typesMatch = true;
                   } else {
                     exit$1 = 2;
                   }
                   if (exit$1 === 2) {
                     switch (match) {
-                      case "Float" :
-                          if (nullableTargetVariableType !== undefined) {
-                            if (nullableTargetVariableType === "Int") {
+                      case "float" :
+                          if (match$1 !== undefined) {
+                            if (match$1 === "int") {
                               typesMatch = true;
                             } else {
                               exit = 1;
@@ -3184,9 +3278,9 @@ function ChainEditor$Main(Props) {
                             typesMatch = false;
                           }
                           break;
-                      case "ID" :
-                          if (nullableTargetVariableType !== undefined) {
-                            if (nullableTargetVariableType === "String") {
+                      case "id" :
+                          if (match$1 !== undefined) {
+                            if (match$1 === "string") {
                               typesMatch = true;
                             } else {
                               exit = 1;
@@ -3195,9 +3289,9 @@ function ChainEditor$Main(Props) {
                             typesMatch = false;
                           }
                           break;
-                      case "Int" :
-                          if (nullableTargetVariableType !== undefined) {
-                            if (nullableTargetVariableType === "Float") {
+                      case "int" :
+                          if (match$1 !== undefined) {
+                            if (match$1 === "float") {
                               typesMatch = true;
                             } else {
                               exit = 1;
@@ -3206,12 +3300,12 @@ function ChainEditor$Main(Props) {
                             typesMatch = false;
                           }
                           break;
-                      case "JSON" :
+                      case "json" :
                           typesMatch = true;
                           break;
-                      case "String" :
-                          if (nullableTargetVariableType !== undefined) {
-                            if (nullableTargetVariableType === "ID") {
+                      case "string" :
+                          if (match$1 !== undefined) {
+                            if (match$1 === "id") {
                               typesMatch = true;
                             } else {
                               exit = 1;
@@ -3225,7 +3319,7 @@ function ChainEditor$Main(Props) {
                     }
                   }
                   if (exit === 1) {
-                    typesMatch = nullableTargetVariableType === "JSON" ? true : false;
+                    typesMatch = match$1 === "json" ? true : false;
                   }
                   if (typesMatch) {
                     return Curry._1(setState, (function (oldState) {
@@ -3295,21 +3389,37 @@ function ChainEditor$Main(Props) {
                                                   dependencyRequestIds: Utils.$$String.distinctStrings(Belt_Array.concat(request.dependencyRequestIds, [sourceRequest.id]))
                                                 };
                                         }));
+                                  var newScript = Belt_Result.getWithDefault(Inspector.deleteRequestFunctionIfEmpty(undefined, oldState.chain.script, targetRequest$1, undefined), oldState.chain.script).trim();
                                   var init = oldState.chain;
                                   var newChain_name = init.name;
                                   var newChain_id = init.id;
-                                  var newChain_script = init.script;
                                   var newChain_scriptDependencies = init.scriptDependencies;
                                   var newChain_blocks = init.blocks;
                                   var newChain = {
                                     name: newChain_name,
                                     id: newChain_id,
-                                    script: newChain_script,
+                                    script: newScript,
                                     scriptDependencies: newChain_scriptDependencies,
                                     requests: newRequests,
                                     blocks: newChain_blocks
                                   };
                                   var diagram = diagramFromChain$1(newChain);
+                                  var newTargetRequest = Belt_Array.getBy(newRequests, (function (request) {
+                                          return targetRequest$1.id === request.id;
+                                        }));
+                                  var inspected = Belt_Option.mapWithDefault(newTargetRequest, oldState.inspected, (function (newTargetRequest) {
+                                          var match = oldState.inspected;
+                                          if (match.TAG === /* Request */2 && match.request.id === newTargetRequest.id) {
+                                            return {
+                                                    TAG: 2,
+                                                    chain: newChain,
+                                                    request: newTargetRequest,
+                                                    [Symbol.for("name")]: "Request"
+                                                  };
+                                          } else {
+                                            return oldState.inspected;
+                                          }
+                                        }));
                                   return {
                                           diagram: diagram,
                                           card: oldState.card,
@@ -3320,7 +3430,7 @@ function ChainEditor$Main(Props) {
                                           scriptFunctions: oldState.scriptFunctions,
                                           chainExecutionResults: oldState.chainExecutionResults,
                                           blocks: oldState.blocks,
-                                          inspected: oldState.inspected,
+                                          inspected: inspected,
                                           blockEdit: oldState.blockEdit,
                                           scriptEditor: oldState.scriptEditor,
                                           savedChainId: oldState.savedChainId,
@@ -3420,6 +3530,7 @@ function ChainEditor$Main(Props) {
                                                   windowPosition: windowPosition,
                                                   potentialFunctionMatches: existingFnMatches,
                                                   dataPath: dataPath,
+                                                  path: path,
                                                   [Symbol.for("name")]: "CompletedWithTypeMismatch"
                                                 };
                                         }));
@@ -3457,7 +3568,33 @@ function ChainEditor$Main(Props) {
                     width: "500px",
                     zIndex: "999"
                   }
-                }, React.createElement(Inspector.GraphQLPreview.make, tmp$4));
+                }, React.createElement("div", {
+                      key: "CANCEL",
+                      className: "cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2",
+                      onClick: (function (param) {
+                          return Curry._1(setState, (function (oldState) {
+                                        return {
+                                                diagram: oldState.diagram,
+                                                card: oldState.card,
+                                                schema: oldState.schema,
+                                                chain: oldState.chain,
+                                                compiledChain: oldState.compiledChain,
+                                                chainResult: oldState.chainResult,
+                                                scriptFunctions: oldState.scriptFunctions,
+                                                chainExecutionResults: oldState.chainExecutionResults,
+                                                blocks: oldState.blocks,
+                                                inspected: oldState.inspected,
+                                                blockEdit: oldState.blockEdit,
+                                                scriptEditor: oldState.scriptEditor,
+                                                savedChainId: oldState.savedChainId,
+                                                requestValueCache: oldState.requestValueCache,
+                                                debugUIItems: oldState.debugUIItems,
+                                                connectionDrag: /* Empty */0,
+                                                subscriptionClient: oldState.subscriptionClient
+                                              };
+                                      }));
+                        })
+                    }, "Cancel"), React.createElement(Inspector.GraphQLPreview.make, tmp$4));
           } else {
             var match$5 = dragInfo.windowPosition;
             var scriptPosition = variabletarget.scriptPosition;
@@ -3480,13 +3617,40 @@ function ChainEditor$Main(Props) {
                     top: String(match$5[1]) + "px",
                     width: "500px"
                   }
-                }, React.createElement(Inspector.GraphQLPreview.make, {
+                }, React.createElement("div", {
+                      key: "CANCEL",
+                      className: "cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2",
+                      onClick: (function (param) {
+                          return Curry._1(setState, (function (oldState) {
+                                        return {
+                                                diagram: oldState.diagram,
+                                                card: oldState.card,
+                                                schema: oldState.schema,
+                                                chain: oldState.chain,
+                                                compiledChain: oldState.compiledChain,
+                                                chainResult: oldState.chainResult,
+                                                scriptFunctions: oldState.scriptFunctions,
+                                                chainExecutionResults: oldState.chainExecutionResults,
+                                                blocks: oldState.blocks,
+                                                inspected: oldState.inspected,
+                                                blockEdit: oldState.blockEdit,
+                                                scriptEditor: oldState.scriptEditor,
+                                                savedChainId: oldState.savedChainId,
+                                                requestValueCache: oldState.requestValueCache,
+                                                debugUIItems: oldState.debugUIItems,
+                                                connectionDrag: /* Empty */0,
+                                                subscriptionClient: oldState.subscriptionClient
+                                              };
+                                      }));
+                        })
+                    }, "Cancel"), React.createElement(Inspector.GraphQLPreview.make, {
                       requestId: sourceRequest.id,
                       schema: schema,
                       definition: definition$1,
                       fragmentDefinitions: GraphQLJs.Mock.gatherFragmentDefinitions({
                             operationDoc: chainFragmentsDoc$1
                           }),
+                      targetGqlType: "[String]",
                       onCopy: (function (payload) {
                           var dataPath = Belt_Array.concat(["payload"], payload.path);
                           var re = new RegExp("\\[.+\\]", "g");
@@ -3587,6 +3751,7 @@ function ChainEditor$Main(Props) {
           }
           break;
       case /* CompletedWithTypeMismatch */4 :
+          var path = dragInfo.path;
           var dataPath = dragInfo.dataPath;
           var match$6 = dragInfo.windowPosition;
           var targetVariableType$1 = dragInfo.targetVariableType;
@@ -3595,13 +3760,6 @@ function ChainEditor$Main(Props) {
           var sourceRequest$1 = dragInfo.sourceRequest;
           var onClick$1 = function (name) {
             return Curry._1(setState, (function (oldState) {
-                          var parsed;
-                          try {
-                            parsed = Caml_option.some(Typescript.createSourceFile("main.ts", oldState.chain.script, 99, true));
-                          }
-                          catch (exn){
-                            parsed = undefined;
-                          }
                           var targetVariableDependency = variableTarget.variableDependency;
                           var newRequests = Belt_Array.map(oldState.chain.requests, (function (request) {
                                   if (variableTarget.targetRequest.id !== request.id) {
@@ -3672,6 +3830,30 @@ function ChainEditor$Main(Props) {
                           var request = Belt_Array.getBy(newRequests, (function (request) {
                                   return variableTarget.targetRequest.id === request.id;
                                 }));
+                          var script = Belt_Option.mapWithDefault(request, oldState.chain.script, (function (request) {
+                                  var returnProperties = Belt_Array.keepMap(request.variableDependencies, (function (varDep) {
+                                          var match = varDep.dependency;
+                                          switch (match.TAG | 0) {
+                                            case /* ArgumentDependency */0 :
+                                                return [
+                                                        varDep.name,
+                                                        varDep.name
+                                                      ];
+                                            case /* Direct */1 :
+                                            case /* GraphQLProbe */2 :
+                                                return ;
+                                            
+                                          }
+                                        }));
+                                  return Inspector.ensureRequestFunctionExists(undefined, returnProperties, oldState.chain.script, request, undefined);
+                                }));
+                          var parsed;
+                          try {
+                            parsed = Caml_option.some(Typescript.createSourceFile("main.ts", script, 99, true));
+                          }
+                          catch (exn){
+                            parsed = undefined;
+                          }
                           var lineNumbers = Belt_Option.flatMap(request, (function (request) {
                                   var names = Chain.requestScriptNames(request);
                                   return Belt_Option.flatMap(parsed, (function (parsed) {
@@ -3691,22 +3873,51 @@ function ChainEditor$Main(Props) {
                           new RegExp("\\[.+\\]", "g");
                           var binding = targetVariableDependency.name;
                           var nullableTargetVariableType = Belt_Option.map(targetVariableType$1, (function (typ) {
-                                  return typ.replace(new RegExp("!", "g"), "");
+                                  return namedGraphQLScalarTypeScriptType(typ.replace(new RegExp("!", "g"), ""));
                                 }));
                           var nullablePrintedType = sourceType.replace(new RegExp("!", "g"), "");
                           var defaultCoercerName = nullablePrintedType + "To" + Belt_Option.getWithDefault(nullableTargetVariableType, "Unknown");
-                          var coercerName = name !== undefined ? name : Belt_Option.getWithDefault(Caml_option.nullable_to_opt(prompt("Coercer function name: ", defaultCoercerName)), defaultCoercerName);
-                          var coercerExists = coercerName === "INTERNAL_PASSTHROUGH" ? true : Belt_Option.isSome(Belt_Option.flatMap(parsed, (function (parsed) {
+                          var coercerName = Utils.$$String.safeCamelize(name !== undefined ? name : Belt_Option.getWithDefault(Caml_option.nullable_to_opt(prompt("Coercer function name: ", Utils.$$String.safeCamelize(defaultCoercerName))), defaultCoercerName));
+                          var coercerExists;
+                          var exit = 0;
+                          if (name === "INTERNAL_PASSTHROUGH") {
+                            coercerExists = true;
+                          } else {
+                            exit = 1;
+                          }
+                          if (exit === 1) {
+                            coercerExists = Belt_Option.isSome(Belt_Option.flatMap(parsed, (function (parsed) {
                                         return TypeScript.findFnPos(parsed, coercerName);
                                       })));
+                          }
                           var newScript = Belt_Option.map(lineNumbers, (function (param) {
-                                  var newBinding = coercerName === "INTERNAL_PASSTHROUGH" ? "\tlet " + binding + " = " + dataPath.join("?.") : "\tlet " + binding + " = " + coercerName + "(" + dataPath.join("?.") + ")";
-                                  var temp = oldState.chain.script.split("\n");
+                                  var newBinding;
+                                  var exit = 0;
+                                  if (name === "INTERNAL_PASSTHROUGH") {
+                                    newBinding = "\tlet " + binding + " = " + dataPath.join("?.");
+                                  } else {
+                                    exit = 1;
+                                  }
+                                  if (exit === 1) {
+                                    newBinding = "\tlet " + binding + " = " + coercerName + "(" + dataPath.join("?.") + ")";
+                                  }
+                                  var temp = script.split("\n");
                                   temp.splice(param[1] + 1 | 0, 0, newBinding);
+                                  var inputType = Belt_Option.mapWithDefault(request, nullablePrintedType, (function (request) {
+                                          var names = Chain.requestScriptNames(request);
+                                          var typePath = Belt_Array.joinWith(path, "", (function (step) {
+                                                  if (!step.endsWith("[0]")) {
+                                                    return "[\"" + step + "\"]";
+                                                  }
+                                                  var step$1 = step.replace("[0]", "");
+                                                  return "[\"" + step$1 + "\"][0]";
+                                                }));
+                                          return names.inputTypeName + typePath;
+                                        }));
                                   var signatureReturnType = Belt_Option.mapWithDefault(nullableTargetVariableType, "", (function (t) {
                                           return ": " + t;
                                         }));
-                                  var newFunctionDefinition = "function " + coercerName + "(" + binding + " : " + nullablePrintedType + ") " + signatureReturnType + " {\n  return " + binding + "\n}";
+                                  var newFunctionDefinition = "function " + coercerName + "(" + binding + " : " + inputType + ") " + signatureReturnType + " {\n  return " + binding + "\n}";
                                   if (coercerExists) {
                                     return temp.join("\n");
                                   } else {
@@ -3744,7 +3955,7 @@ function ChainEditor$Main(Props) {
                           var init = oldState.chain;
                           var newChain_name = init.name;
                           var newChain_id = init.id;
-                          var newChain_script = Belt_Option.getWithDefault(newScript$1, oldState.chain.script);
+                          var newChain_script = Belt_Option.getWithDefault(newScript$1, script);
                           var newChain_scriptDependencies = init.scriptDependencies;
                           var newChain_blocks = init.blocks;
                           var newChain = {
@@ -3784,7 +3995,8 @@ function ChainEditor$Main(Props) {
                   maxHeight: "200px",
                   overflowY: "scroll",
                   top: String(match$6[1]) + "px",
-                  width: "500px"
+                  width: "500px",
+                  zIndex: "9999"
                 }
               }, React.createElement("span", {
                     style: {
@@ -4053,6 +4265,7 @@ export {
   SimpleTooltip ,
   FragmentNodeComponent ,
   makeBlankBlock ,
+  namedGraphQLScalarTypeScriptType ,
   compileChain ,
   BlockSearch ,
   InspectedContextProvider ,

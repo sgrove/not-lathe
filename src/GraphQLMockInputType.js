@@ -590,6 +590,9 @@ function PreviewForAst({
 
     let printedType = gqlType?.toString();
     let nullableTypes = printedType?.replace("!", "");
+    let upcastMap = { ID: "String", Float: "Int" };
+    nullableTargetGqlType =
+      upcastMap[nullableTargetGqlType] || nullableTargetGqlType;
 
     let typeNameMatches =
       printedType && nullableTypes === nullableTargetGqlType;
@@ -612,13 +615,15 @@ function PreviewForAst({
       >
         <span
           style={{ cursor: "copy" }}
-          onClick={() =>
+          onClick={() => {
+            const simplePath = fullPath.map((step) => step.replace("[0]", ""));
             onCopy({
               gqlType: gqlType,
               printedType: printedType,
               path: fullPath,
-            })
-          }
+              simplePath: simplePath,
+            });
+          }}
         >
           <span
             className={

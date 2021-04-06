@@ -532,6 +532,16 @@ var distinctStrings = (function(arr) {
 return [...(new Set(arr))]
 });
 
+var safeNameRe = new RegExp("[^a-z0-9]", "gi");
+
+function safeName(string) {
+  return string.replace(safeNameRe, "");
+}
+
+function safeCamelize(string) {
+  return camelize(string.replace(safeNameRe, "_"));
+}
+
 var replaceRange = (function replaceRange(s, start, end, substitute) {
     return s.substring(0, start) + substitute + s.substring(end);
 });
@@ -540,6 +550,9 @@ var $$String$1 = {
   camelize: camelize,
   capitalizeFirstLetter: capitalizeFirstLetter,
   distinctStrings: distinctStrings,
+  safeNameRe: safeNameRe,
+  safeName: safeName,
+  safeCamelize: safeCamelize,
   replaceRange: replaceRange
 };
 

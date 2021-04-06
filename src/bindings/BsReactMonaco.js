@@ -4,6 +4,10 @@ import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import React from "@monaco-editor/react";
 
+var makeRange = (function(monaco, a,b,c,d) {
+return new monaco.Range(a,b,c,d)
+});
+
 var setUri = (function (monaco, model1, language, newURI) {
   // Assuming model1 is the previous model
 var model2 = monaco.editor.createModel(model1.getValue(), language, newURI);
@@ -118,6 +122,7 @@ monaco.languages.registerDocumentFormattingEditProvider('typescript', {
 }));
 
 export {
+  makeRange ,
   Model ,
   Editor ,
   options ,

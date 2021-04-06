@@ -1313,3 +1313,11 @@ let typeScriptDefinition = (~schema: GraphQLJs.schema, chain: t): typeScriptDefi
     returnTypeName: makeReturnTypeName(chain),
   }
 }
+
+let requestHasComputedVariables = (request: request) =>
+  request.variableDependencies->Belt.Array.some(varDep =>
+    switch varDep.dependency {
+    | ArgumentDependency(_) => true
+    | _ => false
+    }
+  )

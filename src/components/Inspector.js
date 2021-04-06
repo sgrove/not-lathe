@@ -6,6 +6,7 @@ import * as Comps from "./Comps.js";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as Debug from "../Debug.js";
 import * as Icons from "../Icons.js";
+import * as Utils from "../Utils.js";
 import * as React from "react";
 import * as Js_dict from "bs-platform/lib/es6/js_dict.mjs";
 import * as Graphql from "graphql";
@@ -15,6 +16,7 @@ import * as GraphQLJs from "../bindings/GraphQLJs.js";
 import * as Belt_Array from "bs-platform/lib/es6/belt_Array.mjs";
 import * as Caml_array from "bs-platform/lib/es6/caml_array.mjs";
 import * as OneGraphRe from "../OneGraphRe.js";
+import * as TypeScript from "../bindings/TypeScript.js";
 import * as Typescript from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
@@ -81,6 +83,78 @@ function Inspector$CollapsableSection(Props) {
 var CollapsableSection = {
   make: Inspector$CollapsableSection
 };
+
+function checkFunctionExists(parsed, script, request) {
+  var names = Chain.requestScriptNames(request);
+  var parsed$1;
+  if (parsed !== undefined) {
+    parsed$1 = parsed;
+  } else {
+    try {
+      parsed$1 = Caml_option.some(Typescript.createSourceFile("main.ts", script, 99, true));
+    }
+    catch (exn){
+      parsed$1 = undefined;
+    }
+  }
+  if (parsed$1 !== undefined) {
+    return Belt_Option.isSome(TypeScript.findFnPos(Caml_option.valFromOption(parsed$1), names.functionName));
+  } else {
+    return Belt_Option.isSome(Caml_option.null_to_opt(script.match(new RegExp("export function " + names.functionName))));
+  }
+}
+
+function ensureRequestFunctionExists(parsed, returnProperties, script, request, param) {
+  var names = Chain.requestScriptNames(request);
+  var nameExistsInScript = checkFunctionExists(parsed, script, request);
+  var returnProperties$1 = Belt_Array.joinWith(Belt_Option.getWithDefault(returnProperties, []), ", ", (function (param) {
+          return param[0] + ": " + param[1];
+        }));
+  if (nameExistsInScript) {
+    return script;
+  } else {
+    return script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {" + returnProperties$1 + "}\n}");
+  }
+}
+
+function deleteRequestFunctionIfEmpty(parsed, script, request, param) {
+  var names = Chain.requestScriptNames(request);
+  var parsed$1;
+  if (parsed !== undefined) {
+    parsed$1 = parsed;
+  } else {
+    try {
+      parsed$1 = Caml_option.some(Typescript.createSourceFile("main.ts", script, 99, true));
+    }
+    catch (exn){
+      parsed$1 = undefined;
+    }
+  }
+  if (parsed$1 === undefined) {
+    return {
+            TAG: 1,
+            _0: "invalidSyntax",
+            [Symbol.for("name")]: "Error"
+          };
+  }
+  var parsed$2 = Caml_option.valFromOption(parsed$1);
+  var match = TypeScript.isFunctionEmpty(parsed$2, names.functionName);
+  if (match !== undefined && match < 3) {
+    return {
+            TAG: 0,
+            _0: Belt_Option.mapWithDefault(TypeScript.findFnPos(parsed$2, names.functionName), script, (function (param) {
+                    return Utils.$$String.replaceRange(script, param.start, param.end, "").trim();
+                  })),
+            [Symbol.for("name")]: "Ok"
+          };
+  } else {
+    return {
+            TAG: 0,
+            _0: script,
+            [Symbol.for("name")]: "Ok"
+          };
+  }
+}
 
 function transpileFullChainScript(chain) {
   var baseTranspiled = Typescript.transpile(chain.script, {
@@ -261,7 +335,13 @@ function evalRequest(schema, chain, request, requestValueCache, trace) {
                       acc[nextVarDependency.name] = result;
                       return acc;
                   case /* Direct */1 :
+                      return acc;
                   case /* GraphQLProbe */2 :
+                      var call$1 = argDep._0.functionFromScript + "(" + payload$1 + ")";
+                      var script$1 = transpiled + "\n\n" + call$1;
+                      var fullScript$1 = script$1.replace(new RegExp("export ", "g"), "");
+                      var result$1 = quickjs.evalCode(fullScript$1);
+                      acc[nextVarDependency.name] = result$1;
                       return acc;
                   
                 }
@@ -1476,15 +1556,51 @@ function Inspector$Request(Props) {
                                             return req;
                                           }
                                         }));
+                                  var newRequestHasComputedDependency = Belt_Array.some(newVariableDependencies, (function (varDep) {
+                                          var match = varDep.dependency;
+                                          switch (match.TAG | 0) {
+                                            case /* ArgumentDependency */0 :
+                                                return true;
+                                            case /* Direct */1 :
+                                            case /* GraphQLProbe */2 :
+                                                return false;
+                                            
+                                          }
+                                        }));
+                                  var newScript;
+                                  if (newRequestHasComputedDependency) {
+                                    var returnProperties = Belt_Array.keepMap(newVariableDependencies, (function (varDep) {
+                                            var match = varDep.dependency;
+                                            switch (match.TAG | 0) {
+                                              case /* ArgumentDependency */0 :
+                                                  return [
+                                                          varDep.name,
+                                                          varDep.name
+                                                        ];
+                                              case /* Direct */1 :
+                                              case /* GraphQLProbe */2 :
+                                                  return ;
+                                              
+                                            }
+                                          }));
+                                    newScript = ensureRequestFunctionExists(undefined, returnProperties, chain.script, newRequest, undefined);
+                                  } else {
+                                    var newScript$1 = deleteRequestFunctionIfEmpty(undefined, chain.script, newRequest, undefined);
+                                    if (newScript$1.TAG === /* Ok */0) {
+                                      newScript = newScript$1._0;
+                                    } else {
+                                      console.warn("Could not remove function, script has invalid syntax");
+                                      newScript = chain.script;
+                                    }
+                                  }
                                   var newChain_name = chain.name;
                                   var newChain_id = chain.id;
-                                  var newChain_script = chain.script;
                                   var newChain_scriptDependencies = chain.scriptDependencies;
                                   var newChain_blocks = chain.blocks;
                                   var newChain = {
                                     name: newChain_name,
                                     id: newChain_id,
-                                    script: newChain_script,
+                                    script: newScript,
                                     scriptDependencies: newChain_scriptDependencies,
                                     requests: requests,
                                     blocks: newChain_blocks
@@ -1595,17 +1711,17 @@ function Inspector$Request(Props) {
           }
           return formInput(schema, def, setFormVariables, tmp);
         }));
-  var form = inputs.length !== 0 ? React.createElement("form", {
-          onSubmit: (function ($$event) {
-              $$event.preventDefault();
-              $$event.stopPropagation();
-              return Curry._2(onExecuteRequest, request, formVariables);
-            })
-        }, inputs, React.createElement(Comps.Button.make, {
-              className: "w-full",
-              type_: "submit",
-              children: "Execute"
-            })) : null;
+  var form = React.createElement("form", {
+        onSubmit: (function ($$event) {
+            $$event.preventDefault();
+            $$event.stopPropagation();
+            return Curry._2(onExecuteRequest, request, formVariables);
+          })
+      }, inputs.length !== 0 ? inputs : null, React.createElement(Comps.Button.make, {
+            className: "w-full",
+            type_: "submit",
+            children: "Execute"
+          }));
   var missingAuthServices = Belt_Option.mapWithDefault(cachedResult, [], (function (results) {
           return OnegraphAuth.findMissingAuthServices(Caml_option.some(results));
         }));
@@ -1794,7 +1910,7 @@ function Inspector$Nothing(Props) {
   var setFormVariables = match[1];
   var formVariables = match[0];
   var match$1 = React.useState(function () {
-        return "form";
+        return "inspector";
       });
   var setOpenedTab = match$1[1];
   var openedTab = match$1[0];
@@ -1961,7 +2077,6 @@ function Inspector$Nothing(Props) {
               }, "Copy ScriptKit usage"), React.createElement("option", {
                 value: "id"
               }, "Copy Chain Id")), null);
-  var compiled = transformChain(chain)(schema);
   var inspectorTab = React.createElement(React.Fragment, undefined, isChainViable ? null : React.createElement("div", {
               className: "m-2 w-full text-center flex flex-1 flex-grow flex-col justify-items-center justify-center items-center justify-items align-middle",
               style: {
@@ -1985,18 +2100,6 @@ function Inspector$Nothing(Props) {
                 return Curry._1(onClose, undefined);
               }),
             children: "Cancel changes"
-          }), React.createElement(Inspector$CollapsableSection, {
-            title: "Internal Debug info",
-            defaultOpen: false,
-            children: React.createElement(Comps.Pre.make, {
-                  children: JSON.stringify(chain, null, 2)
-                })
-          }), React.createElement(Inspector$CollapsableSection, {
-            title: "Compiled Executable Chain",
-            defaultOpen: false,
-            children: React.createElement(Comps.Pre.make, {
-                  children: JSON.stringify(compiled, null, 2)
-                })
           }));
   return React.createElement(React.Fragment, undefined, React.createElement("div", {
                   className: "w-full flex ml-2 border-b justify-around",
@@ -2083,7 +2186,6 @@ function Inspector(Props) {
   var initialChain = Props.initialChain;
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
-  var subscriptionClient = Props.subscriptionClient;
   var appId = Props.appId;
   var tmp;
   switch (inspected.TAG | 0) {
@@ -2126,8 +2228,7 @@ function Inspector(Props) {
               trace: inspected.trace,
               initialChain: initialChain,
               onSaveChain: onSaveChain,
-              onClose: onClose,
-              subscriptionClient: subscriptionClient
+              onClose: onClose
             });
         break;
     case /* Block */1 :
@@ -2161,8 +2262,7 @@ function Inspector(Props) {
           onDeleteEdge: onDeleteEdge,
           onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
           onDragStart: onDragStart,
-          trace: trace,
-          subscriptionClient: subscriptionClient
+          trace: trace
         });
   }
   return React.createElement("div", {
@@ -2198,6 +2298,9 @@ export {
   GraphQLPreview ,
   formInput ,
   CollapsableSection ,
+  checkFunctionExists ,
+  ensureRequestFunctionExists ,
+  deleteRequestFunctionIfEmpty ,
   transpileFullChainScript ,
   patchRequestArgDeps ,
   patchChainRequestsArgDeps ,

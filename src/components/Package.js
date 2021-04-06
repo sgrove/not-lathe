@@ -1261,7 +1261,7 @@ function Package(Props) {
                               };
                       }));
         }), {}, undefined);
-  ReactHotkeysHook.useHotkeys("esc", (function ($$event, _handler) {
+  ReactHotkeysHook.useHotkeys("esc", (function (_event, _handler) {
           return Curry._1(setState, (function (oldState) {
                         if (oldState.helpOpen) {
                           return {

@@ -149,6 +149,15 @@ module String = {
 return [...(new Set(arr))]
 }")
 
+  let safeNameRe = Js.Re.fromStringWithFlags("[^a-z0-9]", ~flags="gi")
+  let safeName: string => string = string => {
+    string->Js.String2.replaceByRe(safeNameRe, "")
+  }
+
+  let safeCamelize: string => string = string => {
+    string->Js.String2.replaceByRe(safeNameRe, "_")->camelize
+  }
+
   let replaceRange: (
     string,
     ~start: int,

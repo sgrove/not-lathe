@@ -31,6 +31,7 @@ type connectionDrag =
       windowPosition: (int, int),
       potentialFunctionMatches: array<TypeScript.simpleFunctionType>,
       dataPath: array<string>,
+      path: array<string>,
     })
 
 let toSimpleString = connectionDrag => {

@@ -10,6 +10,7 @@
     "@projectstorm/react-diagrams": "^6.3.0",
     "@sgrove/graphiql-explorer": "^0.6.2",
     "@tippyjs/react": "^4.2.3",
+    "@typescript/vfs": "^1.3.4",
     "acorn": "^8.0.5",
     "beautiful-react-diagrams": "^0.5.1",
     "bs-fetch": "^0.6.2",

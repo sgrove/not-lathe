@@ -1221,7 +1221,7 @@ let make = (~schema, ~config) => {
 
   ReactHotKeysHook.useHotkeys(
     ~keys="esc",
-    ~callback=(event, _handler) => {
+    ~callback=(_event, _handler) => {
       setState(oldState => {
         oldState.helpOpen ? {...oldState, helpOpen: false} : oldState
       })

@@ -13,6 +13,7 @@ module GraphQLPreview = {
     gqlType: GraphQLJs.graphqlType,
     printedType: string,
     path: array<string>,
+    simplePath: array<string>,
   }
 
   @react.component @module("../GraphQLMockInputType.js")
@@ -96,6 +97,93 @@ module CollapsableSection = {
       </Comps.Header>
       <div className={isOpen ? "" : "hidden"}> {children} </div>
     </>
+  }
+}
+
+let checkFunctionExists = (~parsed=?, ~script: string, ~request: Chain.request): bool => {
+  let names = request->Chain.requestScriptNames
+
+  let parsed = switch parsed {
+  | None =>
+    try {
+      Some(TypeScript.createSourceFile(~name="main.ts", ~source=script, ~target=99, true))
+    } catch {
+    | _ => None
+    }
+  | other => other
+  }
+
+  switch parsed {
+  | None =>
+    script
+    ->Js.String2.match_(Js.Re.fromString(j`export function ${names.functionName}`))
+    ->Belt.Option.isSome
+  | Some(parsed) => parsed->TypeScript.findFnPos(names.functionName)->Belt.Option.isSome
+  }
+}
+
+let ensureRequestFunctionExists = (
+  ~parsed=?,
+  ~returnProperties=?,
+  ~script: string,
+  ~request: Chain.request,
+  (),
+) => {
+  let names = request->Chain.requestScriptNames
+
+  let nameExistsInScript = checkFunctionExists(~parsed?, ~script, ~request)
+
+  let returnProperties =
+    returnProperties
+    ->Belt.Option.getWithDefault([])
+    ->Belt.Array.joinWith(", ", ((key, value)) => j`${key}: ${value}`)
+
+  nameExistsInScript
+    ? script
+    : script ++
+      j`
+
+export function ${names.functionName} (payload : ${names.inputTypeName}) : ${names.returnTypeName} {
+  return {${returnProperties}}
+}`
+}
+
+let deleteRequestFunctionIfEmpty = (
+  ~parsed=?,
+  ~script: string,
+  ~request: Chain.request,
+  (),
+): result<string, [#invalidSyntax]> => {
+  let names = request->Chain.requestScriptNames
+
+  let parsed = switch parsed {
+  | None =>
+    try {
+      Some(TypeScript.createSourceFile(~name="main.ts", ~source=script, ~target=99, true))
+    } catch {
+    | _ => None
+    }
+  | other => other
+  }
+
+  switch parsed {
+  | None => Error(#invalidSyntax)
+  | Some(parsed) =>
+    switch parsed->TypeScript.isFunctionEmpty(names.functionName) {
+    | None
+    | Some(NotEmpty) =>
+      Ok(script)
+    | Some(Empty)
+    | Some(EmptyObjectReturn)
+    | Some(ProbablyGenerated) =>
+      Ok(
+        parsed
+        ->TypeScript.findFnPos(names.functionName)
+        ->Belt.Option.mapWithDefault(script, ({start, end}) => {
+          script->Utils.String.replaceRange(~start, ~end, ~by="")->Js.String2.trim
+        }),
+      )
+    }
   }
 }
 
@@ -268,6 +356,19 @@ let evalRequest = (
         switch nextVarDependency.dependency {
         | ArgumentDependency(argDep) =>
           let call = `${argDep.functionFromScript}(${payload})`
+
+          let script = transpiled ++ "\n\n" ++ call
+
+          let fullScript =
+            script->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("export ", ~flags="g"), "")
+          open QuickJsEmscripten
+
+          let result = quickjs->evalCode(fullScript)
+
+          acc->Obj.magic->Js.Dict.set(nextVarDependency.name, result)
+          acc
+        | GraphQLProbe(probe) =>
+          let call = `${probe.functionFromScript}(${payload})`
 
           let script = transpiled ++ "\n\n" ++ call
 
@@ -1483,7 +1584,6 @@ module Request = {
     ~onPotentialVariableSourceConnect,
     ~onDragStart,
     ~trace: option<Chain.Trace.t>,
-    ~subscriptionClient,
   ) => {
     open React
     let connectionDrag = useContext(ConnectionContext.context)
@@ -1690,7 +1790,44 @@ module Request = {
                 let requests = chain.requests->Belt.Array.map(req => {
                   req == request ? newRequest : req
                 })
-                let newChain = {...chain, requests: requests}
+
+                let newRequestHasComputedDependency =
+                  newRequest.variableDependencies->Belt.Array.some(varDep =>
+                    switch varDep.dependency {
+                    | ArgumentDependency(_) => true
+                    | _ => false
+                    }
+                  )
+
+                let newScript = newRequestHasComputedDependency
+                  ? {
+                      let returnProperties =
+                        newRequest.variableDependencies->Belt.Array.keepMap(varDep => {
+                          switch varDep.dependency {
+                          | ArgumentDependency(_) => Some((varDep.name, varDep.name))
+                          | _ => None
+                          }
+                        })
+
+                      ensureRequestFunctionExists(
+                        ~returnProperties,
+                        ~script=chain.script,
+                        ~request=newRequest,
+                        (),
+                      )
+                    }
+                  : switch deleteRequestFunctionIfEmpty(
+                      ~script=chain.script,
+                      ~request=newRequest,
+                      (),
+                    ) {
+                    | Error(#invalidSyntax) =>
+                      Js.Console.warn("Could not remove function, script has invalid syntax")
+                      chain.script
+                    | Ok(newScript) => newScript
+                    }
+
+                let newChain = {...chain, requests: requests, script: newScript}
                 onChainUpdated(newChain)
                 setOpenedTabs(oldOpenedTabs => oldOpenedTabs->Belt.Set.String.add(varDep.name))
               }
@@ -1795,19 +1932,15 @@ module Request = {
       })
 
     let form =
-      inputs->Belt.Array.length > 0
-        ? <form
-            onSubmit={event => {
-              event->ReactEvent.Form.preventDefault
-              event->ReactEvent.Form.stopPropagation
-              onExecuteRequest(~request, ~variables=formVariables)
-            }}>
-            {inputs->React.array}
-            <Comps.Button className="w-full" type_="submit">
-              {"Execute"->React.string}
-            </Comps.Button>
-          </form>
-        : React.null
+      <form
+        onSubmit={event => {
+          event->ReactEvent.Form.preventDefault
+          event->ReactEvent.Form.stopPropagation
+          onExecuteRequest(~request, ~variables=formVariables)
+        }}>
+        {inputs->Belt.Array.length > 0 ? {inputs->React.array} : React.null}
+        <Comps.Button className="w-full" type_="submit"> {"Execute"->React.string} </Comps.Button>
+      </form>
 
     let missingAuthServices = cachedResult->Belt.Option.mapWithDefault([], results => {
       let services = OneGraphAuth.findMissingAuthServices(Some(results))
@@ -1999,7 +2132,6 @@ module Nothing = {
     ~initialChain,
     ~onSaveChain,
     ~onClose,
-    ~subscriptionClient,
   ) => {
     let webhookUrl = webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
     let compiledOperation = chain->Chain.compileOperationDoc(~schema, ~webhookUrl)
@@ -2022,7 +2154,7 @@ module Nothing = {
     let targetChain = compiledOperation.chains->Belt.Array.get(0)
 
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
-    let (openedTab, setOpenedTab) = React.useState(() => #form)
+    let (openedTab, setOpenedTab) = React.useState(() => #inspector)
 
     let isSubscription =
       chain.requests->Belt.Array.some(request => request.operation.kind == Subscription)
@@ -2231,22 +2363,22 @@ ${remoteChainCalls.netlify.code}
               {"Save Changes"->string}
             </Comps.Button>}
         <Comps.Button onClick={_ => {onClose()}}> {"Cancel changes"->string} </Comps.Button>
-        <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
-          <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
-        </CollapsableSection>
-        <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
-          <Comps.Pre>
-            {
-              let compiled = chain->transformChain(~schema)
-              // let script = transformed.script
+        // <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
+        //   <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
+        // </CollapsableSection>
+        // <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
+        //   <Comps.Pre>
+        //     {
+        //       let compiled = chain->transformChain(~schema)
+        //       // let script = transformed.script
 
-              // let script = Obj.magic(transformed)["script"]
+        //       // let script = Obj.magic(transformed)["script"]
 
-              // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
-              compiled->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string
-            }
-          </Comps.Pre>
-        </CollapsableSection>
+        //       // script->Js.Json.string->Js.Json.stringifyWithSpace(2)->React.string
+        //       compiled->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string
+        //     }
+        //   </Comps.Pre>
+        // </CollapsableSection>
       </>
 
     <>
@@ -2336,7 +2468,6 @@ let make = (
   ~initialChain,
   ~onSaveChain,
   ~onClose,
-  ~subscriptionClient,
   ~appId,
 ) => {
   open React
@@ -2382,7 +2513,6 @@ let make = (
           initialChain
           onSaveChain
           onClose
-          subscriptionClient
         />
       | Block(block) => <Block schema block onAddBlock />
       | Request({request})
@@ -2403,7 +2533,6 @@ let make = (
           onPotentialVariableSourceConnect
           onDragStart
           trace
-          subscriptionClient
           appId
         />
       }}

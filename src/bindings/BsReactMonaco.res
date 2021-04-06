@@ -1,8 +1,18 @@
 type monaco
 type editor
+
 type action
 
-type range
+type range = {
+  endColumn: int,
+  endLineNumber: int,
+  startColumn: int,
+  startLineNumber: int,
+}
+
+let makeRange: (monaco, int, int, int, int) => range = %raw(`function(monaco, a,b,c,d) {
+return new monaco.Range(a,b,c,d)
+}`)
 
 module Model = {
   type t
@@ -150,6 +160,42 @@ let formatDocument = (editor: editor) => {
   ->getAction("editor.action.formatDocument")
   ->Belt.Option.forEach(action => action->runAction)
 }
+
+@deriving(abstract)
+type decorationMinimapOptions = {
+  color: string,
+  @optional darkColor: string,
+  position: int,
+}
+
+@deriving(abstract)
+type deltaDecorationOptions = {
+  @optional afterContentClassName: string,
+  @optional beforeContentClassName: string,
+  @optional className: string,
+  @optional firstLineDecorationClassName: string,
+  @optional glyphMarginClassName: string,
+  @optional glyphMarginHoverMessage: array<string>,
+  @optional hoverMessage: array<string>,
+  @optional inlineClassName: string,
+  @optional inlineClassNameAffectsLetterSpacing: bool,
+  @optional isWholeLine: bool,
+  @optional linesDecorationsClassName: string,
+  @optional marginClassName: string,
+  @optional minimap: decorationMinimapOptions,
+  // @optional overviewRuler:  IModelDecorationOverviewRulerOptions,
+  // @optional stickiness:  TrackedRangeStickiness,
+  @optional zIndex: int,
+}
+
+type deltaDecoration = {
+  range: range,
+  options: deltaDecorationOptions,
+}
+
+@send
+external deltaDecorations: (editor, array<string>, array<deltaDecoration>) => array<string> =
+  "deltaDecorations"
 
 module TypeScript = {
   type outputFile = {

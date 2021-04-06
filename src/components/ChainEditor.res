@@ -89,6 +89,17 @@ type ComputeType {
   }
 }
 
+let namedGraphQLScalarTypeScriptType = typ => {
+  switch typ {
+  | "ID"
+  | "String" => "string"
+  | "Int"
+  | "Float" => "number"
+  | "JSON" => "any"
+  | other => other
+  }
+}
+
 let compileChain = (schema, chain: Chain.t): option<Chain.mockCompiledChain> => {
   try {
     let compiled = chain->Chain.compileAsObj
@@ -120,6 +131,8 @@ module BlockSearch = {
     ~onCreate,
   ) => {
     open React
+
+    let inputRef = React.useRef(Js.Nullable.null)
 
     let (state, setState) = useState(() => {
       search: None,
@@ -172,6 +185,7 @@ module BlockSearch = {
             style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}>
             <div className="pl-2"> <Icons.Search color={Comps.colors["gray-4"]} /> </div>
             <input
+              ref={ReactDOM.Ref.domRef(inputRef)}
               className="w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white"
               style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}
               id="search"
@@ -242,7 +256,15 @@ module BlockSearch = {
                   dataTransfer["effectAllowed"] = "copyLink"
                   dataTransfer["setData"]("text", block.id->Uuid.toString)
                 }}
-                onDoubleClick={_ => onAdd(block)}
+                onDoubleClick={_ => {
+                  onAdd(block)
+                  inputRef.current
+                  ->Js.Nullable.toOption
+                  ->Belt.Option.forEach(dom => {
+                    Obj.magic(dom)["value"] = ""
+                    setState(oldState => {...oldState, search: None})
+                  })
+                }}
                 onClick={_ => onInspect(block)}>
                 <div
                   style={
@@ -961,8 +983,11 @@ type monacoTypelib = {
 }
 
 let monacoTypelibForChain = (schema, chain: Chain.t) => {
+  let computedRequests =
+    chain.requests->Belt.Array.keep(request => Chain.requestHasComputedVariables(request))
+
   let types =
-    chain.requests->Belt.Array.map(request =>
+    computedRequests->Belt.Array.map(request =>
       request->requestScriptTypeScriptSignature(schema, chain)
     )
 
@@ -979,7 +1004,7 @@ ${typeSigs.functionFromScriptOutputType}
 
 ${dDotTsDefs}`
 
-  let names = chain.requests->Belt.Array.map(Chain.requestScriptNames)
+  let names = computedRequests->Belt.Array.map(Chain.requestScriptNames)
 
   let importedNames =
     names
@@ -989,7 +1014,10 @@ ${dDotTsDefs}`
     ->Belt.Array.concatMany
     ->Js.Array2.joinWith(", ")
 
-  let importLine = j`import { ${importedNames} } from 'oneGraphStudio';`
+  let importLine = switch names {
+  | [] => ""
+  | _ => j`import { ${importedNames} } from 'oneGraphStudio';`
+  }
 
   {dDotTs: dDotTs, importLine: importLine}
 }
@@ -1006,6 +1034,7 @@ module Script = {
     ~onPotentialScriptSourceConnect,
   ) => {
     let (localContent, setLocalContent) = React.useState(() => chain.script)
+    let (_highlights, setHighlights) = React.useState(() => [])
     let content = chain.script
 
     let editor = React.useRef(None)
@@ -1018,6 +1047,77 @@ module Script = {
 
     React.useEffect1(() => {
       connectionDragRef.current = connectionDrag
+      switch (editor.current, monaco.current, connectionDrag) {
+      | (Some(editor), Some(monaco), StartedSource(_)) =>
+        TypeScript.VirtualFileSystem.makeWithFileSystem(~onCreateFileSystem=fsMap => {
+          fsMap->TypeScript.Map.set("main.ts", chain.script)
+        })
+        ->Js.Promise.then_(
+          ((_env, program, _typeChecker, _fsMap, _system)) => {
+            let parsed = program["getSourceFile"]("main.ts")
+
+            parsed
+            ->Belt.Option.forEach(parsed => {
+              let variableDeclarations = parsed->TypeScript.findAllVariableDeclarationsInFunctions
+
+              let decorations = variableDeclarations->Belt.Array.map(node => {
+                open TypeScript
+                let start = parsed->getLineAndCharacterOfPosition(Obj.magic(node)["pos"])
+                let end = parsed->getLineAndCharacterOfPosition(Obj.magic(node)["end"])
+
+                open BsReactMonaco
+                {
+                  options: {
+                    deltaDecorationOptions(~className="script-drop drag-target", ())
+                  },
+                  range: monaco->makeRange(
+                    start.line + 1,
+                    start.character + 1,
+                    end.line + 1,
+                    end.character + 1,
+                  ),
+                }
+              })
+
+              Debug.assignToWindowForDeveloperDebug(~name="OtherEditor", editor)
+              Debug.assignToWindowForDeveloperDebug(~name="OtherMonaco", monaco)
+              Debug.assignToWindowForDeveloperDebug(~name="OtherDecorations", decorations)
+
+              let deltas = editor->BsReactMonaco.deltaDecorations([], decorations)
+
+              setHighlights(_oldHighlights => deltas)
+            })
+            ->Js.Promise.resolve
+          },
+          /* * TODO extract type at point
+            let position =
+              parsed->TypeScript.getPositionOfLineAndCharacter(
+                scriptPosition.lineNumber - 1,
+                scriptPosition.column - 1,
+              )
+
+            TypeScript.findTypeOfVariableDeclarationAtPosition(
+              ~env,
+              ~fileName="main.ts",
+              ~position,
+            )->Belt.Option.forEach(((node, typeNode)) => {
+              let printedType = TypeScript.printType(~typeChecker, ~typeNode, ~node, ())
+
+              Js.log4("Type at position: ", typeNode, position, printedType)
+            })
+          })
+ */
+
+          _,
+        )
+        ->ignore
+      | (Some(editor), _, _) =>
+        setHighlights(oldHighlights => {
+          let _ = editor->BsReactMonaco.deltaDecorations(oldHighlights, [])
+          []
+        })
+      | _ => ()
+      }
 
       None
     }, [connectionDrag->ConnectionContext.toSimpleString])
@@ -1062,7 +1162,7 @@ module Script = {
 
 ${chain.script}`
 
-        onChange(newScript)
+        onChange(newScript->Js.String2.trim)
       })
 
       None
@@ -1220,6 +1320,7 @@ module ConnectorLine = {
           <path fill="green" d="M0 0v4l2-2z" />
         </marker>
         <line
+          className="pointer-events-none"
           style={ReactDOMRe.Style.make(~cursor="none", ())}
           stroke={Comps.colors["green-6"]}
           strokeWidth="3"
@@ -1233,7 +1334,7 @@ module ConnectorLine = {
           style={ReactDOMRe.Style.make(~cursor="none", ())}
           stroke={Comps.colors["green-3"]}
           strokeWidth="3"
-          className="moving-path"
+          className="moving-path pointer-events-none"
           markerEnd="url(#connectMarker)"
           // filter="url(#blurMe)"
           strokeDasharray={"50"}
@@ -1623,8 +1724,8 @@ module Main = {
       let handler = event => {
         Js.log2("onCopy: ", event)
       }
-      let r = Utils.Window.addEventListener(~event="copy", ~handler)
-      Js.log3("Installed handler ", r, handler)
+
+      Utils.Window.addEventListener(~event="copy", ~handler)
 
       Some(() => Utils.Window.removeEventListener(~event="copy", ~handler))
     }, [state.chain.blocks])
@@ -1776,14 +1877,20 @@ ${chainFragments}`->Js.String2.trim
             ->Js.String2.match_(Js.Re.fromString(j`export function ${names.functionName}`))
             ->Belt.Option.isSome
 
-          let newScript: string = nameExistsInScript
-            ? newChain.script
-            : newChain.script ++
-              j`
+          let newScript: string = switch (
+            newReq->Chain.requestHasComputedVariables,
+            nameExistsInScript,
+          ) {
+          | (true, false) =>
+            newChain.script ++
+            j`
 
 export function ${names.functionName} (payload : ${names.inputTypeName}) : ${names.returnTypeName} {
   return {}
 }`
+          | _ => newChain.script
+          }
+
           let newChain: Chain.t = {
             name: newChain.name,
             id: newChain.id,
@@ -1867,8 +1974,14 @@ ${newScript}`
         }
       })
 
+      let newScript =
+        Inspector.deleteRequestFunctionIfEmpty(~script=oldChain.script, ~request=targetRequest, ())
+        ->Belt.Result.getWithDefault(oldChain.script)
+        ->Js.String2.trim
+
       let newChain = {
         ...oldChain,
+        script: newScript,
         requests: newRequests,
         blocks: oldChain.blocks->Belt.Array.keep(oldBlock => oldBlock != targetRequest.operation),
       }
@@ -1928,7 +2041,6 @@ ${newScript}`
         appId=config.oneGraphAppId
         inspected={state.inspected}
         chain={state.chain}
-        subscriptionClient=state.subscriptionClient
         initialChain
         trace
         onAddBlock={addBlock}
@@ -2019,7 +2131,6 @@ ${newScript}`
         }}
         chainExecutionResults={state.chainExecutionResults}
         transformAndExecuteChain={(~variables) => {
-          Js.log2("transformAndExecuteChain: ", variables)
           state.chain
           ->Inspector.transformAndExecuteChain(~schema, ~oneGraphAuth, ~variables)
           ->Js.Promise.then_(
@@ -2054,34 +2165,26 @@ ${newScript}`
           ->ignore
         }}
         // transformAndExecuteChainSubscription={(~variables) => {
-        //   Js.log2("transformAndExecuteChainSubscription: ", variables)
         //   state.subscriptionClient->Belt.Option.forEach(subscriptionClient => {
         //     state.chain->Inspector.transformAndExecuteChainSubscription(
         //       ~schema,
         //       ~subscriptionClient,
         //       ~variables,
         //       ~onData=data => {
-        //         Js.log3("Got data from ", state.chain.name, data)
-
         //         let json = data->Obj.magic
-
         //         setState(oldState => {
         //           // XXX This is a stand-in for OG's eventual server-side chain trace storage
         //           let newTrace = oldState.chain.id->Belt.Option.map(chainId => {
         //             json["id"] = Uuid.v4()
-
         //             let trace: Chain.Trace.t = {
         //               chainId: chainId,
         //               createdAt: Js.Date.make()->Js.Date.toUTCString,
         //               trace: json,
         //               variables: variables,
         //             }
-
         //             trace
         //           })
-
         //           newTrace->Belt.Option.forEach(Chain.Trace.saveToLocalStorage)
-
         //           {...oldState, chainExecutionResults: json}
         //         })
         //       },
@@ -2513,23 +2616,20 @@ ${newScript}`
                             ),
                           }
 
-                          let names = newReq->Chain.requestScriptNames
+                          let returnProperties =
+                            newReq.variableDependencies->Belt.Array.keepMap(varDep => {
+                              switch varDep.dependency {
+                              | ArgumentDependency(_) => Some((varDep.name, varDep.name))
+                              | _ => None
+                              }
+                            })
 
-                          let nameExistsInScript =
-                            newChain.script
-                            ->Js.String2.match_(
-                              Js.Re.fromString(j`export function ${names.functionName}`),
-                            )
-                            ->Belt.Option.isSome
-
-                          let newScript: string = nameExistsInScript
-                            ? newChain.script
-                            : newChain.script ++
-                              j`
-
-export function ${names.functionName} (payload : ${names.inputTypeName}) : ${names.returnTypeName} {
-  return {}
-}`
+                          let newScript: string = Inspector.ensureRequestFunctionExists(
+                            ~returnProperties,
+                            ~script=newChain.script,
+                            ~request=newReq,
+                            (),
+                          )
 
                           let newChain: Chain.t = {
                             name: newChain.name,
@@ -2715,24 +2815,12 @@ ${newScript}`
               windowPosition: (x, y),
               potentialFunctionMatches,
               dataPath,
+              path,
               targetVariableType,
               sourceType,
             }) =>
             let onClick: option<string> => unit = name => {
               setState(oldState => {
-                let parsed = try {
-                  Some(
-                    TypeScript.createSourceFile(
-                      ~name="main.ts",
-                      ~source=oldState.chain.script,
-                      ~target=99,
-                      true,
-                    ),
-                  )
-                } catch {
-                | _ => None
-                }
-
                 let targetVariableDependency = variableTarget.variableDependency
 
                 let newRequests = oldState.chain.requests->Belt.Array.map(request => {
@@ -2786,6 +2874,31 @@ ${newScript}`
                   variableTarget.targetRequest.id == request.id
                 })
 
+                let script = request->Belt.Option.mapWithDefault(oldState.chain.script, request => {
+                  let returnProperties =
+                    request.variableDependencies->Belt.Array.keepMap(varDep => {
+                      switch varDep.dependency {
+                      | ArgumentDependency(_) => Some((varDep.name, varDep.name))
+                      | _ => None
+                      }
+                    })
+
+                  Inspector.ensureRequestFunctionExists(
+                    ~returnProperties,
+                    ~script=oldState.chain.script,
+                    ~request,
+                    (),
+                  )
+                })
+
+                let parsed = try {
+                  Some(
+                    TypeScript.createSourceFile(~name="main.ts", ~source=script, ~target=99, true),
+                  )
+                } catch {
+                | _ => None
+                }
+
                 let lineNumbers = request->Belt.Option.flatMap(request => {
                   let names = request->Chain.requestScriptNames
 
@@ -2816,7 +2929,9 @@ ${newScript}`
 
                 let nullableTargetVariableType =
                   targetVariableType->Belt.Option.map(typ =>
-                    typ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+                    typ
+                    ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+                    ->namedGraphQLScalarTypeScriptType
                   )
 
                 let nullablePrintedType =
@@ -2828,14 +2943,17 @@ ${newScript}`
 
                 let coercerName = switch name {
                 | None =>
-                  Utils.prompt("Coercer function name: ", ~default=Some(defaultCoercerName))
+                  Utils.prompt(
+                    "Coercer function name: ",
+                    ~default=Some(defaultCoercerName->Utils.String.safeCamelize),
+                  )
                   ->Js.Nullable.toOption
                   ->Belt.Option.getWithDefault(defaultCoercerName)
                 | Some(name) => name
-                }
+                }->Utils.String.safeCamelize
 
-                let coercerExists = switch coercerName {
-                | "INTERNAL_PASSTHROUGH" => true
+                let coercerExists = switch name {
+                | Some("INTERNAL_PASSTHROUGH") => true
                 | _ =>
                   parsed
                   ->Belt.Option.flatMap(parsed => parsed->TypeScript.findFnPos(coercerName))
@@ -2846,13 +2964,13 @@ ${newScript}`
                   _fnLineNumber,
                   fnBodyLineNumber,
                 )) => {
-                  let newBinding = switch coercerName {
-                  | "INTERNAL_PASSTHROUGH" =>
+                  let newBinding = switch name {
+                  | Some("INTERNAL_PASSTHROUGH") =>
                     j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith("?.")}`
                   | _ => j`\tlet ${binding} = ${coercerName}(${dataPath->Js.Array2.joinWith("?.")})`
                   }
 
-                  let temp = oldState.chain.script->Js.String2.split("\n")
+                  let temp = script->Js.String2.split("\n")
 
                   let _ =
                     temp->Js.Array2.spliceInPlace(
@@ -2861,10 +2979,27 @@ ${newScript}`
                       ~add=[newBinding],
                     )
 
+                  let inputType = request->Belt.Option.mapWithDefault(
+                    nullablePrintedType,
+                    request => {
+                      let names = request->Chain.requestScriptNames
+                      let typePath = path->Belt.Array.joinWith("", step => {
+                        step->Js.String2.endsWith("[0]")
+                          ? {
+                              let step = step->Js.String2.replace("[0]", "")
+                              j`["${step}"][0]`
+                            }
+                          : j`["${step}"]`
+                      })
+                      let typ = `${names.inputTypeName}${typePath}`
+                      typ
+                    },
+                  )
+
                   let signatureReturnType =
                     nullableTargetVariableType->Belt.Option.mapWithDefault("", t => j`: ${t}`)
 
-                  let newFunctionDefinition = j`function ${coercerName}(${binding} : ${nullablePrintedType}) ${signatureReturnType} {
+                  let newFunctionDefinition = j`function ${coercerName}(${binding} : ${inputType}) ${signatureReturnType} {
   return ${binding}
 }`
 
@@ -2932,7 +3067,7 @@ ${newScript}`
 
                 let newChain = {
                   ...oldState.chain,
-                  script: newScript->Belt.Option.getWithDefault(oldState.chain.script),
+                  script: newScript->Belt.Option.getWithDefault(script),
                   requests: newRequests,
                 }
 
@@ -2949,6 +3084,7 @@ ${newScript}`
                 ~maxHeight="200px",
                 ~overflowY="scroll",
                 ~color=Comps.colors["gray-6"],
+                ~zIndex="9999",
                 (),
               )}>
               <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
@@ -3003,6 +3139,16 @@ ${newScript}`
                 ~overflowY="scroll",
                 (),
               )}>
+              <div
+                className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
+                key="CANCEL"
+                onClick={_ =>
+                  setState(oldState => {
+                    ...oldState,
+                    connectionDrag: Empty,
+                  })}>
+                {"Cancel"->string}
+              </div>
               <Inspector.GraphQLPreview
                 requestId=sourceRequest.id
                 schema
@@ -3010,6 +3156,7 @@ ${newScript}`
                 fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
                   "operationDoc": chainFragmentsDoc,
                 })}
+                targetGqlType="[String]"
                 onCopy={payload => {
                   let {path} = payload
                   let dataPath = ["payload"]->Belt.Array.concat(path)
@@ -3146,6 +3293,16 @@ ${newScript}`
                 ~zIndex="999",
                 (),
               )}>
+              <div
+                className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
+                key="CANCEL"
+                onClick={_ =>
+                  setState(oldState => {
+                    ...oldState,
+                    connectionDrag: Empty,
+                  })}>
+                {"Cancel"->string}
+              </div>
               <Inspector.GraphQLPreview
                 requestId=sourceRequest.id
                 schema
@@ -3168,14 +3325,17 @@ ${newScript}`
                       "",
                     )
 
-                  let typesMatch = switch (Some(nullablePrintedType), nullableTargetVariableType) {
+                  let typesMatch = switch (
+                    Some(nullablePrintedType->Js.String2.toLocaleLowerCase),
+                    nullableTargetVariableType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                  ) {
                   | (Some(a), Some(b)) if a == b => true
-                  | (Some("String"), Some("ID"))
-                  | (Some("ID"), Some("String")) => true
-                  | (Some("Int"), Some("Float"))
-                  | (Some("Float"), Some("Int")) => true
-                  | (Some("JSON"), _)
-                  | (_, Some("JSON")) => true
+                  | (Some("string"), Some("id"))
+                  | (Some("id"), Some("string")) => true
+                  | (Some("int"), Some("float"))
+                  | (Some("float"), Some("int")) => true
+                  | (Some("json"), _)
+                  | (_, Some("json")) => true
                   | _ => false
                   }
 
@@ -3239,6 +3399,7 @@ ${newScript}`
                           sourceType: printedType,
                           potentialFunctionMatches: existingFnMatches,
                           dataPath: dataPath,
+                          path: path,
                         })
                       })
 
@@ -3295,12 +3456,42 @@ ${newScript}`
                         }
                       })
 
-                      let newChain = {...oldState.chain, requests: newRequests}
+                      let newScript =
+                        Inspector.deleteRequestFunctionIfEmpty(
+                          ~script=oldState.chain.script,
+                          ~request=targetRequest,
+                          (),
+                        )
+                        ->Belt.Result.getWithDefault(oldState.chain.script)
+                        ->Js.String2.trim
+
+                      let newChain = {
+                        ...oldState.chain,
+                        script: newScript,
+                        requests: newRequests,
+                      }
 
                       let diagram = diagramFromChain(newChain)
 
+                      let newTargetRequest = newChain.requests->Belt.Array.getBy(request => {
+                        targetRequest.id == request.id
+                      })
+
+                      let inspected =
+                        newTargetRequest->Belt.Option.mapWithDefault(
+                          oldState.inspected,
+                          newTargetRequest => {
+                            switch oldState.inspected {
+                            | Request({request: {id}}) if id == newTargetRequest.id =>
+                              Request({chain: newChain, request: newTargetRequest})
+                            | _ => oldState.inspected
+                            }
+                          },
+                        )
+
                       {
                         ...oldState,
+                        inspected: inspected,
                         diagram: diagram,
                         chain: newChain,
                         connectionDrag: Empty,
