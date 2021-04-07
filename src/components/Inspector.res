@@ -24,6 +24,7 @@ module GraphQLPreview = {
     ~fragmentDefinitions: Js.Dict.t<GraphQLJs.graphqlOperationDefinition>,
     ~targetGqlType: string=?,
     ~onCopy: previewCopyPayload => unit,
+    ~onClose: unit => unit=?,
   ) => React.element = "GraphQLPreview"
 }
 
@@ -2363,9 +2364,9 @@ ${remoteChainCalls.netlify.code}
               {"Save Changes"->string}
             </Comps.Button>}
         <Comps.Button onClick={_ => {onClose()}}> {"Cancel changes"->string} </Comps.Button>
-        // <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
-        //   <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
-        // </CollapsableSection>
+        <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
+          <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
+        </CollapsableSection>
         // <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
         //   <Comps.Pre>
         //     {

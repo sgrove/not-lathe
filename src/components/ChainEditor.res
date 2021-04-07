@@ -115,219 +115,6 @@ let compileChain = (schema, chain: Chain.t): option<Chain.mockCompiledChain> => 
   }
 }
 
-module BlockSearch = {
-  type state = {
-    search: option<string>,
-    results: array<Card.block>,
-  }
-
-  @val external alert: string => unit = "alert"
-
-  @react.component
-  let make = (
-    ~onAdd: Card.block => unit,
-    ~onInspect: Card.block => unit,
-    ~blocks: array<Card.block>,
-    ~onCreate,
-  ) => {
-    open React
-
-    let inputRef = React.useRef(Js.Nullable.null)
-
-    let (state, setState) = useState(() => {
-      search: None,
-      results: blocks->Belt.SortArray.stableSortBy((a, b) =>
-        String.compare(a.title->Js.String2.toLocaleLowerCase, b.title->Js.String2.toLocaleLowerCase)
-      ),
-    })
-
-    let searchBlocks = (blocks: array<Card.block>, term) =>
-      blocks
-      ->Belt.Array.keep(block => {
-        let titleMatch =
-          block.title
-          ->Js.String2.match_(term->Js.Re.fromStringWithFlags(~flags="ig"))
-          ->Belt.Option.isSome
-
-        let servicesMatch =
-          block.services->Belt.Array.some(service =>
-            service
-            ->Js.String2.match_(term->Js.Re.fromStringWithFlags(~flags="ig"))
-            ->Belt.Option.isSome
-          )
-
-        titleMatch || servicesMatch
-      })
-      ->Js.Array2.sortInPlaceWith((a, b) =>
-        String.compare(a.title->Js.String2.toLocaleLowerCase, b.title->Js.String2.toLocaleLowerCase)
-      )
-
-    useEffect1(() => {
-      switch state.search {
-      | None => ()
-      | Some(term) =>
-        let results = blocks->searchBlocks(term)
-        setState(oldState => {...oldState, results: results})
-      }
-      None
-    }, [blocks->Belt.Array.length])
-
-    <div
-      className="flex w-full m-0 h-full block select-none"
-      style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-9"], ())}>
-      <div className="w-full max-h-full">
-        <Comps.Header> {"Block Library"->React.string} </Comps.Header>
-        <div
-          className="rounded-lg px-3 py-2 overflow-y-hidden"
-          style={ReactDOMStyle.make(~height="calc(100% - 40px)", ())}>
-          <div
-            className="flex items-center  rounded-md inline-block"
-            style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}>
-            <div className="pl-2"> <Icons.Search color={Comps.colors["gray-4"]} /> </div>
-            <input
-              ref={ReactDOM.Ref.domRef(inputRef)}
-              className="w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white"
-              style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-7"], ())}
-              id="search"
-              spellCheck=false
-              type_="text"
-              placeholder="Search for blocks"
-              onChange={event => {
-                let query = ReactEvent.Form.target(event)["value"]
-                let search = switch query {
-                | "" => None
-                | other => Some(other)
-                }
-
-                let results = switch search {
-                | None => blocks
-                | Some(term) => blocks->searchBlocks(term)
-                }
-
-                setState(_oldState => {search: search, results: results})
-              }}
-            />
-            <div className="flex items-center rounded-md inline ">
-              <Comps.Select
-                style={ReactDOMStyle.make(~width="3ch", ~backgroundImage="none", ())}
-                value="never"
-                onChange={event => {
-                  let kind = switch ReactEvent.Form.target(event)["value"] {
-                  | "query" => Some(#query)
-                  | "mutation" => Some(#mutation)
-                  | "subscription" => Some(#subscription)
-                  | "compute" => Some(#compute)
-                  | _ => None
-                  }
-
-                  kind->Belt.Option.forEach(kind => onCreate(kind))
-                }}>
-                <option value="+"> {"+"->React.string} </option>
-                <option value="query"> {"+ New Query Block"->React.string} </option>
-                <option value="mutation"> {"+ New Mutation Block"->React.string} </option>
-                <option value="subscription"> {"+ New Subscription Block"->React.string} </option>
-                <option value="compute"> {"+ New Compute Block"->React.string} </option>
-              </Comps.Select>
-
-              // <button className="p-2 hover:bg-blue-200 rounded-md" >
-              //   {"+"->React.string}
-              // </button>
-            </div>
-          </div>
-          <div className="py-3 text-sm h-full overflow-y-scroll">
-            {switch state.search {
-            | None => blocks
-            | Some(_) => state.results
-            }
-            ->Belt.Array.copy
-            ->Js.Array2.sortInPlaceWith((a, b) =>
-              String.compare(
-                a.title->Js.String2.toLocaleLowerCase,
-                b.title->Js.String2.toLocaleLowerCase,
-              )
-            )
-            ->Belt.Array.map((block: Card.block) => {
-              <div
-                key={block.title}
-                className="block-search-item flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2"
-                draggable=true
-                onDragStart={event => {
-                  let dataTransfer = Obj.magic(event)["dataTransfer"]
-                  dataTransfer["effectAllowed"] = "copyLink"
-                  dataTransfer["setData"]("text", block.id->Uuid.toString)
-                }}
-                onDoubleClick={_ => {
-                  onAdd(block)
-                  inputRef.current
-                  ->Js.Nullable.toOption
-                  ->Belt.Option.forEach(dom => {
-                    Obj.magic(dom)["value"] = ""
-                    setState(oldState => {...oldState, search: None})
-                  })
-                }}
-                onClick={_ => onInspect(block)}>
-                <div
-                  style={
-                    let color = switch block.kind {
-                    | Query => "1BBE83"
-                    | Mutation => "B20D5D"
-                    | Subscription => "F2C94C"
-                    | Fragment => "F2C94C"
-                    | Compute => Comps.colors["gray-10"]
-                    }
-
-                    ReactDOMStyle.make(
-                      ~background=j`radial-gradient(ellipse at center, #${color} 0%, #${color} 30%, transparent 30%)`,
-                      ~width="10px",
-                      ~height="10px",
-                      ~backgroundRepeat="repeat-x",
-                      (),
-                    )
-                  }
-                />
-                <div
-                  style={ReactDOMStyle.make(~color="#F2F2F2", ())}
-                  className="flex-grow font-medium px-2 py-2 truncate">
-                  {block.title->string}
-                </div>
-                <div
-                  style={ReactDOMStyle.make(~minWidth="40px", ())}
-                  className="px-2 rounded-r-md py-2">
-                  {block.services
-                  ->Belt.Array.keepMap(service =>
-                    service
-                    ->Utils.serviceImageUrl
-                    ->Belt.Option.map(((url, friendlyServiceName)) =>
-                      <img
-                        key={friendlyServiceName}
-                        alt=friendlyServiceName
-                        title=friendlyServiceName
-                        style={ReactDOMStyle.make(
-                          ~pointerEvents="none",
-                          ~opacity="0.80",
-                          ~border="2px",
-                          ~borderStyle="solid",
-                          ~borderColor=Comps.colors["gray-6"],
-                          (),
-                        )}
-                        width="24px"
-                        src=url
-                        className="rounded-full"
-                      />
-                    )
-                  )
-                  ->array}
-                </div>
-              </div>
-            })
-            ->array}
-          </div>
-        </div>
-      </div>
-    </div>
-  }
-}
-
 type diagramEdgeData = {
   id: string,
   source: string,
@@ -1401,7 +1188,12 @@ module Diagram = {
 
           let diagram = diagramFromChain(newChain)
 
-          {...oldState, chain: newChain, diagram: diagram}
+          {
+            ...oldState,
+            inspected: Nothing({chain: newChain, trace: None}),
+            chain: newChain,
+            diagram: diagram,
+          }
         })
       }}
       elements=diagram.elements
@@ -1521,6 +1313,35 @@ module Diagram = {
         style={ReactDOMStyle.make(~backgroundColor="rgb(31, 33, 37)", ())}
       />
     </ReactFlow>
+  }
+}
+
+module PopupPicker = {
+  @react.component
+  let make = (~top, ~left, ~width="500px", ~children, ~onClose) => {
+    ReactHotKeysHook.useHotkeys(
+      ~keys="esc",
+      ~callback=(_event, _handler) => {
+        onClose()
+      },
+      ~options=ReactHotKeysHook.options(),
+      ~deps=None,
+    )
+
+    <div
+      className="absolute graphql-structure-container rounded-sm text-gray-200"
+      style={ReactDOMRe.Style.make(
+        ~width,
+        ~top=j`${top->string_of_int}px`,
+        ~left=j`${left->string_of_int}px`,
+        ~maxHeight="200px",
+        ~overflowY="scroll",
+        ~color=Comps.colors["gray-6"],
+        ~zIndex="999",
+        (),
+      )}>
+      {children}
+    </div>
   }
 }
 
@@ -2773,19 +2594,12 @@ ${newScript}`
 
               setState(oldState => {...oldState, connectionDrag: connectionDrag})
             }
-
-            <div
-              className="absolute graphql-structure-container rounded-sm text-gray-200"
-              style={ReactDOMRe.Style.make(
-                ~width="500px",
-                ~top=j`${y->string_of_int}px`,
-                ~left=j`${x->string_of_int}px`,
-                ~maxHeight="200px",
-                ~overflowY="scroll",
-                ~color=Comps.colors["gray-6"],
-                ~zIndex="999",
-                (),
-              )}>
+            <PopupPicker
+              top=y
+              left=x
+              onClose={() => {
+                onClick(None)
+              }}>
               <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
                 {"Choose destination variable: "->string}
               </span>
@@ -2807,7 +2621,7 @@ ${newScript}`
                 })
                 ->array}
               </ul>
-            </div>
+            </PopupPicker>
 
           | CompletedWithTypeMismatch({
               sourceRequest,
@@ -3075,22 +2889,21 @@ ${newScript}`
               })
             }
 
-            <div
-              className="absolute graphql-structure-container rounded-sm text-gray-200"
-              style={ReactDOMRe.Style.make(
-                ~width="500px",
-                ~top=j`${y->string_of_int}px`,
-                ~left=j`${x->string_of_int}px`,
-                ~maxHeight="200px",
-                ~overflowY="scroll",
-                ~color=Comps.colors["gray-6"],
-                ~zIndex="9999",
-                (),
-              )}>
+            let onClose = () => {
+              setState(oldState => {...oldState, connectionDrag: Empty})
+            }
+
+            <PopupPicker top=y left=x onClose>
               <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
                 {"Type mismatch, choose coercer: "->string}
               </span>
               <ul>
+                <li
+                  className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
+                  key="CANCEL"
+                  onClick={_ => onClose()}>
+                  {"Cancel"->string}
+                </li>
                 <li
                   className="cursor-pointer graphql-structure-preview-entry"
                   key="INTERNAL_PASSTHROUGH"
@@ -3114,7 +2927,7 @@ ${newScript}`
                   {"Create new function"->string}
                 </li>
               </ul>
-            </div>
+            </PopupPicker>
           | Completed({sourceRequest, target: Script({scriptPosition}), windowPosition: (x, y)}) =>
             let chainFragmentsDoc =
               state.chain.blocks
@@ -3129,24 +2942,17 @@ ${newScript}`
             let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
             let definition = parsedOperation.definitions->Belt.Array.getExn(0)
 
-            <div
-              className="absolute graphql-structure-container rounded-sm text-gray-200"
-              style={ReactDOMRe.Style.make(
-                ~width="500px",
-                ~top=j`${y->string_of_int}px`,
-                ~left=j`${x->string_of_int}px`,
-                ~maxHeight="200px",
-                ~overflowY="scroll",
-                (),
-              )}>
+            let onClose = () =>
+              setState(oldState => {
+                ...oldState,
+                connectionDrag: Empty,
+              })
+
+            <PopupPicker top=y left=x onClose>
               <div
                 className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
                 key="CANCEL"
-                onClick={_ =>
-                  setState(oldState => {
-                    ...oldState,
-                    connectionDrag: Empty,
-                  })}>
+                onClick={_ => onClose()}>
                 {"Cancel"->string}
               </div>
               <Inspector.GraphQLPreview
@@ -3157,6 +2963,9 @@ ${newScript}`
                   "operationDoc": chainFragmentsDoc,
                 })}
                 targetGqlType="[String]"
+                onClose={() => {
+                  setState(oldState => {...oldState, connectionDrag: Empty})
+                }}
                 onCopy={payload => {
                   let {path} = payload
                   let dataPath = ["payload"]->Belt.Array.concat(path)
@@ -3251,7 +3060,7 @@ ${newScript}`
                   })
                 }}
               />
-            </div>
+            </PopupPicker>
           | Completed({
               sourceRequest,
               sourceDom,
@@ -3284,23 +3093,17 @@ ${newScript}`
               })
               ->Belt.Option.map(((_, typ)) => typ)
 
-            <div
-              className="absolute graphql-structure-container rounded-sm text-gray-200"
-              style={ReactDOMRe.Style.make(
-                ~width="500px",
-                ~top=j`${y->string_of_int}px`,
-                ~left=j`${x->string_of_int}px`,
-                ~zIndex="999",
-                (),
-              )}>
+            let onClose = () =>
+              setState(oldState => {
+                ...oldState,
+                connectionDrag: Empty,
+              })
+
+            <PopupPicker top=y left=x onClose>
               <div
                 className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
                 key="CANCEL"
-                onClick={_ =>
-                  setState(oldState => {
-                    ...oldState,
-                    connectionDrag: Empty,
-                  })}>
+                onClick={_ => onClose()}>
                 {"Cancel"->string}
               </div>
               <Inspector.GraphQLPreview
@@ -3311,6 +3114,9 @@ ${newScript}`
                   "operationDoc": chainFragmentsDoc,
                 })}
                 targetGqlType=?targetVariableType
+                onClose={() => {
+                  setState(oldState => {...oldState, connectionDrag: Empty})
+                }}
                 onCopy={({printedType, path}) => {
                   let dataPath = ["payload"]->Belt.Array.concat(path)
 
@@ -3500,7 +3306,7 @@ ${newScript}`
                   }
                 }}
               />
-            </div>
+            </PopupPicker>
           | StartedSource(conDrag) =>
             <ConnectorLine
               source=conDrag.sourceDom

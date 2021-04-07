@@ -18,6 +18,7 @@ import {
   typeFromAST,
   printType,
 } from "graphql";
+import { useHotkeys } from "react-hotkeys-hook";
 
 import React from "react";
 import { Fragment } from "react";
@@ -655,8 +656,13 @@ export function GraphQLPreview({
   definition,
   fragmentDefinitions,
   onCopy,
+  onClose,
   targetGqlType,
 }) {
+  useHotkeys("esc", (_event, _handler) => {
+    onClose && onClose();
+  });
+
   return (
     <div
       style={{

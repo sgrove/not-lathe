@@ -28,6 +28,7 @@ import Typescript$1 from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Belt_Result from "bs-platform/lib/es6/belt_Result.mjs";
 import * as BlockEditor from "./BlockEditor.js";
+import * as BlockSearch from "./BlockSearch.js";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as GraphQLUtils from "../bindings/GraphQLUtils.js";
 import * as OneGraphAuth from "../bindings/OneGraphAuth.js";
@@ -37,6 +38,7 @@ import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import FragmentNodeJs from "./FragmentNode.js";
 import * as ConnectionContext from "./ConnectionContext.js";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
+import * as ReactHotkeysHook from "react-hotkeys-hook";
 import ReactResizePanel from "react-resize-panel";
 import * as ReactFlowRenderer from "react-flow-renderer";
 import ReactFlowRenderer$1 from "react-flow-renderer";
@@ -108,228 +110,6 @@ function compileChain(schema, chain) {
     return ;
   }
 }
-
-function ChainEditor$BlockSearch(Props) {
-  var onAdd = Props.onAdd;
-  var onInspect = Props.onInspect;
-  var blocks = Props.blocks;
-  var onCreate = Props.onCreate;
-  var inputRef = React.useRef(null);
-  var match = React.useState(function () {
-        return {
-                search: undefined,
-                results: Belt_SortArray.stableSortBy(blocks, (function (a, b) {
-                        return $$String.compare(a.title.toLocaleLowerCase(), b.title.toLocaleLowerCase());
-                      }))
-              };
-      });
-  var setState = match[1];
-  var state = match[0];
-  var searchBlocks = function (blocks, term) {
-    return Belt_Array.keep(blocks, (function (block) {
-                    var titleMatch = Belt_Option.isSome(Caml_option.null_to_opt(block.title.match(new RegExp(term, "ig"))));
-                    var servicesMatch = Belt_Array.some(block.services, (function (service) {
-                            return Belt_Option.isSome(Caml_option.null_to_opt(service.match(new RegExp(term, "ig"))));
-                          }));
-                    if (titleMatch) {
-                      return true;
-                    } else {
-                      return servicesMatch;
-                    }
-                  })).sort(function (a, b) {
-                return $$String.compare(a.title.toLocaleLowerCase(), b.title.toLocaleLowerCase());
-              });
-  };
-  React.useEffect((function () {
-          var term = state.search;
-          if (term !== undefined) {
-            var results = searchBlocks(blocks, term);
-            Curry._1(setState, (function (oldState) {
-                    return {
-                            search: oldState.search,
-                            results: results
-                          };
-                  }));
-          }
-          
-        }), [blocks.length]);
-  var match$1 = state.search;
-  return React.createElement("div", {
-              className: "flex w-full m-0 h-full block select-none",
-              style: {
-                backgroundColor: Comps.colors["gray-9"]
-              }
-            }, React.createElement("div", {
-                  className: "w-full max-h-full"
-                }, React.createElement(Comps.Header.make, {
-                      children: "Block Library"
-                    }), React.createElement("div", {
-                      className: "rounded-lg px-3 py-2 overflow-y-hidden",
-                      style: {
-                        height: "calc(100% - 40px)"
-                      }
-                    }, React.createElement("div", {
-                          className: "flex items-center  rounded-md inline-block",
-                          style: {
-                            backgroundColor: Comps.colors["gray-7"]
-                          }
-                        }, React.createElement("div", {
-                              className: "pl-2"
-                            }, React.createElement(Icons.Search.make, {
-                                  color: Comps.colors["gray-4"]
-                                })), React.createElement("input", {
-                              ref: inputRef,
-                              className: "w-full rounded-md text-gray-200 leading-tight focus:outline-none py-2 px-2 border-0 text-white",
-                              id: "search",
-                              style: {
-                                backgroundColor: Comps.colors["gray-7"]
-                              },
-                              spellCheck: false,
-                              placeholder: "Search for blocks",
-                              type: "text",
-                              onChange: (function ($$event) {
-                                  var query = $$event.target.value;
-                                  var search = query === "" ? undefined : query;
-                                  var results = search !== undefined ? searchBlocks(blocks, search) : blocks;
-                                  return Curry._1(setState, (function (_oldState) {
-                                                return {
-                                                        search: search,
-                                                        results: results
-                                                      };
-                                              }));
-                                })
-                            }), React.createElement("div", {
-                              className: "flex items-center rounded-md inline "
-                            }, React.createElement(Comps.Select.make, {
-                                  children: null,
-                                  onChange: (function ($$event) {
-                                      var match = $$event.target.value;
-                                      var kind;
-                                      switch (match) {
-                                        case "compute" :
-                                            kind = "compute";
-                                            break;
-                                        case "mutation" :
-                                            kind = "mutation";
-                                            break;
-                                        case "query" :
-                                            kind = "query";
-                                            break;
-                                        case "subscription" :
-                                            kind = "subscription";
-                                            break;
-                                        default:
-                                          kind = undefined;
-                                      }
-                                      return Belt_Option.forEach(kind, Curry.__1(onCreate));
-                                    }),
-                                  style: {
-                                    backgroundImage: "none",
-                                    width: "3ch"
-                                  },
-                                  value: "never"
-                                }, React.createElement("option", {
-                                      value: "+"
-                                    }, "+"), React.createElement("option", {
-                                      value: "query"
-                                    }, "+ New Query Block"), React.createElement("option", {
-                                      value: "mutation"
-                                    }, "+ New Mutation Block"), React.createElement("option", {
-                                      value: "subscription"
-                                    }, "+ New Subscription Block"), React.createElement("option", {
-                                      value: "compute"
-                                    }, "+ New Compute Block")))), React.createElement("div", {
-                          className: "py-3 text-sm h-full overflow-y-scroll"
-                        }, Belt_Array.map((
-                                  match$1 !== undefined ? state.results : blocks
-                                ).slice(0).sort(function (a, b) {
-                                  return $$String.compare(a.title.toLocaleLowerCase(), b.title.toLocaleLowerCase());
-                                }), (function (block) {
-                                var match = block.kind;
-                                var color;
-                                switch (match) {
-                                  case /* Query */0 :
-                                      color = "1BBE83";
-                                      break;
-                                  case /* Mutation */1 :
-                                      color = "B20D5D";
-                                      break;
-                                  case /* Subscription */2 :
-                                  case /* Fragment */3 :
-                                      color = "F2C94C";
-                                      break;
-                                  case /* Compute */4 :
-                                      color = Comps.colors["gray-10"];
-                                      break;
-                                  
-                                }
-                                return React.createElement("div", {
-                                            key: block.title,
-                                            className: "block-search-item flex justify-start cursor-grab text-gray-700 items-center hover:text-blue-400 rounded-md px-2 my-2",
-                                            draggable: true,
-                                            onClick: (function (param) {
-                                                return Curry._1(onInspect, block);
-                                              }),
-                                            onDoubleClick: (function (param) {
-                                                Curry._1(onAdd, block);
-                                                return Belt_Option.forEach(Caml_option.nullable_to_opt(inputRef.current), (function (dom) {
-                                                              dom.value = "";
-                                                              return Curry._1(setState, (function (oldState) {
-                                                                            return {
-                                                                                    search: undefined,
-                                                                                    results: oldState.results
-                                                                                  };
-                                                                          }));
-                                                            }));
-                                              }),
-                                            onDragStart: (function ($$event) {
-                                                var dataTransfer = $$event.dataTransfer;
-                                                dataTransfer.effectAllowed = "copyLink";
-                                                return dataTransfer.setData("text", block.id.toString());
-                                              })
-                                          }, React.createElement("div", {
-                                                style: {
-                                                  background: "radial-gradient(ellipse at center, #" + color + " 0%, #" + color + " 30%, transparent 30%)",
-                                                  backgroundRepeat: "repeat-x",
-                                                  height: "10px",
-                                                  width: "10px"
-                                                }
-                                              }), React.createElement("div", {
-                                                className: "flex-grow font-medium px-2 py-2 truncate",
-                                                style: {
-                                                  color: "#F2F2F2"
-                                                }
-                                              }, block.title), React.createElement("div", {
-                                                className: "px-2 rounded-r-md py-2",
-                                                style: {
-                                                  minWidth: "40px"
-                                                }
-                                              }, Belt_Array.keepMap(block.services, (function (service) {
-                                                      return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
-                                                                    var friendlyServiceName = param[1];
-                                                                    return React.createElement("img", {
-                                                                                key: friendlyServiceName,
-                                                                                className: "rounded-full",
-                                                                                style: {
-                                                                                  border: "2px",
-                                                                                  borderColor: Comps.colors["gray-6"],
-                                                                                  borderStyle: "solid",
-                                                                                  opacity: "0.80",
-                                                                                  pointerEvents: "none"
-                                                                                },
-                                                                                title: friendlyServiceName,
-                                                                                alt: friendlyServiceName,
-                                                                                src: param[0],
-                                                                                width: "24px"
-                                                                              });
-                                                                  }));
-                                                    }))));
-                              }))))));
-}
-
-var BlockSearch = {
-  make: ChainEditor$BlockSearch
-};
 
 var context = React.createContext(undefined);
 
@@ -1404,7 +1184,12 @@ function ChainEditor$Diagram(Props) {
                                         scriptFunctions: oldState.scriptFunctions,
                                         chainExecutionResults: oldState.chainExecutionResults,
                                         blocks: oldState.blocks,
-                                        inspected: oldState.inspected,
+                                        inspected: {
+                                          TAG: 0,
+                                          chain: newChain,
+                                          trace: undefined,
+                                          [Symbol.for("name")]: "Nothing"
+                                        },
                                         blockEdit: oldState.blockEdit,
                                         scriptEditor: oldState.scriptEditor,
                                         savedChainId: oldState.savedChainId,
@@ -1577,6 +1362,34 @@ function ChainEditor$Diagram(Props) {
 
 var Diagram = {
   make: ChainEditor$Diagram
+};
+
+function ChainEditor$PopupPicker(Props) {
+  var top = Props.top;
+  var left = Props.left;
+  var widthOpt = Props.width;
+  var children = Props.children;
+  var onClose = Props.onClose;
+  var width = widthOpt !== undefined ? widthOpt : "500px";
+  ReactHotkeysHook.useHotkeys("esc", (function (_event, _handler) {
+          return Curry._1(onClose, undefined);
+        }), {}, undefined);
+  return React.createElement("div", {
+              className: "absolute graphql-structure-container rounded-sm text-gray-200",
+              style: {
+                color: Comps.colors["gray-6"],
+                left: String(left) + "px",
+                maxHeight: "200px",
+                overflowY: "scroll",
+                top: String(top) + "px",
+                width: width,
+                zIndex: "999"
+              }
+            }, children);
+}
+
+var PopupPicker = {
+  make: ChainEditor$PopupPicker
 };
 
 function ChainEditor$Main(Props) {
@@ -2190,7 +2003,7 @@ function ChainEditor$Main(Props) {
             blocks: oldChain.blocks
           };
   };
-  var blockSearch = React.createElement(ChainEditor$BlockSearch, {
+  var blockSearch = React.createElement(BlockSearch.make, {
         onAdd: addBlock,
         onInspect: (function (block) {
             return Curry._1(setState, (function (oldState) {
@@ -3180,17 +2993,13 @@ function ChainEditor$Main(Props) {
                                 };
                         }));
           };
-          tmp$3 = React.createElement("div", {
-                className: "absolute graphql-structure-container rounded-sm text-gray-200",
-                style: {
-                  color: Comps.colors["gray-6"],
-                  left: String(x) + "px",
-                  maxHeight: "200px",
-                  overflowY: "scroll",
-                  top: String(y) + "px",
-                  width: "500px",
-                  zIndex: "999"
-                }
+          tmp$3 = React.createElement(ChainEditor$PopupPicker, {
+                top: y,
+                left: x,
+                children: null,
+                onClose: (function (param) {
+                    return onClick(undefined);
+                  })
               }, React.createElement("span", {
                     style: {
                       color: Comps.colors["gray-2"]
@@ -3238,6 +3047,29 @@ function ChainEditor$Main(Props) {
                       })), (function (param) {
                     return param[1];
                   }));
+            var onClose$1 = function (param) {
+              return Curry._1(setState, (function (oldState) {
+                            return {
+                                    diagram: oldState.diagram,
+                                    card: oldState.card,
+                                    schema: oldState.schema,
+                                    chain: oldState.chain,
+                                    compiledChain: oldState.compiledChain,
+                                    chainResult: oldState.chainResult,
+                                    scriptFunctions: oldState.scriptFunctions,
+                                    chainExecutionResults: oldState.chainExecutionResults,
+                                    blocks: oldState.blocks,
+                                    inspected: oldState.inspected,
+                                    blockEdit: oldState.blockEdit,
+                                    scriptEditor: oldState.scriptEditor,
+                                    savedChainId: oldState.savedChainId,
+                                    requestValueCache: oldState.requestValueCache,
+                                    debugUIItems: oldState.debugUIItems,
+                                    connectionDrag: /* Empty */0,
+                                    subscriptionClient: oldState.subscriptionClient
+                                  };
+                          }));
+            };
             var tmp$4 = {
               requestId: sourceRequest.id,
               schema: schema,
@@ -3555,44 +3387,44 @@ function ChainEditor$Main(Props) {
                                         };
                                 }));
                   }
+                }),
+              onClose: (function (param) {
+                  return Curry._1(setState, (function (oldState) {
+                                return {
+                                        diagram: oldState.diagram,
+                                        card: oldState.card,
+                                        schema: oldState.schema,
+                                        chain: oldState.chain,
+                                        compiledChain: oldState.compiledChain,
+                                        chainResult: oldState.chainResult,
+                                        scriptFunctions: oldState.scriptFunctions,
+                                        chainExecutionResults: oldState.chainExecutionResults,
+                                        blocks: oldState.blocks,
+                                        inspected: oldState.inspected,
+                                        blockEdit: oldState.blockEdit,
+                                        scriptEditor: oldState.scriptEditor,
+                                        savedChainId: oldState.savedChainId,
+                                        requestValueCache: oldState.requestValueCache,
+                                        debugUIItems: oldState.debugUIItems,
+                                        connectionDrag: /* Empty */0,
+                                        subscriptionClient: oldState.subscriptionClient
+                                      };
+                              }));
                 })
             };
             if (targetVariableType !== undefined) {
               tmp$4.targetGqlType = Caml_option.valFromOption(targetVariableType);
             }
-            tmp$3 = React.createElement("div", {
-                  className: "absolute graphql-structure-container rounded-sm text-gray-200",
-                  style: {
-                    left: String(windowPosition[0]) + "px",
-                    top: String(windowPosition[1]) + "px",
-                    width: "500px",
-                    zIndex: "999"
-                  }
+            tmp$3 = React.createElement(ChainEditor$PopupPicker, {
+                  top: windowPosition[1],
+                  left: windowPosition[0],
+                  children: null,
+                  onClose: onClose$1
                 }, React.createElement("div", {
                       key: "CANCEL",
                       className: "cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2",
                       onClick: (function (param) {
-                          return Curry._1(setState, (function (oldState) {
-                                        return {
-                                                diagram: oldState.diagram,
-                                                card: oldState.card,
-                                                schema: oldState.schema,
-                                                chain: oldState.chain,
-                                                compiledChain: oldState.compiledChain,
-                                                chainResult: oldState.chainResult,
-                                                scriptFunctions: oldState.scriptFunctions,
-                                                chainExecutionResults: oldState.chainExecutionResults,
-                                                blocks: oldState.blocks,
-                                                inspected: oldState.inspected,
-                                                blockEdit: oldState.blockEdit,
-                                                scriptEditor: oldState.scriptEditor,
-                                                savedChainId: oldState.savedChainId,
-                                                requestValueCache: oldState.requestValueCache,
-                                                debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: /* Empty */0,
-                                                subscriptionClient: oldState.subscriptionClient
-                                              };
-                                      }));
+                          return onClose$1(undefined);
                         })
                     }, "Cancel"), React.createElement(Inspector.GraphQLPreview.make, tmp$4));
           } else {
@@ -3608,40 +3440,39 @@ function ChainEditor$Main(Props) {
                     })).join("\n\n");
             var parsedOperation$1 = Graphql.parse(sourceRequest.operation.body);
             var definition$1 = Belt_Array.getExn(parsedOperation$1.definitions, 0);
-            tmp$3 = React.createElement("div", {
-                  className: "absolute graphql-structure-container rounded-sm text-gray-200",
-                  style: {
-                    left: String(match$5[0]) + "px",
-                    maxHeight: "200px",
-                    overflowY: "scroll",
-                    top: String(match$5[1]) + "px",
-                    width: "500px"
-                  }
+            var onClose$2 = function (param) {
+              return Curry._1(setState, (function (oldState) {
+                            return {
+                                    diagram: oldState.diagram,
+                                    card: oldState.card,
+                                    schema: oldState.schema,
+                                    chain: oldState.chain,
+                                    compiledChain: oldState.compiledChain,
+                                    chainResult: oldState.chainResult,
+                                    scriptFunctions: oldState.scriptFunctions,
+                                    chainExecutionResults: oldState.chainExecutionResults,
+                                    blocks: oldState.blocks,
+                                    inspected: oldState.inspected,
+                                    blockEdit: oldState.blockEdit,
+                                    scriptEditor: oldState.scriptEditor,
+                                    savedChainId: oldState.savedChainId,
+                                    requestValueCache: oldState.requestValueCache,
+                                    debugUIItems: oldState.debugUIItems,
+                                    connectionDrag: /* Empty */0,
+                                    subscriptionClient: oldState.subscriptionClient
+                                  };
+                          }));
+            };
+            tmp$3 = React.createElement(ChainEditor$PopupPicker, {
+                  top: match$5[1],
+                  left: match$5[0],
+                  children: null,
+                  onClose: onClose$2
                 }, React.createElement("div", {
                       key: "CANCEL",
                       className: "cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2",
                       onClick: (function (param) {
-                          return Curry._1(setState, (function (oldState) {
-                                        return {
-                                                diagram: oldState.diagram,
-                                                card: oldState.card,
-                                                schema: oldState.schema,
-                                                chain: oldState.chain,
-                                                compiledChain: oldState.compiledChain,
-                                                chainResult: oldState.chainResult,
-                                                scriptFunctions: oldState.scriptFunctions,
-                                                chainExecutionResults: oldState.chainExecutionResults,
-                                                blocks: oldState.blocks,
-                                                inspected: oldState.inspected,
-                                                blockEdit: oldState.blockEdit,
-                                                scriptEditor: oldState.scriptEditor,
-                                                savedChainId: oldState.savedChainId,
-                                                requestValueCache: oldState.requestValueCache,
-                                                debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: /* Empty */0,
-                                                subscriptionClient: oldState.subscriptionClient
-                                              };
-                                      }));
+                          return onClose$2(undefined);
                         })
                     }, "Cancel"), React.createElement(Inspector.GraphQLPreview.make, {
                       requestId: sourceRequest.id,
@@ -3731,6 +3562,29 @@ function ChainEditor$Main(Props) {
                                                 card: oldState.card,
                                                 schema: oldState.schema,
                                                 chain: newChain,
+                                                compiledChain: oldState.compiledChain,
+                                                chainResult: oldState.chainResult,
+                                                scriptFunctions: oldState.scriptFunctions,
+                                                chainExecutionResults: oldState.chainExecutionResults,
+                                                blocks: oldState.blocks,
+                                                inspected: oldState.inspected,
+                                                blockEdit: oldState.blockEdit,
+                                                scriptEditor: oldState.scriptEditor,
+                                                savedChainId: oldState.savedChainId,
+                                                requestValueCache: oldState.requestValueCache,
+                                                debugUIItems: oldState.debugUIItems,
+                                                connectionDrag: /* Empty */0,
+                                                subscriptionClient: oldState.subscriptionClient
+                                              };
+                                      }));
+                        }),
+                      onClose: (function (param) {
+                          return Curry._1(setState, (function (oldState) {
+                                        return {
+                                                diagram: oldState.diagram,
+                                                card: oldState.card,
+                                                schema: oldState.schema,
+                                                chain: oldState.chain,
                                                 compiledChain: oldState.compiledChain,
                                                 chainResult: oldState.chainResult,
                                                 scriptFunctions: oldState.scriptFunctions,
@@ -3987,22 +3841,45 @@ function ChainEditor$Main(Props) {
                                 };
                         }));
           };
-          tmp$3 = React.createElement("div", {
-                className: "absolute graphql-structure-container rounded-sm text-gray-200",
-                style: {
-                  color: Comps.colors["gray-6"],
-                  left: String(match$6[0]) + "px",
-                  maxHeight: "200px",
-                  overflowY: "scroll",
-                  top: String(match$6[1]) + "px",
-                  width: "500px",
-                  zIndex: "9999"
-                }
+          var onClose$3 = function (param) {
+            return Curry._1(setState, (function (oldState) {
+                          return {
+                                  diagram: oldState.diagram,
+                                  card: oldState.card,
+                                  schema: oldState.schema,
+                                  chain: oldState.chain,
+                                  compiledChain: oldState.compiledChain,
+                                  chainResult: oldState.chainResult,
+                                  scriptFunctions: oldState.scriptFunctions,
+                                  chainExecutionResults: oldState.chainExecutionResults,
+                                  blocks: oldState.blocks,
+                                  inspected: oldState.inspected,
+                                  blockEdit: oldState.blockEdit,
+                                  scriptEditor: oldState.scriptEditor,
+                                  savedChainId: oldState.savedChainId,
+                                  requestValueCache: oldState.requestValueCache,
+                                  debugUIItems: oldState.debugUIItems,
+                                  connectionDrag: /* Empty */0,
+                                  subscriptionClient: oldState.subscriptionClient
+                                };
+                        }));
+          };
+          tmp$3 = React.createElement(ChainEditor$PopupPicker, {
+                top: match$6[1],
+                left: match$6[0],
+                children: null,
+                onClose: onClose$3
               }, React.createElement("span", {
                     style: {
                       color: Comps.colors["gray-2"]
                     }
                   }, "Type mismatch, choose coercer: "), React.createElement("ul", undefined, React.createElement("li", {
+                        key: "CANCEL",
+                        className: "cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2",
+                        onClick: (function (param) {
+                            return onClose$3(undefined);
+                          })
+                      }, "Cancel"), React.createElement("li", {
                         key: "INTERNAL_PASSTHROUGH",
                         className: "cursor-pointer graphql-structure-preview-entry",
                         onClick: (function (param) {
@@ -4267,7 +4144,6 @@ export {
   makeBlankBlock ,
   namedGraphQLScalarTypeScriptType ,
   compileChain ,
-  BlockSearch ,
   InspectedContextProvider ,
   NodeLabel ,
   OperationNodeComponent ,
@@ -4279,6 +4155,7 @@ export {
   Script ,
   ConnectorLine ,
   Diagram ,
+  PopupPicker ,
   Main ,
   make$1 as make,
   

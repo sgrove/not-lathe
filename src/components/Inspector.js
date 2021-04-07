@@ -2100,6 +2100,12 @@ function Inspector$Nothing(Props) {
                 return Curry._1(onClose, undefined);
               }),
             children: "Cancel changes"
+          }), React.createElement(Inspector$CollapsableSection, {
+            title: "Internal Debug info",
+            defaultOpen: false,
+            children: React.createElement(Comps.Pre.make, {
+                  children: JSON.stringify(chain, null, 2)
+                })
           }));
   return React.createElement(React.Fragment, undefined, React.createElement("div", {
                   className: "w-full flex ml-2 border-b justify-around",
