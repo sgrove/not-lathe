@@ -775,6 +775,7 @@ function ChainEditor$Script(Props) {
   var className = Props.className;
   var onMount = Props.onMount;
   var onPotentialScriptSourceConnect = Props.onPotentialScriptSourceConnect;
+  var onSaveChain = Props.onSaveChain;
   var match = React.useState(function () {
         return chain.script;
       });
@@ -870,6 +871,25 @@ function ChainEditor$Script(Props) {
                 }));
           
         }), [types]);
+  React.useEffect((function () {
+          Belt_Option.forEach(monaco.current, (function (monaco) {
+                  return Belt_Option.forEach(editor.current, (function (editor) {
+                                var keyCode = BsReactMonaco.Key.combine([
+                                      monaco.KeyMod.CtrlCmd,
+                                      monaco.KeyCode.KEY_S
+                                    ]);
+                                editor.addCommand(keyCode, (function (param) {
+                                        return Curry._1(onSaveChain, chain);
+                                      }));
+                                
+                              }));
+                }));
+          
+        }), [
+        editor.current,
+        monaco.current,
+        chain
+      ]);
   var filename = "file:///main.tsx";
   var tmp = {
     height: "100%",
@@ -2534,7 +2554,8 @@ function ChainEditor$Main(Props) {
                               subscriptionClient: oldState.subscriptionClient
                             };
                     }));
-      })
+      }),
+    onSaveChain: onSaveChain
   };
   var tmp$1 = state.scriptEditor.isOpen ? undefined : "none";
   if (tmp$1 !== undefined) {

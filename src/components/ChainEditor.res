@@ -819,6 +819,7 @@ module Script = {
     ~className=?,
     ~onMount,
     ~onPotentialScriptSourceConnect,
+    ~onSaveChain,
   ) => {
     let (localContent, setLocalContent) = React.useState(() => chain.script)
     let (_highlights, setHighlights) = React.useState(() => [])
@@ -954,6 +955,23 @@ ${chain.script}`
 
       None
     }, [types])
+
+    React.useEffect3(() => {
+      open BsReactMonaco
+      monaco.current->Belt.Option.forEach(monaco => {
+        editor.current->Belt.Option.forEach(editor => {
+          let keyCode = {
+            Key.combine([monaco->Key.mod->Key.ctrlCmd, monaco->Key.code->Key.keyS])
+          }
+
+          let _commandId = editor->addCommand(keyCode, () => {
+            onSaveChain(chain)
+          })
+        })
+      })
+
+      None
+    }, (editor.current, monaco.current, chain))
 
     let filename = "file:///main.tsx"
 
@@ -2168,6 +2186,7 @@ ${newScript}`
                   : <Script
                       schema={state.schema}
                       chain={state.chain}
+                      onSaveChain
                       className=?{switch state.scriptEditor.isOpen {
                       | false => Some("none")
                       | true => None

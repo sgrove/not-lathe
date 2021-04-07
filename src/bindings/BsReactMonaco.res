@@ -143,6 +143,23 @@ type selection = {
 
 type disposable
 
+module Key = {
+  type t = int
+  type mod
+  type code
+  @get external mod: monaco => mod = "KeyMod"
+  @get external code: monaco => code = "KeyCode"
+
+  @get external ctrlCmd: mod => t = "CtrlCmd"
+  @get external keyS: code => t = "KEY_S"
+
+  let combine = (ts: array<t>): t => {
+    ts->Belt.Array.reduce(0, (acc, next) => lor(acc, next))
+  }
+}
+
+@send external addCommand: (editor, Key.t, unit => unit) => string = "addCommand"
+
 @send external onMouseUp: (editor, 'mouseEvent => unit) => disposable = "onMouseUp"
 
 @deriving(abstract)

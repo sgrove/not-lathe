@@ -29,6 +29,7 @@ import * as ConnectionContext from "./ConnectionContext.js";
 import CopyToClipboard from "copy-to-clipboard";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 import * as QuickjsEmscripten from "quickjs-emscripten";
+import * as ReactHotkeysHook from "react-hotkeys-hook";
 import ParserBabel from "prettier/parser-babel";
 import * as GraphQLMockInputTypeJs from "../GraphQLMockInputType.js";
 
@@ -2193,6 +2194,14 @@ function Inspector(Props) {
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
   var appId = Props.appId;
+  ReactHotkeysHook.useHotkeys("command+s", (function ($$event, _handler) {
+          $$event.preventDefault();
+          $$event.stopPropagation();
+          return Curry._1(onSaveChain, chain);
+        }), {}, [
+        onSaveChain,
+        chain
+      ]);
   var tmp;
   switch (inspected.TAG | 0) {
     case /* Nothing */0 :

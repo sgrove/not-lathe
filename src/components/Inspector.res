@@ -2472,7 +2472,16 @@ let make = (
   ~appId,
 ) => {
   open React
-
+  ReactHotKeysHook.useHotkeys(
+    ~keys="command+s",
+    ~callback=(event, _handler) => {
+      event->ReactEvent.Keyboard.preventDefault
+      event->ReactEvent.Keyboard.stopPropagation
+      onSaveChain(chain)
+    },
+    ~options=ReactHotKeysHook.options(),
+    ~deps=Some([onSaveChain, chain->Obj.magic]),
+  )
   <div
     className=" text-white border-l border-gray-800"
     style={ReactDOMStyle.make(~backgroundColor="rgb(27,29,31)", ~height="calc(100vh - 56px)", ())}>
