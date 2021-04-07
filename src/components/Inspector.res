@@ -2121,6 +2121,7 @@ module Nothing = {
     ~chain,
     ~schema,
     ~chainExecutionResults: option<Js.Json.t>,
+    ~onPotentialVariableSourceConnect,
     ~onLogin: string => unit,
     ~onPersistChain: unit => unit,
     ~transformAndExecuteChain,
@@ -2199,9 +2200,55 @@ module Nothing = {
 
     open React
 
+    let connectionDrag = useContext(ConnectionContext.context)
+    let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
+
     let requests = chain.requests->Belt.Array.map(request => {
-      <article key={request.id} className="mx-2">
-        <div className={"flex justify-between items-center cursor-pointer p-1 rounded-sm"}>
+      let dragClassName =
+        switch connectionDrag {
+        | ConnectionContext.StartedSource({sourceRequest})
+          if sourceRequest.id != request.id => "node-drop drag-target"
+        | _ => ""
+        } ++ {
+          potentialConnection->Belt.Set.String.has(request.id) ? " drop-ready" : ""
+        }
+
+      <article
+        key={request.id}
+        className={"mx-2 " ++ dragClassName}
+        onMouseEnter={event => {
+          switch connectionDrag {
+          | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.add(request.id))
+          | _ => ()
+          }
+        }}
+        onMouseLeave={event => {
+          switch connectionDrag {
+          | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.remove(request.id))
+          | _ => ()
+          }
+        }}
+        onMouseUp={event => {
+          let clientX = event->ReactEvent.Mouse.clientX
+          let clientY = event->ReactEvent.Mouse.clientY
+          let mouseClientPosition = (clientX, clientY)
+          setPotentialConnection(s => s->Belt.Set.String.remove(request.id))
+          switch connectionDrag {
+          | StartedSource({sourceRequest, sourceDom}) =>
+            let connectionDrag = ConnectionContext.CompletedPendingVariable({
+              sourceRequest: sourceRequest,
+              targetRequest: request,
+              windowPosition: mouseClientPosition,
+              sourceDom: sourceDom,
+            })
+
+            onPotentialVariableSourceConnect(~connectionDrag)
+          | _ => ()
+          }
+        }}>
+        <div
+          className={"flex justify-between items-center cursor-pointer p-1 rounded-sm " ++
+          dragClassName}>
           <span
             className="font-semibold text-sm font-mono pl-2"
             style={ReactDOMStyle.make(~color=Comps.colors["green-4"], ())}
@@ -2463,13 +2510,13 @@ let make = (
   ~onDeleteEdge,
   ~onRequestInspected,
   ~oneGraphAuth,
-  ~onPotentialVariableSourceConnect,
   ~onDragStart,
   ~trace,
   ~initialChain,
   ~onSaveChain,
   ~onClose,
   ~appId,
+  ~onPotentialVariableSourceConnect,
 ) => {
   open React
   ReactHotKeysHook.useHotkeys(
@@ -2523,6 +2570,7 @@ let make = (
           initialChain
           onSaveChain
           onClose
+          onPotentialVariableSourceConnect
         />
       | Block(block) => <Block schema block onAddBlock />
       | Request({request})

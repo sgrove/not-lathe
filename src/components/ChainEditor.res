@@ -856,7 +856,11 @@ module Script = {
                 open BsReactMonaco
                 {
                   options: {
-                    deltaDecorationOptions(~className="script-drop drag-target", ())
+                    deltaDecorationOptions(
+                      ~className="script-drop drag-target",
+                      ~inlineClassName="script-drop drag-target",
+                      (),
+                    )
                   },
                   range: monaco->makeRange(
                     start.line + 1,
@@ -991,6 +995,8 @@ ${chain.script}`
           "minimap": {"enabled": false},
           // "automaticLayout": true,
           "fixedOverflowWidgets": true,
+          "contextmenu": false,
+          "contextMenu": false,
         }
         height="100%"
         path=filename
@@ -1102,9 +1108,11 @@ module ConnectorLine = {
 
       (rect["x"] + rect["width"] / 2, rect["y"] + rect["height"] / 2 + scrollY)
     }
+    let nudge = 2
+
     let (startX, startY, endX, endY) = switch invert {
-    | false => (anchorX, anchorY, mouseX, mouseY)
-    | true => (mouseX, mouseY, anchorX, anchorY)
+    | false => (anchorX, anchorY, mouseX - nudge, mouseY - nudge)
+    | true => (mouseX - nudge, mouseY - nudge, anchorX, anchorY)
     }
 
     <div

@@ -1881,6 +1881,7 @@ function Inspector$Nothing(Props) {
   var chain = Props.chain;
   var schema = Props.schema;
   var chainExecutionResults = Props.chainExecutionResults;
+  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
   var onLogin = Props.onLogin;
   var onPersistChain = Props.onPersistChain;
   var transformAndExecuteChain = Props.transformAndExecuteChain;
@@ -1947,12 +1948,64 @@ function Inspector$Nothing(Props) {
                           }));
             })), null);
   var isChainViable = chain.requests.length !== 0;
+  var connectionDrag = React.useContext(ConnectionContext.context);
+  var match$2 = React.useState(function () {
+        
+      });
+  var setPotentialConnection = match$2[1];
+  var potentialConnection = match$2[0];
   var requests = Belt_Array.map(chain.requests, (function (request) {
+          var tmp;
+          tmp = typeof connectionDrag === "number" || !(connectionDrag.TAG === /* StartedSource */0 && connectionDrag.sourceRequest.id !== request.id) ? "" : "node-drop drag-target";
+          var dragClassName = tmp + (
+            Belt_SetString.has(potentialConnection, request.id) ? " drop-ready" : ""
+          );
           return React.createElement("article", {
                       key: request.id,
-                      className: "mx-2"
+                      className: "mx-2 " + dragClassName,
+                      onMouseEnter: (function ($$event) {
+                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                            return ;
+                          } else {
+                            return Curry._1(setPotentialConnection, (function (s) {
+                                          return Belt_SetString.add(s, request.id);
+                                        }));
+                          }
+                        }),
+                      onMouseLeave: (function ($$event) {
+                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                            return ;
+                          } else {
+                            return Curry._1(setPotentialConnection, (function (s) {
+                                          return Belt_SetString.remove(s, request.id);
+                                        }));
+                          }
+                        }),
+                      onMouseUp: (function ($$event) {
+                          var clientX = $$event.clientX;
+                          var clientY = $$event.clientY;
+                          var mouseClientPosition = [
+                            clientX,
+                            clientY
+                          ];
+                          Curry._1(setPotentialConnection, (function (s) {
+                                  return Belt_SetString.remove(s, request.id);
+                                }));
+                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                            return ;
+                          } else {
+                            return Curry._1(onPotentialVariableSourceConnect, {
+                                        TAG: 2,
+                                        sourceRequest: connectionDrag.sourceRequest,
+                                        sourceDom: connectionDrag.sourceDom,
+                                        targetRequest: request,
+                                        windowPosition: mouseClientPosition,
+                                        [Symbol.for("name")]: "CompletedPendingVariable"
+                                      });
+                          }
+                        })
                     }, React.createElement("div", {
-                          className: "flex justify-between items-center cursor-pointer p-1 rounded-sm"
+                          className: "flex justify-between items-center cursor-pointer p-1 rounded-sm " + dragClassName
                         }, React.createElement("span", {
                               className: "font-semibold text-sm font-mono pl-2",
                               style: {
@@ -2187,13 +2240,13 @@ function Inspector(Props) {
   var onDeleteEdge = Props.onDeleteEdge;
   var onRequestInspected = Props.onRequestInspected;
   var oneGraphAuth = Props.oneGraphAuth;
-  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
   var onDragStart = Props.onDragStart;
   var trace = Props.trace;
   var initialChain = Props.initialChain;
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
   var appId = Props.appId;
+  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
   ReactHotkeysHook.useHotkeys("command+s", (function ($$event, _handler) {
           $$event.preventDefault();
           $$event.stopPropagation();
@@ -2233,6 +2286,7 @@ function Inspector(Props) {
               chain: inspected.chain,
               schema: schema,
               chainExecutionResults: chainExecutionResults,
+              onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
               onLogin: onLogin,
               onPersistChain: onPersistChain,
               transformAndExecuteChain: transformAndExecuteChain,

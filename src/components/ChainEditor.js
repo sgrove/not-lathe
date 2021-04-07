@@ -815,7 +815,8 @@ function ChainEditor$Script(Props) {
                                               return {
                                                       range: BsReactMonaco.makeRange(monaco$1, start.line + 1 | 0, start.character + 1 | 0, end.line + 1 | 0, end.character + 1 | 0),
                                                       options: {
-                                                        className: "script-drop drag-target"
+                                                        className: "script-drop drag-target",
+                                                        inlineClassName: "script-drop drag-target"
                                                       }
                                                     };
                                             }));
@@ -900,7 +901,9 @@ function ChainEditor$Script(Props) {
       minimap: {
         enabled: false
       },
-      fixedOverflowWidgets: true
+      fixedOverflowWidgets: true,
+      contextmenu: false,
+      contextMenu: false
     },
     onChange: (function (newScript, param) {
         Curry._1(setLocalContent, (function (param) {
@@ -1010,15 +1013,15 @@ function ChainEditor$ConnectorLine(Props) {
   var anchorX = rect.x + (rect.width / 2 | 0) | 0;
   var anchorY = (rect.y + (rect.height / 2 | 0) | 0) + scrollY | 0;
   var match$2 = invert ? [
-      mouseX,
-      mouseY,
+      mouseX - 2 | 0,
+      mouseY - 2 | 0,
       anchorX,
       anchorY
     ] : [
       anchorX,
       anchorY,
-      mouseX,
-      mouseY
+      mouseX - 2 | 0,
+      mouseY - 2 | 0
     ];
   var endY = match$2[3];
   var endX = match$2[2];
@@ -2363,7 +2366,6 @@ function ChainEditor$Main(Props) {
           }),
         onRequestInspected: onRequestInspected,
         oneGraphAuth: oneGraphAuth,
-        onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
         onDragStart: (function (connectionDrag) {
             return Curry._1(setState, (function (oldState) {
                           return {
@@ -2391,7 +2393,8 @@ function ChainEditor$Main(Props) {
         initialChain: initialChain,
         onSaveChain: onSaveChain,
         onClose: onClose,
-        appId: config.oneGraphAppId
+        appId: config.oneGraphAppId,
+        onPotentialVariableSourceConnect: onPotentialVariableSourceConnect
       });
   var tmp = {
     schema: state.schema,
