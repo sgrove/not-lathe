@@ -2394,7 +2394,16 @@ function ChainEditor$Main(Props) {
         onSaveChain: onSaveChain,
         onClose: onClose,
         appId: config.oneGraphAppId,
-        onPotentialVariableSourceConnect: onPotentialVariableSourceConnect
+        onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+        authTokens: Belt_Array.keepMap([Belt_Option.map(config.chainAccessToken, (function (token) {
+                      return {
+                              accessToken: token,
+                              displayedToken: token,
+                              name: "Personal auth token"
+                            };
+                    }))], (function (x) {
+                return x;
+              }))
       });
   var tmp = {
     schema: state.schema,

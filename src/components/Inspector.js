@@ -1240,6 +1240,7 @@ function Inspector$Request(Props) {
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
   var onDragStart = Props.onDragStart;
   var trace = Props.trace;
+  var authTokens = Props.authTokens;
   var connectionDrag = React.useContext(ConnectionContext.context);
   var match = React.useState(function () {
         
@@ -1719,7 +1720,16 @@ function Inspector$Request(Props) {
             $$event.stopPropagation();
             return Curry._2(onExecuteRequest, request, formVariables);
           })
-      }, inputs.length !== 0 ? inputs : null, React.createElement(Comps.Button.make, {
+      }, inputs.length !== 0 ? inputs : null, React.createElement(Comps.Select.make, {
+            children: null,
+            className: "w-full select-button comp-select"
+          }, React.createElement("option", {
+                value: "TEMP"
+              }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
+                  return React.createElement("option", {
+                              value: token.accessToken
+                            }, token.name);
+                }))), React.createElement(Comps.Button.make, {
             className: "w-full",
             type_: "submit",
             children: "Execute"
@@ -1894,6 +1904,7 @@ function Inspector$Nothing(Props) {
   var initialChain = Props.initialChain;
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
+  var authTokens = Props.authTokens;
   var webhookUrl = "https://websmee.com/hook/" + oneGraphAuth.appId;
   var compiledOperation = Chain.compileOperationDoc(schema, webhookUrl, chain);
   var missingAuthServices = Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, findMissingAuthServicesFromChainResult), []);
@@ -2035,7 +2046,16 @@ function Inspector$Nothing(Props) {
   var formTab = React.createElement(React.Fragment, undefined, React.createElement(Inspector$CollapsableSection, {
             title: "Chain Form",
             children: null
-          }, form, authButtons, React.createElement(Comps.Button.make, {
+          }, form, authButtons, React.createElement(Comps.Select.make, {
+                children: null,
+                className: "w-full select-button comp-select"
+              }, React.createElement("option", {
+                    value: "TEMP"
+                  }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
+                      return React.createElement("option", {
+                                  value: token.accessToken
+                                }, token.name);
+                    }))), React.createElement(Comps.Button.make, {
                 onClick: (function (param) {
                     var variables = Caml_option.some(formVariables);
                     return Curry._1(transformAndExecuteChain, variables);
@@ -2066,7 +2086,16 @@ function Inspector$Nothing(Props) {
   }
   var saveTab = React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
             children: "Step 1:"
-          }), React.createElement(Comps.Button.make, {
+          }), React.createElement(Comps.Select.make, {
+            children: null,
+            className: "w-full select-button comp-select"
+          }, React.createElement("option", {
+                value: "TEMP"
+              }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
+                  return React.createElement("option", {
+                              value: token.accessToken
+                            }, token.name);
+                }))), React.createElement(Comps.Button.make, {
             onClick: (function (param) {
                 return Curry._1(onPersistChain, undefined);
               }),
@@ -2238,6 +2267,7 @@ function Inspector$SubInspector(Props) {
   var trace = Props.trace;
   var appId = Props.appId;
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
+  var authTokens = Props.authTokens;
   ReactHotkeysHook.useHotkeys("esc", (function ($$event, _handler) {
           $$event.preventDefault();
           $$event.stopPropagation();
@@ -2296,7 +2326,8 @@ function Inspector$SubInspector(Props) {
           onDeleteEdge: onDeleteEdge,
           onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
           onDragStart: onDragStart,
-          trace: trace
+          trace: trace,
+          authTokens: authTokens
         });
   }
   return React.createElement("div", {
@@ -2353,6 +2384,7 @@ function Inspector(Props) {
   var onClose = Props.onClose;
   var appId = Props.appId;
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
+  var authTokens = Props.authTokens;
   var subInspectorRef = React.useRef(undefined);
   var tmp;
   tmp = inspected.TAG === /* Nothing */0 ? false : true;
@@ -2408,7 +2440,8 @@ function Inspector(Props) {
           trace: inspected.trace,
           initialChain: initialChain,
           onSaveChain: onSaveChain,
-          onClose: onClose
+          onClose: onClose,
+          authTokens: authTokens
         }) : React.createElement(Inspector$Nothing, {
           chain: chain,
           schema: schema,
@@ -2424,7 +2457,8 @@ function Inspector(Props) {
           trace: trace,
           initialChain: initialChain,
           onSaveChain: onSaveChain,
-          onClose: onClose
+          onClose: onClose,
+          authTokens: authTokens
         });
   return React.createElement("div", {
               className: " text-white border-l border-gray-800",
@@ -2466,7 +2500,8 @@ function Inspector(Props) {
                                           onDragStart: onDragStart,
                                           trace: trace,
                                           appId: appId,
-                                          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect
+                                          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+                                          authTokens: authTokens
                                         })
                                   });
                       } else {

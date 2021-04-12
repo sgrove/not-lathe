@@ -1567,6 +1567,12 @@ let closedArrow =
     </svg>
   </div>
 
+type authTokenDisplay = {
+  accessToken: string,
+  displayedToken: string,
+  name: string,
+}
+
 module Request = {
   @react.component
   let make = (
@@ -1585,6 +1591,7 @@ module Request = {
     ~onPotentialVariableSourceConnect,
     ~onDragStart,
     ~trace: option<Chain.Trace.t>,
+    ~authTokens: array<authTokenDisplay>,
   ) => {
     open React
     let connectionDrag = useContext(ConnectionContext.context)
@@ -1940,6 +1947,14 @@ module Request = {
           onExecuteRequest(~request, ~variables=formVariables)
         }}>
         {inputs->Belt.Array.length > 0 ? {inputs->React.array} : React.null}
+        <Comps.Select className="w-full select-button comp-select">
+          <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
+          {authTokens
+          ->Belt.Array.map(token => {
+            <option value={token.accessToken}> {token.name->string} </option>
+          })
+          ->array}
+        </Comps.Select>
         <Comps.Button className="w-full" type_="submit"> {"Execute"->React.string} </Comps.Button>
       </form>
 
@@ -2134,6 +2149,7 @@ module Nothing = {
     ~initialChain,
     ~onSaveChain,
     ~onClose,
+    ~authTokens,
   ) => {
     let webhookUrl = webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
     let compiledOperation = chain->Chain.compileOperationDoc(~schema, ~webhookUrl)
@@ -2279,6 +2295,14 @@ module Nothing = {
         <CollapsableSection title={"Chain Form"->React.string}>
           {form}
           {authButtons->React.array}
+          <Comps.Select className="w-full select-button comp-select">
+            <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
+            {authTokens
+            ->Belt.Array.map(token => {
+              <option value={token.accessToken}> {token.name->string} </option>
+            })
+            ->array}
+          </Comps.Select>
           <Comps.Button
             onClick={_ => {
               let variables = Some(formVariables->Obj.magic)
@@ -2303,6 +2327,14 @@ module Nothing = {
     let saveTab =
       <>
         <Comps.Header> {"Step 1:"->React.string} </Comps.Header>
+        <Comps.Select className="w-full select-button comp-select">
+          <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
+          {authTokens
+          ->Belt.Array.map(token => {
+            <option value={token.accessToken}> {token.name->string} </option>
+          })
+          ->array}
+        </Comps.Select>
         <Comps.Button
           onClick={_ => {
             onPersistChain()
@@ -2507,6 +2539,7 @@ module SubInspector = {
     ~trace,
     ~appId,
     ~onPotentialVariableSourceConnect,
+    ~authTokens,
   ) => {
     open React
     ReactHotKeysHook.useHotkeys(
@@ -2566,6 +2599,7 @@ module SubInspector = {
             onDragStart
             trace
             appId
+            authTokens
           />
         }}
       </div>
@@ -2601,6 +2635,7 @@ let make = (
   ~onClose,
   ~appId,
   ~onPotentialVariableSourceConnect,
+  ~authTokens,
 ) => {
   open React
   let subInspectorRef = useRef(None)
@@ -2687,6 +2722,7 @@ let make = (
           onSaveChain
           onClose
           onPotentialVariableSourceConnect
+          authTokens
         />
       | _ =>
         <Nothing
@@ -2705,6 +2741,7 @@ let make = (
           onSaveChain
           onClose
           onPotentialVariableSourceConnect
+          authTokens
         />
       }}
     </div>
@@ -2739,6 +2776,7 @@ let make = (
               trace
               appId
               onPotentialVariableSourceConnect
+              authTokens
             />
           </ReactSpring.Animated>
         }

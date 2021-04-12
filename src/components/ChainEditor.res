@@ -1885,6 +1885,13 @@ ${newScript}`
 
     let sidebar = {
       <Inspector
+        authTokens={[
+          config.chainAccessToken->Belt.Option.map(token => {
+            Inspector.accessToken: token,
+            displayedToken: token,
+            name: "Personal auth token",
+          }),
+        ]->Belt.Array.keepMap(x => x)}
         appId=config.oneGraphAppId
         inspected={state.inspected}
         chain={state.chain}
