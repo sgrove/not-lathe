@@ -2293,12 +2293,9 @@ Once you've made a custom GitHub app, set the client id/secret for it in your On
     contributedBy: Some("@sgrove"),
     services: ["twitter"],
     description: "TODO",
-    body: "mutation PostTweet(
-  $status: String!
-  $displayCoordinates: Boolean = false
-) {
+    body: "mutation PostTweet($text: String!) {
   twitter {
-    postStatus(input: { status: $status }) {
+    postStatus(input: { status: $text }) {
       tweet {
         id
         text

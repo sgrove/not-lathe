@@ -774,7 +774,7 @@ var blocks = [
     id: Uuid.parseExn("afeff87d-426a-395d-b388-a611e11810ea"),
     title: "PostTweet",
     description: "TODO",
-    body: "mutation PostTweet(\n  $status: String!\n  $displayCoordinates: Boolean = false\n) {\n  twitter {\n    postStatus(input: { status: $status }) {\n      tweet {\n        id\n        text\n      }\n    }\n  }\n}",
+    body: "mutation PostTweet($text: String!) {\n  twitter {\n    postStatus(input: { status: $text }) {\n      tweet {\n        id\n        text\n      }\n    }\n  }\n}",
     kind: /* Mutation */1,
     contributedBy: "@sgrove",
     services: ["twitter"]
