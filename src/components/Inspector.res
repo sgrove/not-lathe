@@ -2012,7 +2012,7 @@ module Request = {
                       event->ReactEvent.Mouse.stopPropagation
                       onRequestCodeInspected(~request)
                     }}>
-                    <Icons.Export className="inline-block ml-2" />
+                    <Icons.Help className="inline-block ml-2" />
                   </button>
                 </>}>
                 <Comps.Pre>
@@ -2489,6 +2489,90 @@ ${remoteChainCalls.netlify.code}
 let activeTabClasses = "text-gray-600 py-4 px-6 block hover:text-blue-500 focus:outline-none text-blue-500 border-b-2 font-medium border-blue-500"
 let inactiveTabClass = "text-white py-4 px-6 block hover:text-blue-500 focus:outline-none"
 
+module SubInspector = {
+  @react.component
+  let make = (
+    ~inspected: inspectable,
+    ~onAddBlock: Card.block => unit,
+    ~onChainUpdated: Chain.t => unit,
+    ~onReset: unit => unit,
+    ~chain: Chain.t,
+    ~schema: GraphQLJs.schema,
+    ~onLogin: string => unit,
+    ~onRequestCodeInspected,
+    ~onExecuteRequest,
+    ~requestValueCache,
+    ~onDeleteEdge,
+    ~onDragStart,
+    ~trace,
+    ~appId,
+    ~onPotentialVariableSourceConnect,
+  ) => {
+    open React
+    ReactHotKeysHook.useHotkeys(
+      ~keys="esc",
+      ~callback=(event, _handler) => {
+        event->ReactEvent.Keyboard.preventDefault
+        event->ReactEvent.Keyboard.stopPropagation
+        onReset()
+      },
+      ~options=ReactHotKeysHook.options(),
+      ~deps=None,
+    )
+
+    <div
+      className="w-full text-white border-l border-gray-800"
+      style={ReactDOMStyle.make(
+        ~backgroundColor="rgb(27,29,31)",
+        ~height="calc(100vh - 56px)",
+        ~boxShadow="-5px 0 5px rgba(150, 150, 150, 0.25)",
+        (),
+      )}>
+      <nav className="flex flex-row py-1 px-2 mb-2 justify-between">
+        <Comps.Header>
+          {switch inspected {
+          | Nothing(_) => ""
+          | Block({title}) => "Block: " ++ title
+          | Request({request}) => "Request: " ++ request.id
+          | RequestArgument(_) => "Request Argument"
+          }->string}
+        </Comps.Header>
+        <span className="text-white cursor-pointer" onClick={_ => onReset()}>
+          {j`⨂`->React.string}
+        </span>
+      </nav>
+      <div
+        className="overflow-y-scroll"
+        style={ReactDOMStyle.make(~height="calc(100vh - 56px - 56px)", ())}>
+        {switch inspected {
+        | Nothing(_) => null
+        | Block(block) => <Block schema block onAddBlock />
+        | Request({request})
+        | RequestArgument({request}) =>
+          let cachedResult = requestValueCache->Js.Dict.get(request.id)
+          <Request
+            inspected
+            onRequestCodeInspected
+            chain
+            request
+            onChainUpdated
+            schema
+            cachedResult
+            onLogin
+            onExecuteRequest
+            requestValueCache
+            onDeleteEdge
+            onPotentialVariableSourceConnect
+            onDragStart
+            trace
+            appId
+          />
+        }}
+      </div>
+    </div>
+  }
+}
+
 @react.component
 let make = (
   ~inspected: inspectable,
@@ -2519,6 +2603,48 @@ let make = (
   ~onPotentialVariableSourceConnect,
 ) => {
   open React
+  let subInspectorRef = useRef(None)
+  let transitions = ReactSpring.useTransition(
+    switch inspected {
+    | Nothing(_) => false
+    | _ => true
+    },
+    None,
+    ReactSpring.lifeCycle(
+      ~from=ReactDOMStyle.make(
+        ~position="absolute",
+        ~opacity="1",
+        ~top="0px",
+        ~left="0px",
+        ~transform="translateX(100%)",
+        ~width="100%",
+        (),
+      ),
+      ~enter=ReactDOMStyle.make(
+        ~position="absolute",
+        ~opacity="1",
+        ~top="0px",
+        ~left="0px",
+        ~transform="translateX(0%)",
+        (),
+      ),
+      ~leave=ReactDOMStyle.make(
+        ~position="absolute",
+        ~opacity="1",
+        ~top="0px",
+        ~left="0px",
+        ~transform="translateY(100%)",
+        (),
+      ),
+      ~unique=true,
+      ~ref=subInspectorRef,
+      ~config=ReactSpring.config.stiff,
+      (),
+    ),
+  )
+
+  ReactSpring.useChain([subInspectorRef])
+
   ReactHotKeysHook.useHotkeys(
     ~keys="command+s",
     ~callback=(event, _handler) => {
@@ -2531,23 +2657,14 @@ let make = (
   )
   <div
     className=" text-white border-l border-gray-800"
-    style={ReactDOMStyle.make(~backgroundColor="rgb(27,29,31)", ~height="calc(100vh - 56px)", ())}>
+    style={ReactDOMStyle.make(
+      ~backgroundColor="rgb(27,29,31)",
+      ~height="calc(100vh - 56px)",
+      ~position="relative",
+      (),
+    )}>
     <nav className="flex flex-row py-1 px-2 mb-2 justify-between">
-      <Comps.Header>
-        {switch inspected {
-        | Nothing(_) => "Chain Inspector "
-        | Block({title}) => "Block: " ++ title
-        | Request({request}) => "Request: " ++ request.id
-        | RequestArgument(_) => "Request Argument"
-        }->string}
-      </Comps.Header>
-      {switch inspected {
-      | Nothing(_) => null
-      | _ =>
-        <span className="text-white cursor-pointer" onClick={_ => onReset()}>
-          {j`⨂`->React.string}
-        </span>
-      }}
+      <Comps.Header> {"Chain Inspector"->string} </Comps.Header>
     </nav>
     <div
       className="overflow-y-scroll"
@@ -2561,7 +2678,6 @@ let make = (
           chainExecutionResults
           onLogin
           transformAndExecuteChain
-          // transformAndExecuteChainSubscription
           onPersistChain
           savedChainId
           onDeleteRequest
@@ -2572,28 +2688,62 @@ let make = (
           onClose
           onPotentialVariableSourceConnect
         />
-      | Block(block) => <Block schema block onAddBlock />
-      | Request({request})
-      | RequestArgument({request}) =>
-        let cachedResult = requestValueCache->Js.Dict.get(request.id)
-        <Request
-          inspected
-          onRequestCodeInspected
+      | _ =>
+        <Nothing
           chain
-          request
-          onChainUpdated
-          schema
-          cachedResult
-          onLogin
-          onExecuteRequest
-          requestValueCache
-          onDeleteEdge
-          onPotentialVariableSourceConnect
-          onDragStart
           trace
-          appId
+          schema
+          chainExecutionResults
+          onLogin
+          transformAndExecuteChain
+          onPersistChain
+          savedChainId
+          onDeleteRequest
+          onRequestInspected
+          oneGraphAuth
+          initialChain
+          onSaveChain
+          onClose
+          onPotentialVariableSourceConnect
         />
       }}
     </div>
+    {switch inspected {
+    | _ =>
+      Js.log2("Transitions: ", transitions)
+      transitions
+      ->Belt.Array.map(element => {
+        open ReactSpring
+        let props = element->propsGet
+        let item = element->itemGet
+        Js.log2("\tItem: ", item)
+        Js.log2("\tElement: ", props)
+
+        switch item {
+        | false => null
+        | true =>
+          <ReactSpring.Animated style={props} key={element->keyGet}>
+            <SubInspector
+              inspected
+              onAddBlock
+              onChainUpdated
+              onReset
+              chain
+              schema
+              onLogin
+              onRequestCodeInspected
+              onExecuteRequest
+              requestValueCache
+              onDeleteEdge
+              onDragStart
+              trace
+              appId
+              onPotentialVariableSourceConnect
+            />
+          </ReactSpring.Animated>
+        }
+      })
+      ->array
+    }}
   </div>
 }

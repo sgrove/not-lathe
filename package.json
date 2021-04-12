@@ -39,6 +39,7 @@
     "react-json-view": "^1.21.3",
     "react-resize-panel": "^0.3.5",
     "react-simple-tooltip": "^2.6.2",
+    "react-spring": "^8.0.27",
     "reason-react": "^0.9.1",
     "request": "^2.88.0",
     "resize-observer-polyfill": "^1.5.1",

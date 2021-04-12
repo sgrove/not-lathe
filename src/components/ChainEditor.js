@@ -2751,7 +2751,9 @@ function ChainEditor$Main(Props) {
                                       var newChain_id = newChain.id;
                                       var newChain_scriptDependencies = newChain.scriptDependencies;
                                       var newChain_requests = Belt_Array.concat(Belt_Array.keep(newChain.requests, (function (existingRequest) {
-                                                  return existingRequest.id !== newReq_id;
+                                                  return Belt_Option.mapWithDefault(initialReq, true, (function (initialReq) {
+                                                                return existingRequest.id !== initialReq.id;
+                                                              }));
                                                 })), [newReq]);
                                       var newChain_blocks = Belt_Array.concat(Belt_Array.keep(newChain.blocks, (function (existingBlock) {
                                                   return Caml_obj.caml_notequal(existingBlock.id, block.id);

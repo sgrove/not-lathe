@@ -1299,6 +1299,42 @@ var Plus = {
   make: Icons$Plus
 };
 
+function Icons$Help(Props) {
+  var className = Props.className;
+  var colorOpt = Props.color;
+  var widthOpt = Props.width;
+  var heightOpt = Props.height;
+  var color = colorOpt !== undefined ? colorOpt : "white";
+  var width = widthOpt !== undefined ? widthOpt : "24";
+  var height = heightOpt !== undefined ? heightOpt : "24";
+  var tmp = {
+    height: height,
+    width: width,
+    enableBackground: "new 0 0 512 512",
+    fill: "none",
+    viewBox: "0 0 512 512"
+  };
+  if (className !== undefined) {
+    tmp.className = Caml_option.valFromOption(className);
+  }
+  return React.createElement("svg", tmp, React.createElement("circle", {
+                  cx: "256",
+                  cy: "378.5",
+                  fill: color,
+                  r: "25"
+                }), React.createElement("path", {
+                  d: "M256 0C114.516 0 0 114.497 0 256c0 141.484 114.497 256 256 256 141.484 0 256-114.497 256-256C512 114.516 397.503 0 256 0zm0 472c-119.377 0-216-96.607-216-216 0-119.377 96.607-216 216-216 119.377 0 216 96.607 216 216 0 119.377-96.607 216-216 216z",
+                  fill: color
+                }), React.createElement("path", {
+                  d: "M256 128.5c-44.112 0-80 35.888-80 80 0 11.046 8.954 20 20 20s20-8.954 20-20c0-22.056 17.944-40 40-40s40 17.944 40 40-17.944 40-40 40c-11.046 0-20 8.954-20 20v50c0 11.046 8.954 20 20 20s20-8.954 20-20v-32.531c34.466-8.903 60-40.26 60-77.469 0-44.112-35.888-80-80-80z",
+                  fill: color
+                }));
+}
+
+var Help = {
+  make: Icons$Help
+};
+
 export {
   Play ,
   Inspect ,
@@ -1328,6 +1364,7 @@ export {
   Visibility ,
   EditPencil ,
   Plus ,
+  Help ,
   
 }
 /* react Not a pure module */

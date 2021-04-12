@@ -2487,7 +2487,11 @@ ${newScript}`
                             ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
                             ->Belt.Array.concat([block]),
                             requests: newChain.requests
-                            ->Belt.Array.keep(existingRequest => existingRequest.id != newReq.id)
+                            ->Belt.Array.keep(existingRequest =>
+                              initialReq->Belt.Option.mapWithDefault(true, initialReq =>
+                                existingRequest.id != initialReq.id
+                              )
+                            )
                             ->Belt.Array.concat([newReq]),
                             script: newScript,
                           }

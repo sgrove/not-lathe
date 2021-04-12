@@ -21,6 +21,7 @@ import * as Typescript from "typescript";
 import * as Belt_Option from "bs-platform/lib/es6/belt_Option.mjs";
 import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as OneGraphAuth from "../bindings/OneGraphAuth.js";
+import * as ReactSpring from "react-spring";
 import * as BsReactMonaco from "../bindings/BsReactMonaco.js";
 import * as OnegraphAuth from "onegraph-auth";
 import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
@@ -1789,7 +1790,7 @@ function Inspector$Request(Props) {
                                         $$event.stopPropagation();
                                         return Curry._1(onRequestCodeInspected, request);
                                       })
-                                  }, React.createElement(Icons.Export.make, {
+                                  }, React.createElement(Icons.Help.make, {
                                         className: "inline-block ml-2"
                                       }))),
                           children: React.createElement(Comps.Pre.make, {
@@ -2221,6 +2222,111 @@ var Nothing = {
   make: Inspector$Nothing
 };
 
+function Inspector$SubInspector(Props) {
+  var inspected = Props.inspected;
+  var onAddBlock = Props.onAddBlock;
+  var onChainUpdated = Props.onChainUpdated;
+  var onReset = Props.onReset;
+  var chain = Props.chain;
+  var schema = Props.schema;
+  var onLogin = Props.onLogin;
+  var onRequestCodeInspected = Props.onRequestCodeInspected;
+  var onExecuteRequest = Props.onExecuteRequest;
+  var requestValueCache = Props.requestValueCache;
+  var onDeleteEdge = Props.onDeleteEdge;
+  var onDragStart = Props.onDragStart;
+  var trace = Props.trace;
+  var appId = Props.appId;
+  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
+  ReactHotkeysHook.useHotkeys("esc", (function ($$event, _handler) {
+          $$event.preventDefault();
+          $$event.stopPropagation();
+          return Curry._1(onReset, undefined);
+        }), {}, undefined);
+  var tmp;
+  switch (inspected.TAG | 0) {
+    case /* Nothing */0 :
+        tmp = "";
+        break;
+    case /* Block */1 :
+        tmp = "Block: " + inspected._0.title;
+        break;
+    case /* Request */2 :
+        tmp = "Request: " + inspected.request.id;
+        break;
+    case /* RequestArgument */3 :
+        tmp = "Request Argument";
+        break;
+    
+  }
+  var tmp$1;
+  var exit = 0;
+  switch (inspected.TAG | 0) {
+    case /* Nothing */0 :
+        tmp$1 = null;
+        break;
+    case /* Block */1 :
+        tmp$1 = React.createElement(Inspector$Block, {
+              schema: schema,
+              block: inspected._0,
+              onAddBlock: onAddBlock
+            });
+        break;
+    case /* Request */2 :
+    case /* RequestArgument */3 :
+        exit = 1;
+        break;
+    
+  }
+  if (exit === 1) {
+    var request = inspected.request;
+    var cachedResult = Js_dict.get(requestValueCache, request.id);
+    tmp$1 = React.createElement(Inspector$Request, {
+          appId: appId,
+          request: request,
+          chain: chain,
+          onChainUpdated: onChainUpdated,
+          inspected: inspected,
+          schema: schema,
+          onRequestCodeInspected: onRequestCodeInspected,
+          cachedResult: cachedResult,
+          onExecuteRequest: onExecuteRequest,
+          onLogin: onLogin,
+          requestValueCache: requestValueCache,
+          onDeleteEdge: onDeleteEdge,
+          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+          onDragStart: onDragStart,
+          trace: trace
+        });
+  }
+  return React.createElement("div", {
+              className: "w-full text-white border-l border-gray-800",
+              style: {
+                backgroundColor: "rgb(27,29,31)",
+                height: "calc(100vh - 56px)",
+                boxShadow: "-5px 0 5px rgba(150, 150, 150, 0.25)"
+              }
+            }, React.createElement("nav", {
+                  className: "flex flex-row py-1 px-2 mb-2 justify-between"
+                }, React.createElement(Comps.Header.make, {
+                      children: tmp
+                    }), React.createElement("span", {
+                      className: "text-white cursor-pointer",
+                      onClick: (function (param) {
+                          return Curry._1(onReset, undefined);
+                        })
+                    }, "⨂")), React.createElement("div", {
+                  className: "overflow-y-scroll",
+                  style: {
+                    height: "calc(100vh - 56px - 56px)"
+                  }
+                }, tmp$1));
+}
+
+var SubInspector = {
+  make: Inspector$SubInspector
+};
+
 function Inspector(Props) {
   var inspected = Props.inspected;
   var onAddBlock = Props.onAddBlock;
@@ -2247,6 +2353,37 @@ function Inspector(Props) {
   var onClose = Props.onClose;
   var appId = Props.appId;
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
+  var subInspectorRef = React.useRef(undefined);
+  var tmp;
+  tmp = inspected.TAG === /* Nothing */0 ? false : true;
+  var transitions = ReactSpring.useTransition(tmp, undefined, {
+        from: {
+          left: "0px",
+          position: "absolute",
+          top: "0px",
+          width: "100%",
+          opacity: "1",
+          transform: "translateX(100%)"
+        },
+        enter: {
+          left: "0px",
+          position: "absolute",
+          top: "0px",
+          opacity: "1",
+          transform: "translateX(0%)"
+        },
+        leave: {
+          left: "0px",
+          position: "absolute",
+          top: "0px",
+          opacity: "1",
+          transform: "translateY(100%)"
+        },
+        unique: true,
+        ref: subInspectorRef,
+        config: ReactSpring.config.stiff
+      });
+  ReactSpring.useChain([subInspectorRef]);
   ReactHotkeysHook.useHotkeys("command+s", (function ($$event, _handler) {
           $$event.preventDefault();
           $$event.stopPropagation();
@@ -2255,101 +2392,87 @@ function Inspector(Props) {
         onSaveChain,
         chain
       ]);
-  var tmp;
-  switch (inspected.TAG | 0) {
-    case /* Nothing */0 :
-        tmp = "Chain Inspector ";
-        break;
-    case /* Block */1 :
-        tmp = "Block: " + inspected._0.title;
-        break;
-    case /* Request */2 :
-        tmp = "Request: " + inspected.request.id;
-        break;
-    case /* RequestArgument */3 :
-        tmp = "Request Argument";
-        break;
-    
-  }
   var tmp$1;
-  tmp$1 = inspected.TAG === /* Nothing */0 ? null : React.createElement("span", {
-          className: "text-white cursor-pointer",
-          onClick: (function (param) {
-              return Curry._1(onReset, undefined);
-            })
-        }, "⨂");
-  var tmp$2;
-  var exit = 0;
-  switch (inspected.TAG | 0) {
-    case /* Nothing */0 :
-        tmp$2 = React.createElement(Inspector$Nothing, {
-              chain: inspected.chain,
-              schema: schema,
-              chainExecutionResults: chainExecutionResults,
-              onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
-              onLogin: onLogin,
-              onPersistChain: onPersistChain,
-              transformAndExecuteChain: transformAndExecuteChain,
-              onDeleteRequest: onDeleteRequest,
-              onRequestInspected: onRequestInspected,
-              savedChainId: savedChainId,
-              oneGraphAuth: oneGraphAuth,
-              trace: inspected.trace,
-              initialChain: initialChain,
-              onSaveChain: onSaveChain,
-              onClose: onClose
-            });
-        break;
-    case /* Block */1 :
-        tmp$2 = React.createElement(Inspector$Block, {
-              schema: schema,
-              block: inspected._0,
-              onAddBlock: onAddBlock
-            });
-        break;
-    case /* Request */2 :
-    case /* RequestArgument */3 :
-        exit = 1;
-        break;
-    
-  }
-  if (exit === 1) {
-    var request = inspected.request;
-    var cachedResult = Js_dict.get(requestValueCache, request.id);
-    tmp$2 = React.createElement(Inspector$Request, {
-          appId: appId,
-          request: request,
-          chain: chain,
-          onChainUpdated: onChainUpdated,
-          inspected: inspected,
+  tmp$1 = inspected.TAG === /* Nothing */0 ? React.createElement(Inspector$Nothing, {
+          chain: inspected.chain,
           schema: schema,
-          onRequestCodeInspected: onRequestCodeInspected,
-          cachedResult: cachedResult,
-          onExecuteRequest: onExecuteRequest,
-          onLogin: onLogin,
-          requestValueCache: requestValueCache,
-          onDeleteEdge: onDeleteEdge,
+          chainExecutionResults: chainExecutionResults,
           onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
-          onDragStart: onDragStart,
-          trace: trace
+          onLogin: onLogin,
+          onPersistChain: onPersistChain,
+          transformAndExecuteChain: transformAndExecuteChain,
+          onDeleteRequest: onDeleteRequest,
+          onRequestInspected: onRequestInspected,
+          savedChainId: savedChainId,
+          oneGraphAuth: oneGraphAuth,
+          trace: inspected.trace,
+          initialChain: initialChain,
+          onSaveChain: onSaveChain,
+          onClose: onClose
+        }) : React.createElement(Inspector$Nothing, {
+          chain: chain,
+          schema: schema,
+          chainExecutionResults: chainExecutionResults,
+          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+          onLogin: onLogin,
+          onPersistChain: onPersistChain,
+          transformAndExecuteChain: transformAndExecuteChain,
+          onDeleteRequest: onDeleteRequest,
+          onRequestInspected: onRequestInspected,
+          savedChainId: savedChainId,
+          oneGraphAuth: oneGraphAuth,
+          trace: trace,
+          initialChain: initialChain,
+          onSaveChain: onSaveChain,
+          onClose: onClose
         });
-  }
   return React.createElement("div", {
               className: " text-white border-l border-gray-800",
               style: {
                 backgroundColor: "rgb(27,29,31)",
-                height: "calc(100vh - 56px)"
+                height: "calc(100vh - 56px)",
+                position: "relative"
               }
             }, React.createElement("nav", {
                   className: "flex flex-row py-1 px-2 mb-2 justify-between"
                 }, React.createElement(Comps.Header.make, {
-                      children: tmp
-                    }), tmp$1), React.createElement("div", {
+                      children: "Chain Inspector"
+                    })), React.createElement("div", {
                   className: "overflow-y-scroll",
                   style: {
                     height: "calc(100vh - 56px - 56px)"
                   }
-                }, tmp$2));
+                }, tmp$1), (console.log("Transitions: ", transitions), Belt_Array.map(transitions, (function (element) {
+                      var props = element.props;
+                      var item = element.item;
+                      console.log("\tItem: ", item);
+                      console.log("\tElement: ", props);
+                      if (item) {
+                        return React.createElement(ReactSpring.animated.div, {
+                                    style: props,
+                                    key: Caml_option.undefined_to_opt(element.key),
+                                    children: React.createElement(Inspector$SubInspector, {
+                                          inspected: inspected,
+                                          onAddBlock: onAddBlock,
+                                          onChainUpdated: onChainUpdated,
+                                          onReset: onReset,
+                                          chain: chain,
+                                          schema: schema,
+                                          onLogin: onLogin,
+                                          onRequestCodeInspected: onRequestCodeInspected,
+                                          onExecuteRequest: onExecuteRequest,
+                                          requestValueCache: requestValueCache,
+                                          onDeleteEdge: onDeleteEdge,
+                                          onDragStart: onDragStart,
+                                          trace: trace,
+                                          appId: appId,
+                                          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect
+                                        })
+                                  });
+                      } else {
+                        return null;
+                      }
+                    }))));
 }
 
 var special_token = "XlMpa0MEz1ZMIYtebUGttQpV9I8CCwL5VejNbfStd2c";
@@ -2395,6 +2518,7 @@ export {
   Nothing ,
   activeTabClasses ,
   inactiveTabClass ,
+  SubInspector ,
   make$1 as make,
   
 }
