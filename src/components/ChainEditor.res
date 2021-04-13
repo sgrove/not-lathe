@@ -1601,7 +1601,7 @@ module Main = {
       None
     }, [state.chain.requests->Belt.Array.length])
 
-    let onExecuteRequest = (~request: Chain.request, ~variables) => {
+    let onExecuteRequest = (~request: Chain.request, ~variables, ~authToken) => {
       let ast = request.operation.body->GraphQLJs.parse
       let operationName = ast.definitions[0].name.value
 
@@ -1619,6 +1619,20 @@ module Main = {
       let fullDoc = j`${request.operation.body}
 
 ${chainFragments}`->Js.String2.trim
+
+      let oneGraphAuth =
+        authToken
+        ->Belt.Option.flatMap(authToken => {
+          let tempAuth = OneGraphAuth.create(
+            OneGraphAuth.createOptions(~saveAuthToStorage=false, ~appId=config.oneGraphAppId, ()),
+          )
+          tempAuth->Belt.Option.forEach(tempAuth => {
+            let accessToken = {"accessToken": authToken}
+            tempAuth->OneGraphAuth.setToken(Some(accessToken->Obj.magic))
+          })
+          tempAuth
+        })
+        ->Belt.Option.getWithDefault(oneGraphAuth)
 
       let promise = OneGraphRe.fetchOneGraph(
         oneGraphAuth,
@@ -1887,9 +1901,18 @@ ${newScript}`
       <Inspector
         authTokens={[
           config.chainAccessToken->Belt.Option.map(token => {
-            Inspector.accessToken: token,
-            displayedToken: token,
-            name: "Personal auth token",
+            let fullLength = token->Js.String2.length
+            let starLength = Js.Math.max_int(0, fullLength - 4)
+
+            let stars = "*"->Js.String2.repeat(starLength)
+            let last4 = token->Js.String2.substring(~from=starLength, ~to_=fullLength)
+
+            let displayedToken = `${stars}${last4}`
+            {
+              Inspector.accessToken: token,
+              displayedToken: displayedToken,
+              name: displayedToken,
+            }
           }),
         ]->Belt.Array.keepMap(x => x)}
         appId=config.oneGraphAppId
@@ -1950,7 +1973,7 @@ ${newScript}`
         onRequestCodeInspected={(~request) => {
           selectRequestFunctionScript(request)
         }}
-        onPersistChain={() => {
+        onPersistChain={(~authToken) => {
           let webhookUrl = Inspector.webhookUrlForAppId(~appId=config.oneGraphAppId)
           let compiled = state.chain->Inspector.transformChain(~schema, ~webhookUrl)
           let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
@@ -1958,7 +1981,7 @@ ${newScript}`
             targetChain.exposedVariables->Belt.Array.map(exposed => exposed.exposedName)
 
           OneGraphRe.persistQuery(
-            ~appId=config.oneGraphAppId,
+            ~appId=authToken->Belt.Option.getWithDefault(config.oneGraphAppId),
             ~persistQueryToken=config.persistQueryToken,
             ~queryToPersist=compiled.operationDoc,
             ~freeVariables,
@@ -1984,7 +2007,25 @@ ${newScript}`
           )
         }}
         chainExecutionResults={state.chainExecutionResults}
-        transformAndExecuteChain={(~variables) => {
+        transformAndExecuteChain={(~variables, ~authToken) => {
+          let oneGraphAuth =
+            authToken
+            ->Belt.Option.flatMap(authToken => {
+              let tempAuth = OneGraphAuth.create(
+                OneGraphAuth.createOptions(
+                  ~saveAuthToStorage=false,
+                  ~appId=config.oneGraphAppId,
+                  (),
+                ),
+              )
+              tempAuth->Belt.Option.forEach(tempAuth => {
+                let accessToken = {"accessToken": authToken}
+                tempAuth->OneGraphAuth.setToken(Some(accessToken->Obj.magic))
+              })
+              tempAuth
+            })
+            ->Belt.Option.getWithDefault(oneGraphAuth)
+
           state.chain
           ->Inspector.transformAndExecuteChain(~schema, ~oneGraphAuth, ~variables)
           ->Js.Promise.then_(

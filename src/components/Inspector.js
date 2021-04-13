@@ -1262,6 +1262,11 @@ function Inspector$Request(Props) {
   var setPotentialConnection = match$3[1];
   var potentialConnection = match$3[0];
   var domRef = React.useRef(null);
+  var match$4 = React.useState(function () {
+        
+      });
+  var setCurrentAuthToken = match$4[1];
+  var currentAuthToken = match$4[0];
   var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
             var match = block.kind;
             if (match !== 3) {
@@ -1715,20 +1720,28 @@ function Inspector$Request(Props) {
           return formInput(schema, def, setFormVariables, tmp);
         }));
   var form = React.createElement("form", {
+        className: "flex flex-col",
         onSubmit: (function ($$event) {
             $$event.preventDefault();
             $$event.stopPropagation();
-            return Curry._2(onExecuteRequest, request, formVariables);
+            return Curry._3(onExecuteRequest, request, formVariables, currentAuthToken);
           })
       }, inputs.length !== 0 ? inputs : null, React.createElement(Comps.Select.make, {
             children: null,
-            className: "w-full select-button comp-select"
+            className: "w-full select-button comp-select my-4 mx-2",
+            onChange: (function ($$event) {
+                var value = $$event.target.value;
+                var token = value === "TEMP" ? undefined : value;
+                return Curry._1(setCurrentAuthToken, (function (param) {
+                              return token;
+                            }));
+              })
           }, React.createElement("option", {
                 value: "TEMP"
               }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
                   return React.createElement("option", {
                               value: token.accessToken
-                            }, token.name);
+                            }, token.displayedToken);
                 }))), React.createElement(Comps.Button.make, {
             className: "w-full",
             type_: "submit",
@@ -1746,11 +1759,11 @@ function Inspector$Request(Props) {
                       key: service
                     });
         }));
-  var match$4 = React.useState(function () {
+  var match$5 = React.useState(function () {
         return "inspector";
       });
-  var setOpenedTab = match$4[1];
-  var openedTab = match$4[0];
+  var setOpenedTab = match$5[1];
+  var openedTab = match$5[0];
   return React.createElement("div", {
               ref: domRef,
               className: "max-h-full overflow-y-scroll"
@@ -1790,7 +1803,7 @@ function Inspector$Request(Props) {
                           height: "24px"
                         }), React.createElement("span", {
                           className: "mx-2"
-                        }, "Form"))), openedTab === "inspector" ? React.createElement(React.Fragment, undefined, variables.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
+                        }, "Try Block"))), openedTab === "inspector" ? React.createElement(React.Fragment, undefined, variables.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
                           title: "Variable Settings",
                           children: variables
                         }) : null, variables.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
@@ -1960,12 +1973,17 @@ function Inspector$Nothing(Props) {
                           }));
             })), null);
   var isChainViable = chain.requests.length !== 0;
-  var connectionDrag = React.useContext(ConnectionContext.context);
   var match$2 = React.useState(function () {
         
       });
-  var setPotentialConnection = match$2[1];
-  var potentialConnection = match$2[0];
+  var setCurrentAuthToken = match$2[1];
+  var currentAuthToken = match$2[0];
+  var connectionDrag = React.useContext(ConnectionContext.context);
+  var match$3 = React.useState(function () {
+        
+      });
+  var setPotentialConnection = match$3[1];
+  var potentialConnection = match$3[0];
   var requests = Belt_Array.map(chain.requests, (function (request) {
           var tmp;
           tmp = typeof connectionDrag === "number" || !(connectionDrag.TAG === /* StartedSource */0 && connectionDrag.sourceRequest.id !== request.id) ? "" : "node-drop drag-target";
@@ -2045,27 +2063,39 @@ function Inspector$Nothing(Props) {
         }));
   var formTab = React.createElement(React.Fragment, undefined, React.createElement(Inspector$CollapsableSection, {
             title: "Chain Form",
-            children: null
-          }, form, authButtons, React.createElement(Comps.Select.make, {
-                children: null,
-                className: "w-full select-button comp-select"
-              }, React.createElement("option", {
-                    value: "TEMP"
-                  }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
-                      return React.createElement("option", {
-                                  value: token.accessToken
-                                }, token.name);
-                    }))), React.createElement(Comps.Button.make, {
-                onClick: (function (param) {
-                    var variables = Caml_option.some(formVariables);
-                    return Curry._1(transformAndExecuteChain, variables);
-                  }),
-                className: "w-full",
-                children: null
-              }, React.createElement(Icons.RunLink.make, {
-                    className: "inline-block",
-                    color: Comps.colors["gray-6"]
-                  }), isSubscription ? " Start chain" : "  Run chain")), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
+            children: React.createElement("div", {
+                  className: "flex flex-col"
+                }, form, authButtons, React.createElement(Comps.Select.make, {
+                      children: null,
+                      className: "w-full select-button comp-select my-4 mx-2",
+                      onChange: (function ($$event) {
+                          var value = $$event.target.value;
+                          var token = value === "TEMP" ? undefined : value;
+                          return Curry._1(setCurrentAuthToken, (function (param) {
+                                        return token;
+                                      }));
+                        }),
+                      style: {
+                        paddingRight: "40px"
+                      }
+                    }, React.createElement("option", {
+                          value: "TEMP"
+                        }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
+                            return React.createElement("option", {
+                                        value: token.accessToken
+                                      }, token.name);
+                          }))), React.createElement(Comps.Button.make, {
+                      onClick: (function (param) {
+                          var variables = Caml_option.some(formVariables);
+                          return Curry._2(transformAndExecuteChain, variables, currentAuthToken);
+                        }),
+                      className: "w-full",
+                      children: null
+                    }, React.createElement(Icons.RunLink.make, {
+                          className: "inline-block",
+                          color: Comps.colors["gray-6"]
+                        }), isSubscription ? " Start chain" : "  Run chain"))
+          }), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
                   return React.createElement(Inspector$ChainResultsViewer, {
                               chain: chain,
                               chainExecutionResults: Caml_option.some(chainExecutionResults)
@@ -2084,20 +2114,29 @@ function Inspector$Nothing(Props) {
   if (tmp$2 !== undefined) {
     tmp.color = Caml_option.valFromOption(tmp$2);
   }
-  var saveTab = React.createElement(React.Fragment, undefined, React.createElement(Comps.Header.make, {
+  var saveTab = React.createElement("div", {
+        className: "flex flex-col"
+      }, React.createElement(Comps.Header.make, {
             children: "Step 1:"
-          }), React.createElement(Comps.Select.make, {
-            children: null,
-            className: "w-full select-button comp-select"
-          }, React.createElement("option", {
-                value: "TEMP"
-              }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
-                  return React.createElement("option", {
-                              value: token.accessToken
-                            }, token.name);
-                }))), React.createElement(Comps.Button.make, {
+          }), React.createElement("span", {
+            className: "mx-4"
+          }, "Choose auth to use with persisted chain:"), React.createElement(Comps.Select.make, {
+            children: Belt_Array.map(authTokens, (function (token) {
+                    return React.createElement("option", {
+                                value: token.accessToken
+                              }, token.name);
+                  })),
+            className: "w-full select-button comp-select my-4 mx-2",
+            onChange: (function ($$event) {
+                var value = $$event.target.value;
+                var token = value === "TEMP" ? undefined : value;
+                return Curry._1(setCurrentAuthToken, (function (param) {
+                              return token;
+                            }));
+              })
+          }), React.createElement(Comps.Button.make, {
             onClick: (function (param) {
-                return Curry._1(onPersistChain, undefined);
+                return Curry._1(onPersistChain, currentAuthToken);
               }),
             className: "w-full",
             children: null
@@ -2183,7 +2222,7 @@ function Inspector$Nothing(Props) {
             onClick: (function (param) {
                 return Curry._1(onClose, undefined);
               }),
-            children: "Cancel changes"
+            children: "Cancel changes and exit"
           }), React.createElement(Inspector$CollapsableSection, {
             title: "Internal Debug info",
             defaultOpen: false,
@@ -2227,7 +2266,7 @@ function Inspector$Nothing(Props) {
                           height: "24px"
                         }), React.createElement("span", {
                           className: "mx-2"
-                        }, "Form")), React.createElement("button", {
+                        }, "Try Chain")), React.createElement("button", {
                       className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " + (
                         openedTab === "save" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
@@ -2476,38 +2515,36 @@ function Inspector(Props) {
                   style: {
                     height: "calc(100vh - 56px - 56px)"
                   }
-                }, tmp$1), (console.log("Transitions: ", transitions), Belt_Array.map(transitions, (function (element) {
-                      var props = element.props;
-                      var item = element.item;
-                      console.log("\tItem: ", item);
-                      console.log("\tElement: ", props);
-                      if (item) {
-                        return React.createElement(ReactSpring.animated.div, {
-                                    style: props,
-                                    key: Caml_option.undefined_to_opt(element.key),
-                                    children: React.createElement(Inspector$SubInspector, {
-                                          inspected: inspected,
-                                          onAddBlock: onAddBlock,
-                                          onChainUpdated: onChainUpdated,
-                                          onReset: onReset,
-                                          chain: chain,
-                                          schema: schema,
-                                          onLogin: onLogin,
-                                          onRequestCodeInspected: onRequestCodeInspected,
-                                          onExecuteRequest: onExecuteRequest,
-                                          requestValueCache: requestValueCache,
-                                          onDeleteEdge: onDeleteEdge,
-                                          onDragStart: onDragStart,
-                                          trace: trace,
-                                          appId: appId,
-                                          onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
-                                          authTokens: authTokens
-                                        })
-                                  });
-                      } else {
-                        return null;
-                      }
-                    }))));
+                }, tmp$1), Belt_Array.map(transitions, (function (element) {
+                    var props = element.props;
+                    var item = element.item;
+                    if (item) {
+                      return React.createElement(ReactSpring.animated.div, {
+                                  style: props,
+                                  key: Caml_option.undefined_to_opt(element.key),
+                                  children: React.createElement(Inspector$SubInspector, {
+                                        inspected: inspected,
+                                        onAddBlock: onAddBlock,
+                                        onChainUpdated: onChainUpdated,
+                                        onReset: onReset,
+                                        chain: chain,
+                                        schema: schema,
+                                        onLogin: onLogin,
+                                        onRequestCodeInspected: onRequestCodeInspected,
+                                        onExecuteRequest: onExecuteRequest,
+                                        requestValueCache: requestValueCache,
+                                        onDeleteEdge: onDeleteEdge,
+                                        onDragStart: onDragStart,
+                                        trace: trace,
+                                        appId: appId,
+                                        onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+                                        authTokens: authTokens
+                                      })
+                                });
+                    } else {
+                      return null;
+                    }
+                  })));
 }
 
 var special_token = "XlMpa0MEz1ZMIYtebUGttQpV9I8CCwL5VejNbfStd2c";

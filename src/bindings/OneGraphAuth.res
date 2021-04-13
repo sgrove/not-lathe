@@ -59,7 +59,7 @@ type servicesStatus = Js.Dict.t<serviceStatus>
 @bs.send
 external serviceStatus: (t, unit) => Js.Promise.t<array<servicesStatus>> = "serviceStatus"
 
-@bs.send external setToken: (t, Js.Nullable.t<string>) => unit = "setToken"
+@bs.send external setToken: (t, option<string>) => unit = "setToken"
 
 @bs.send external authHeaders_: t => Js.Dict.t<string> = "authHeaders"
 
@@ -83,7 +83,7 @@ let clearToken = auth => {
   let appId = appId(auth)
   let storageKey = j`oneGraph:$appId`
   Dom.Storage.removeItem(storageKey, Dom.Storage.localStorage)
-  setToken(auth, Js.Nullable.fromOption(Some("{}")))
+  setToken(auth, Some("{}"))
 }
 
 let distinctServices = (_services: array<string>): array<string> => {

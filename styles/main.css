@@ -2177,10 +2177,6 @@ label {
   background-color: var(--color-green-7);
 }
 
-.script-drop.drag-target:hover {
-  background-color: var(--color-green-5);
-}
-
 .variable-settings.drag-target.drop-ready,
 .node-drop.drag-target.drop-ready {
   background-color: var(--color-green-5);

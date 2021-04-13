@@ -1745,7 +1745,7 @@ function ChainEditor$Main(Props) {
           }
           
         }), [state.chain.requests.length]);
-  var onExecuteRequest = function (request, variables) {
+  var onExecuteRequest = function (request, variables, authToken) {
     var ast = Graphql.parse(request.operation.body);
     var operationName = Caml_array.get(ast.definitions, 0).name.value;
     var chainFragments = Belt_Array.keepMap(state.chain.blocks, (function (block) {
@@ -1757,7 +1757,21 @@ function ChainEditor$Main(Props) {
               }
             })).join("\n\n");
     var fullDoc = (request.operation.body + "\n\n" + chainFragments).trim();
-    var promise = OneGraphRe.fetchOneGraph(oneGraphAuth, fullDoc, operationName, Caml_option.some(variables));
+    var oneGraphAuth$1 = Belt_Option.getWithDefault(Belt_Option.flatMap(authToken, (function (authToken) {
+                var tempAuth = OneGraphAuth.create({
+                      appId: config.oneGraphAppId,
+                      saveAuthToStorage: false
+                    });
+                Belt_Option.forEach(tempAuth, (function (tempAuth) {
+                        var accessToken = {
+                          accessToken: authToken
+                        };
+                        tempAuth.setToken(accessToken);
+                        
+                      }));
+                return tempAuth;
+              })), oneGraphAuth);
+    var promise = OneGraphRe.fetchOneGraph(oneGraphAuth$1, fullDoc, operationName, Caml_option.some(variables));
     promise.then(function (result) {
           return Promise.resolve(Curry._1(setState, (function (oldState) {
                             oldState.requestValueCache[request.id] = result;
@@ -2200,8 +2214,22 @@ function ChainEditor$Main(Props) {
                 });
             
           }),
-        transformAndExecuteChain: (function (variables) {
-            var __x = Inspector.transformAndExecuteChain(state.chain, schema, oneGraphAuth, variables);
+        transformAndExecuteChain: (function (variables, authToken) {
+            var oneGraphAuth$1 = Belt_Option.getWithDefault(Belt_Option.flatMap(authToken, (function (authToken) {
+                        var tempAuth = OneGraphAuth.create({
+                              appId: config.oneGraphAppId,
+                              saveAuthToStorage: false
+                            });
+                        Belt_Option.forEach(tempAuth, (function (tempAuth) {
+                                var accessToken = {
+                                  accessToken: authToken
+                                };
+                                tempAuth.setToken(accessToken);
+                                
+                              }));
+                        return tempAuth;
+                      })), oneGraphAuth);
+            var __x = Inspector.transformAndExecuteChain(state.chain, schema, oneGraphAuth$1, variables);
             __x.then(function (result) {
                   return Promise.resolve(Curry._1(setState, (function (oldState) {
                                     var newTrace = Belt_Option.map(oldState.chain.id, (function (chainId) {
@@ -2237,14 +2265,14 @@ function ChainEditor$Main(Props) {
                 });
             
           }),
-        onPersistChain: (function (param) {
+        onPersistChain: (function (authToken) {
             var webhookUrl = Inspector.webhookUrlForAppId(config.oneGraphAppId);
             var compiled = Curry._1(Inspector.transformChain(state.chain)(schema), webhookUrl);
             var targetChain = compiled.chains[0];
             var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
                     return exposed.exposedName;
                   }));
-            return OneGraphRe.persistQuery(config.oneGraphAppId, config.persistQueryToken, compiled.operationDoc, freeVariables, config.chainAccessToken, undefined, (function (results) {
+            return OneGraphRe.persistQuery(Belt_Option.getWithDefault(authToken, config.oneGraphAppId), config.persistQueryToken, compiled.operationDoc, freeVariables, config.chainAccessToken, undefined, (function (results) {
                           try {
                             var docId = results.data.oneGraph.createPersistedQuery.persistedQuery.id;
                             Chain.saveToLocalStorage(state.chain);
@@ -2396,10 +2424,15 @@ function ChainEditor$Main(Props) {
         appId: config.oneGraphAppId,
         onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
         authTokens: Belt_Array.keepMap([Belt_Option.map(config.chainAccessToken, (function (token) {
+                      var fullLength = token.length;
+                      var starLength = Math.max(0, fullLength - 4 | 0);
+                      var stars = "*".repeat(starLength);
+                      var last4 = token.substring(starLength, fullLength);
+                      var displayedToken = stars + last4;
                       return {
                               accessToken: token,
-                              displayedToken: token,
-                              name: "Personal auth token"
+                              displayedToken: displayedToken,
+                              name: displayedToken
                             };
                     }))], (function (x) {
                 return x;

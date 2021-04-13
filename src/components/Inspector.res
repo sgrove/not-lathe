@@ -1601,6 +1601,7 @@ module Request = {
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
     let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
     let domRef = React.useRef(Js.Nullable.null)
+    let (currentAuthToken, setCurrentAuthToken) = useState(() => None)
 
     let chainFragmentsDoc =
       chain.blocks
@@ -1941,17 +1942,28 @@ module Request = {
 
     let form =
       <form
+        className="flex flex-col"
         onSubmit={event => {
           event->ReactEvent.Form.preventDefault
           event->ReactEvent.Form.stopPropagation
-          onExecuteRequest(~request, ~variables=formVariables)
+          onExecuteRequest(~request, ~variables=formVariables, ~authToken=currentAuthToken)
         }}>
         {inputs->Belt.Array.length > 0 ? {inputs->React.array} : React.null}
-        <Comps.Select className="w-full select-button comp-select">
+        <Comps.Select
+          className="w-full select-button comp-select my-4 mx-2"
+          onChange={event => {
+            let value = ReactEvent.Form.target(event)["value"]
+            let token = switch value {
+            | "TEMP" => None
+            | other => Some(other)
+            }
+
+            setCurrentAuthToken(_ => token)
+          }}>
           <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
           {authTokens
           ->Belt.Array.map(token => {
-            <option value={token.accessToken}> {token.name->string} </option>
+            <option value={token.accessToken}> {token.displayedToken->string} </option>
           })
           ->array}
         </Comps.Select>
@@ -2007,7 +2019,7 @@ module Request = {
             height="24px"
             color={openedTab == #form ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
           />
-          <span className="mx-2"> {"Form"->React.string} </span>
+          <span className="mx-2"> {"Try Block"->React.string} </span>
         </button>
       </div>
       {switch openedTab {
@@ -2138,7 +2150,7 @@ module Nothing = {
     ~chainExecutionResults: option<Js.Json.t>,
     ~onPotentialVariableSourceConnect,
     ~onLogin: string => unit,
-    ~onPersistChain: unit => unit,
+    ~onPersistChain,
     ~transformAndExecuteChain,
     // ~transformAndExecuteChainSubscription,
     ~onDeleteRequest,
@@ -2215,6 +2227,7 @@ module Nothing = {
     let isChainViable = chain.requests->Belt.Array.length > 0
 
     open React
+    let (currentAuthToken, setCurrentAuthToken) = useState(() => None)
 
     let connectionDrag = useContext(ConnectionContext.context)
     let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
@@ -2293,30 +2306,43 @@ module Nothing = {
     let formTab =
       <>
         <CollapsableSection title={"Chain Form"->React.string}>
-          {form}
-          {authButtons->React.array}
-          <Comps.Select className="w-full select-button comp-select">
-            <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
-            {authTokens
-            ->Belt.Array.map(token => {
-              <option value={token.accessToken}> {token.name->string} </option>
-            })
-            ->array}
-          </Comps.Select>
-          <Comps.Button
-            onClick={_ => {
-              let variables = Some(formVariables->Obj.magic)
+          <div className={"flex flex-col"}>
+            {form}
+            {authButtons->React.array}
+            <Comps.Select
+              className="w-full select-button comp-select my-4 mx-2"
+              style={ReactDOMStyle.make(~paddingRight="40px", ())}
+              onChange={event => {
+                let value = ReactEvent.Form.target(event)["value"]
+                let token = switch value {
+                | "TEMP" => None
+                | other => Some(other)
+                }
 
-              switch isSubscription {
-              | false => transformAndExecuteChain(~variables)
-              | true => transformAndExecuteChain(~variables)
-              // | true => transformAndExecuteChainSubscription(~variables)
-              }
-            }}
-            className="w-full">
-            <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
-            {(isSubscription ? " Start chain" : "  Run chain")->React.string}
-          </Comps.Button>
+                setCurrentAuthToken(_ => token)
+              }}>
+              <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
+              {authTokens
+              ->Belt.Array.map(token => {
+                <option value={token.accessToken}> {token.name->string} </option>
+              })
+              ->array}
+            </Comps.Select>
+            <Comps.Button
+              onClick={_ => {
+                let variables = Some(formVariables->Obj.magic)
+
+                switch isSubscription {
+                | false => transformAndExecuteChain(~variables, ~authToken=currentAuthToken)
+                | true => transformAndExecuteChain(~variables, ~authToken=currentAuthToken)
+                // | true => transformAndExecuteChainSubscription(~variables)
+                }
+              }}
+              className="w-full">
+              <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
+              {(isSubscription ? " Start chain" : "  Run chain")->React.string}
+            </Comps.Button>
+          </div>
         </CollapsableSection>
         {chainExecutionResults
         ->Belt.Option.map(chainExecutionResults =>
@@ -2325,10 +2351,20 @@ module Nothing = {
         ->Belt.Option.getWithDefault(React.null)}
       </>
     let saveTab =
-      <>
+      <div className="flex flex-col">
         <Comps.Header> {"Step 1:"->React.string} </Comps.Header>
-        <Comps.Select className="w-full select-button comp-select">
-          <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
+        <span className="mx-4"> {"Choose auth to use with persisted chain:"->string} </span>
+        <Comps.Select
+          className="w-full select-button comp-select my-4 mx-2"
+          onChange={event => {
+            let value = ReactEvent.Form.target(event)["value"]
+            let token = switch value {
+            | "TEMP" => None
+            | other => Some(other)
+            }
+
+            setCurrentAuthToken(_ => token)
+          }}>
           {authTokens
           ->Belt.Array.map(token => {
             <option value={token.accessToken}> {token.name->string} </option>
@@ -2337,7 +2373,7 @@ module Nothing = {
         </Comps.Select>
         <Comps.Button
           onClick={_ => {
-            onPersistChain()
+            onPersistChain(~authToken=currentAuthToken)
           }}
           className="w-full">
           <Icons.AddLink className="inline-block" color={Comps.colors["gray-6"]} />
@@ -2415,7 +2451,7 @@ ${remoteChainCalls.netlify.code}
           //   </Comps.Button>
           // </div>
         }
-      </>
+      </div>
 
     let inspectorTab =
       <>
@@ -2442,7 +2478,9 @@ ${remoteChainCalls.netlify.code}
           : <Comps.Button onClick={_ => {onSaveChain(chain)}}>
               {"Save Changes"->string}
             </Comps.Button>}
-        <Comps.Button onClick={_ => {onClose()}}> {"Cancel changes"->string} </Comps.Button>
+        <Comps.Button onClick={_ => {onClose()}}>
+          {"Cancel changes and exit"->string}
+        </Comps.Button>
         <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
           <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
         </CollapsableSection>
@@ -2492,7 +2530,7 @@ ${remoteChainCalls.netlify.code}
             height="24px"
             color={openedTab == #form ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
           />
-          <span className="mx-2"> {"Form"->React.string} </span>
+          <span className="mx-2"> {"Try Chain"->React.string} </span>
         </button>
         <button
           onClick={_ => {
@@ -2747,15 +2785,11 @@ let make = (
     </div>
     {switch inspected {
     | _ =>
-      Js.log2("Transitions: ", transitions)
       transitions
       ->Belt.Array.map(element => {
         open ReactSpring
         let props = element->propsGet
         let item = element->itemGet
-        Js.log2("\tItem: ", item)
-        Js.log2("\tElement: ", props)
-
         switch item {
         | false => null
         | true =>

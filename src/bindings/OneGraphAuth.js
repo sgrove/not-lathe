@@ -26,7 +26,7 @@ function clearToken(auth) {
   var appId = auth.appId;
   var storageKey = "oneGraph:" + appId;
   localStorage.removeItem(storageKey);
-  auth.setToken(Js_null_undefined.fromOption("{}"));
+  auth.setToken("{}");
   
 }
 
