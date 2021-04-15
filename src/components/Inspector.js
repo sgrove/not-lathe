@@ -268,8 +268,9 @@ function evalRequest(schema, chain, request, requestValueCache, trace) {
                               case /* ArgumentDependency */0 :
                                   return argDep._0.fromRequestIds;
                               case /* Direct */1 :
-                              case /* GraphQLProbe */2 :
                                   return ;
+                              case /* GraphQLProbe */2 :
+                                  return [argDep._0.fromRequestId];
                               
                             }
                           }))), (function (upstreamRequestId) {

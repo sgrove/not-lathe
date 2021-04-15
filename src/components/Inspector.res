@@ -263,141 +263,135 @@ let evalRequest = (
   ~requestValueCache: Js.Dict.t<Js.Json.t>,
   ~trace: option<Chain.Trace.t>,
 ): Js.Promise.t<result<mockRequestValues, 'err>> => {
-  QuickJsEmscripten.getQuickJS()
-  ->Js.Promise.then_(
-    quickjs => {
-      Debug.assignToWindowForDeveloperDebug(~name="existingTrace", trace)
+  QuickJsEmscripten.getQuickJS()->Js.Promise.then_(quickjs => {
+    Debug.assignToWindowForDeveloperDebug(~name="existingTrace", trace)
 
-      let payload =
-        request.variableDependencies
-        ->Belt.Array.keepMap(varDep =>
-          switch varDep.dependency {
-          | ArgumentDependency(argDep) => Some(argDep.fromRequestIds)
-          | _ => None
-          }
-        )
-        ->Belt.Array.concatMany
-        ->Belt.Array.keepMap(upstreamRequestId => {
-          chain.requests->Belt.Array.getBy(request => request.id == upstreamRequestId)
-        })
-        ->Belt.Array.reduce(Js.Dict.empty(), (acc, nextRequest) => {
-          switch acc->Js.Dict.get(nextRequest.id) {
-          | Some(_) => acc
-          | None =>
-            let parsedOperation = nextRequest.operation.body->GraphQLJs.parse
-            let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+    let payload =
+      request.variableDependencies
+      ->Belt.Array.keepMap(varDep =>
+        switch varDep.dependency {
+        | ArgumentDependency(argDep) => Some(argDep.fromRequestIds)
+        | GraphQLProbe(probe) => Some([probe.fromRequestId])
+        | _ => None
+        }
+      )
+      ->Belt.Array.concatMany
+      ->Belt.Array.keepMap(upstreamRequestId => {
+        chain.requests->Belt.Array.getBy(request => request.id == upstreamRequestId)
+      })
+      ->Belt.Array.reduce(Js.Dict.empty(), (acc, nextRequest) => {
+        switch acc->Js.Dict.get(nextRequest.id) {
+        | Some(_) => acc
+        | None =>
+          let parsedOperation = nextRequest.operation.body->GraphQLJs.parse
+          let definition = parsedOperation.definitions->Belt.Array.getExn(0)
 
-            let variables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
+          let variables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
 
-            let traceValue = trace->Belt.Option.flatMap(trace => {
-              try {
-                let results = Obj.magic(trace.trace)["data"]["oneGraph"]["executeChain"]["results"]
-                Debug.assignToWindowForDeveloperDebug(
-                  ~name="variable_upstream_" ++ nextRequest.id,
-                  results,
-                )
-                let returnedTrace =
-                  results
-                  ->Belt.Array.getBy(result => result["request"]["id"] == nextRequest.id)
-                  ->Belt.Option.flatMap(request => request["result"][0])
-                returnedTrace
-              } catch {
-              | _ => None
-              }
-            })
-
-            switch (requestValueCache->Js.Dict.get(nextRequest.id), traceValue) {
-            | (Some(results), _) =>
-              acc->Js.Dict.set(
-                nextRequest.id,
-                {variables: variables, graphQLResult: results->Obj.magic},
+          let traceValue = trace->Belt.Option.flatMap(trace => {
+            try {
+              let results = Obj.magic(trace.trace)["data"]["oneGraph"]["executeChain"]["results"]
+              Debug.assignToWindowForDeveloperDebug(
+                ~name="variable_upstream_" ++ nextRequest.id,
+                results,
               )
-              acc
-            | (_, Some(traceValue)) =>
-              acc->Js.Dict.set(
-                nextRequest.id,
-                {variables: variables, graphQLResult: traceValue->Obj.magic},
-              )
-              acc
-
-            | (None, None) =>
-              let results = GraphQLJs.graphqlSync(
-                schema,
-                nextRequest.operation.body,
-                None,
-                None,
-                Some(variables),
-              )
-              acc->Js.Dict.set(nextRequest.id, {variables: variables, graphQLResult: results})
-              acc
+              let returnedTrace =
+                results
+                ->Belt.Array.getBy(result => result["request"]["id"] == nextRequest.id)
+                ->Belt.Option.flatMap(request => request["result"][0])
+              returnedTrace
+            } catch {
+            | _ => None
             }
+          })
+
+          switch (requestValueCache->Js.Dict.get(nextRequest.id), traceValue) {
+          | (Some(results), _) =>
+            acc->Js.Dict.set(
+              nextRequest.id,
+              {variables: variables, graphQLResult: results->Obj.magic},
+            )
+            acc
+          | (_, Some(traceValue)) =>
+            acc->Js.Dict.set(
+              nextRequest.id,
+              {variables: variables, graphQLResult: traceValue->Obj.magic},
+            )
+            acc
+
+          | (None, None) =>
+            let results = GraphQLJs.graphqlSync(
+              schema,
+              nextRequest.operation.body,
+              None,
+              None,
+              Some(variables),
+            )
+            acc->Js.Dict.set(nextRequest.id, {variables: variables, graphQLResult: results})
+            acc
           }
-        })
-
-      let transpiled = chain->transpileFullChainScript
-
-      let payload =
-        payload
-        ->Js.Dict.entries
-        ->Belt.Array.map(((key, mockedValue)) => {
-          (key, mockedValue.graphQLResult)
-        })
-        ->Js.Dict.fromArray
-        ->Obj.magic
-        ->Js.Json.stringify
-
-      let operationDoc = request.operation.body
-      let parsedOperation = request.operation.body->GraphQLJs.parse
-      let definition = parsedOperation.definitions->Belt.Array.getExn(0)
-      let mockedVariables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
-
-      let variables = request.variableDependencies->Belt.Array.reduce(mockedVariables, (
-        acc,
-        nextVarDependency,
-      ) => {
-        switch nextVarDependency.dependency {
-        | ArgumentDependency(argDep) =>
-          let call = `${argDep.functionFromScript}(${payload})`
-
-          let script = transpiled ++ "\n\n" ++ call
-
-          let fullScript =
-            script->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("export ", ~flags="g"), "")
-          open QuickJsEmscripten
-
-          let result = quickjs->evalCode(fullScript)
-
-          acc->Obj.magic->Js.Dict.set(nextVarDependency.name, result)
-          acc
-        | GraphQLProbe(probe) =>
-          let call = `${probe.functionFromScript}(${payload})`
-
-          let script = transpiled ++ "\n\n" ++ call
-
-          let fullScript =
-            script->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("export ", ~flags="g"), "")
-          open QuickJsEmscripten
-
-          let result = quickjs->evalCode(fullScript)
-
-          acc->Obj.magic->Js.Dict.set(nextVarDependency.name, result)
-          acc
-        | _ => acc
         }
       })
 
-      let graphQLResult = GraphQLJs.graphqlSync(schema, operationDoc, None, None, Some(variables))
+    let transpiled = chain->transpileFullChainScript
 
-      Ok({
-        variables: variables,
-        graphQLResult: graphQLResult,
-      })->Js.Promise.resolve
-    },
-    // TODO: Use acorn to remove all export declarations
+    let payload =
+      payload
+      ->Js.Dict.entries
+      ->Belt.Array.map(((key, mockedValue)) => {
+        (key, mockedValue.graphQLResult)
+      })
+      ->Js.Dict.fromArray
+      ->Obj.magic
+      ->Js.Json.stringify
 
-    _,
-  )
-  ->Js.Promise.catch(err => {
+    let operationDoc = request.operation.body
+    let parsedOperation = request.operation.body->GraphQLJs.parse
+    let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+    let mockedVariables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
+
+    let variables = request.variableDependencies->Belt.Array.reduce(mockedVariables, (
+      acc,
+      nextVarDependency,
+    ) => {
+      switch nextVarDependency.dependency {
+      | ArgumentDependency(argDep) =>
+        let call = `${argDep.functionFromScript}(${payload})`
+
+        let script = transpiled ++ "\n\n" ++ call
+
+        let fullScript =
+          script->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("export ", ~flags="g"), "")
+        open QuickJsEmscripten
+
+        let result = quickjs->evalCode(fullScript)
+
+        acc->Obj.magic->Js.Dict.set(nextVarDependency.name, result)
+        acc
+      | GraphQLProbe(probe) =>
+        let call = `${probe.functionFromScript}(${payload})`
+
+        let script = transpiled ++ "\n\n" ++ call
+
+        let fullScript =
+          script->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("export ", ~flags="g"), "")
+        open QuickJsEmscripten
+
+        let result = quickjs->evalCode(fullScript)
+
+        acc->Obj.magic->Js.Dict.set(nextVarDependency.name, result)
+        acc
+      | _ => acc
+      }
+    })
+
+    let graphQLResult = GraphQLJs.graphqlSync(schema, operationDoc, None, None, Some(variables))
+
+    Ok({
+      variables: variables,
+      graphQLResult: graphQLResult,
+    })->Js.Promise.resolve
+  }, _)->Js.Promise.catch(err => {
     Js.Console.warn2("Error evalRequest: ", err)
     Js.Promise.resolve(Error(err))
   }, _)

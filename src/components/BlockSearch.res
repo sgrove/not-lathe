@@ -11,6 +11,7 @@ let make = (
   ~onInspect: Card.block => unit,
   ~blocks: array<Card.block>,
   ~onCreate,
+  ~onClose,
 ) => {
   open React
 
@@ -72,7 +73,18 @@ let make = (
     className="flex w-full m-0 h-full block select-none"
     style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-9"], ())}>
     <div className="w-full max-h-full">
-      <Comps.Header> {"Block Library"->React.string} </Comps.Header>
+      <Comps.Header
+        style={ReactDOMStyle.make(
+          ~display="flex",
+          ~justifyContent="space-between",
+          ~marginRight="6px",
+          (),
+        )}>
+        {"Block Library"->React.string}
+        <span className="text-white cursor-pointer" onClick={_ => onClose()}>
+          {j`⨂`->React.string}
+        </span>
+      </Comps.Header>
       <div
         className="rounded-lg px-3 py-2 overflow-y-hidden"
         style={ReactDOMStyle.make(~height="calc(100% - 40px)", ())}>

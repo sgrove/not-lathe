@@ -17,6 +17,7 @@ function BlockSearch(Props) {
   var onInspect = Props.onInspect;
   var blocks = Props.blocks;
   var onCreate = Props.onCreate;
+  var onClose = Props.onClose;
   var inputRef = React.useRef(null);
   ReactHotkeysHook.useHotkeys("/", (function ($$event, _handler) {
           return Belt_Option.forEach(Caml_option.nullable_to_opt(inputRef.current), (function (inputRef) {
@@ -71,8 +72,18 @@ function BlockSearch(Props) {
             }, React.createElement("div", {
                   className: "w-full max-h-full"
                 }, React.createElement(Comps.Header.make, {
-                      children: "Block Library"
-                    }), React.createElement("div", {
+                      style: {
+                        display: "flex",
+                        marginRight: "6px",
+                        justifyContent: "space-between"
+                      },
+                      children: null
+                    }, "Block Library", React.createElement("span", {
+                          className: "text-white cursor-pointer",
+                          onClick: (function (param) {
+                              return Curry._1(onClose, undefined);
+                            })
+                        }, "⨂")), React.createElement("div", {
                       className: "rounded-lg px-3 py-2 overflow-y-hidden",
                       style: {
                         height: "calc(100% - 40px)"

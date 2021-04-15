@@ -1193,27 +1193,9 @@ function ChainEditor$Diagram(Props) {
                   }
                   return Belt_Option.forEach(inspected, (function (inspected) {
                                 return Curry._1(setState, (function (oldState) {
-                                              return {
-                                                      diagram: oldState.diagram,
-                                                      card: oldState.card,
-                                                      schema: oldState.schema,
-                                                      chain: oldState.chain,
-                                                      compiledChain: oldState.compiledChain,
-                                                      chainResult: oldState.chainResult,
-                                                      scriptFunctions: oldState.scriptFunctions,
-                                                      chainExecutionResults: oldState.chainExecutionResults,
-                                                      blocks: oldState.blocks,
-                                                      inspected: inspected,
-                                                      blockEdit: oldState.blockEdit,
-                                                      scriptEditor: oldState.scriptEditor,
-                                                      savedChainId: oldState.savedChainId,
-                                                      requestValueCache: oldState.requestValueCache,
-                                                      debugUIItems: oldState.debugUIItems,
-                                                      connectionDrag: oldState.connectionDrag,
-                                                      subscriptionClient: oldState.subscriptionClient,
-                                                      trace: oldState.trace,
-                                                      insight: oldState.insight
-                                                    };
+                                              var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                              newrecord.inspected = inspected;
+                                              return newrecord;
                                             }));
                               }));
                 }),
@@ -1245,63 +1227,29 @@ function ChainEditor$Diagram(Props) {
                                         return Curry._3(removeEdge, accChain, match$2[0], match$2[1]);
                                       }));
                                 var diagram = Curry._1(diagramFromChain, newChain);
-                                return {
-                                        diagram: diagram,
-                                        card: oldState.card,
-                                        schema: oldState.schema,
-                                        chain: newChain,
-                                        compiledChain: oldState.compiledChain,
-                                        chainResult: oldState.chainResult,
-                                        scriptFunctions: oldState.scriptFunctions,
-                                        chainExecutionResults: oldState.chainExecutionResults,
-                                        blocks: oldState.blocks,
-                                        inspected: {
-                                          TAG: 0,
-                                          chain: newChain,
-                                          trace: undefined,
-                                          [Symbol.for("name")]: "Nothing"
-                                        },
-                                        blockEdit: oldState.blockEdit,
-                                        scriptEditor: oldState.scriptEditor,
-                                        savedChainId: oldState.savedChainId,
-                                        requestValueCache: oldState.requestValueCache,
-                                        debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: oldState.connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient,
-                                        trace: oldState.trace,
-                                        insight: oldState.insight
-                                      };
+                                var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                newrecord.inspected = {
+                                  TAG: 0,
+                                  chain: newChain,
+                                  trace: undefined,
+                                  [Symbol.for("name")]: "Nothing"
+                                };
+                                newrecord.chain = newChain;
+                                newrecord.diagram = diagram;
+                                return newrecord;
                               }));
                 }),
               connectionLineType: "smoothstep",
               onPaneClick: (function (param) {
                   return Curry._1(setState, (function (oldState) {
-                                return {
-                                        diagram: oldState.diagram,
-                                        card: oldState.card,
-                                        schema: oldState.schema,
-                                        chain: oldState.chain,
-                                        compiledChain: oldState.compiledChain,
-                                        chainResult: oldState.chainResult,
-                                        scriptFunctions: oldState.scriptFunctions,
-                                        chainExecutionResults: oldState.chainExecutionResults,
-                                        blocks: oldState.blocks,
-                                        inspected: {
-                                          TAG: 0,
-                                          chain: oldState.chain,
-                                          trace: trace,
-                                          [Symbol.for("name")]: "Nothing"
-                                        },
-                                        blockEdit: oldState.blockEdit,
-                                        scriptEditor: oldState.scriptEditor,
-                                        savedChainId: oldState.savedChainId,
-                                        requestValueCache: oldState.requestValueCache,
-                                        debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: oldState.connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient,
-                                        trace: oldState.trace,
-                                        insight: oldState.insight
-                                      };
+                                var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                newrecord.inspected = {
+                                  TAG: 0,
+                                  chain: oldState.chain,
+                                  trace: trace,
+                                  [Symbol.for("name")]: "Nothing"
+                                };
+                                return newrecord;
                               }));
                 }),
               onConnect: (function (info) {
@@ -1383,27 +1331,10 @@ function ChainEditor$Diagram(Props) {
                                     blocks: newChain_blocks
                                   };
                                   var diagram = Curry._1(diagramFromChain, newChain);
-                                  return {
-                                          diagram: diagram,
-                                          card: oldState.card,
-                                          schema: oldState.schema,
-                                          chain: newChain,
-                                          compiledChain: oldState.compiledChain,
-                                          chainResult: oldState.chainResult,
-                                          scriptFunctions: oldState.scriptFunctions,
-                                          chainExecutionResults: oldState.chainExecutionResults,
-                                          blocks: oldState.blocks,
-                                          inspected: oldState.inspected,
-                                          blockEdit: oldState.blockEdit,
-                                          scriptEditor: oldState.scriptEditor,
-                                          savedChainId: oldState.savedChainId,
-                                          requestValueCache: oldState.requestValueCache,
-                                          debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: oldState.connectionDrag,
-                                          subscriptionClient: oldState.subscriptionClient,
-                                          trace: oldState.trace,
-                                          insight: oldState.insight
-                                        };
+                                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                  newrecord.chain = newChain;
+                                  newrecord.diagram = diagram;
+                                  return newrecord;
                                 }));
                   } else {
                     console.warn("Couldn't find source or target request to connect");
@@ -1511,6 +1442,7 @@ function ChainEditor$Main(Props) {
                 blocks: Card.blocks,
                 inspected: inspected,
                 blockEdit: /* Nothing */0,
+                blockSearchOpen: true,
                 scriptEditor: {
                   isOpen: true,
                   editor: undefined,
@@ -1540,31 +1472,13 @@ function ChainEditor$Main(Props) {
           var diagramFromChain$1 = function (chain) {
             return diagramFromChain(chain, (function (block) {
                           return Curry._1(setState, (function (oldState) {
-                                        return {
-                                                diagram: oldState.diagram,
-                                                card: oldState.card,
-                                                schema: oldState.schema,
-                                                chain: oldState.chain,
-                                                compiledChain: oldState.compiledChain,
-                                                chainResult: oldState.chainResult,
-                                                scriptFunctions: oldState.scriptFunctions,
-                                                chainExecutionResults: oldState.chainExecutionResults,
-                                                blocks: oldState.blocks,
-                                                inspected: oldState.inspected,
-                                                blockEdit: {
-                                                  TAG: 1,
-                                                  _0: block,
-                                                  [Symbol.for("name")]: "Edit"
-                                                },
-                                                scriptEditor: oldState.scriptEditor,
-                                                savedChainId: oldState.savedChainId,
-                                                requestValueCache: oldState.requestValueCache,
-                                                debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: oldState.connectionDrag,
-                                                subscriptionClient: oldState.subscriptionClient,
-                                                trace: oldState.trace,
-                                                insight: oldState.insight
-                                              };
+                                        var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                        newrecord.blockEdit = {
+                                          TAG: 1,
+                                          _0: block,
+                                          [Symbol.for("name")]: "Edit"
+                                        };
+                                        return newrecord;
                                       }));
                         }), (function (param, request, domRef) {
                           var connectionDrag = Belt_Option.mapWithDefault((domRef == null) ? undefined : Caml_option.some(domRef), /* Empty */0, (function (domRef) {
@@ -1576,27 +1490,9 @@ function ChainEditor$Main(Props) {
                                         };
                                 }));
                           return Curry._1(setState, (function (oldState) {
-                                        return {
-                                                diagram: oldState.diagram,
-                                                card: oldState.card,
-                                                schema: oldState.schema,
-                                                chain: oldState.chain,
-                                                compiledChain: oldState.compiledChain,
-                                                chainResult: oldState.chainResult,
-                                                scriptFunctions: oldState.scriptFunctions,
-                                                chainExecutionResults: oldState.chainExecutionResults,
-                                                blocks: oldState.blocks,
-                                                inspected: oldState.inspected,
-                                                blockEdit: oldState.blockEdit,
-                                                scriptEditor: oldState.scriptEditor,
-                                                savedChainId: oldState.savedChainId,
-                                                requestValueCache: oldState.requestValueCache,
-                                                debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: connectionDrag,
-                                                subscriptionClient: oldState.subscriptionClient,
-                                                trace: oldState.trace,
-                                                insight: oldState.insight
-                                              };
+                                        var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                        newrecord.connectionDrag = connectionDrag;
+                                        return newrecord;
                                       }));
                         }), schema, (function (param) {
                           
@@ -1604,27 +1500,9 @@ function ChainEditor$Main(Props) {
           };
           var diagram = diagramFromChain$1(state.chain);
           Curry._1(setState, (function (oldState) {
-                  return {
-                          diagram: diagram,
-                          card: oldState.card,
-                          schema: oldState.schema,
-                          chain: oldState.chain,
-                          compiledChain: oldState.compiledChain,
-                          chainResult: oldState.chainResult,
-                          scriptFunctions: oldState.scriptFunctions,
-                          chainExecutionResults: oldState.chainExecutionResults,
-                          blocks: oldState.blocks,
-                          inspected: oldState.inspected,
-                          blockEdit: oldState.blockEdit,
-                          scriptEditor: oldState.scriptEditor,
-                          savedChainId: oldState.savedChainId,
-                          requestValueCache: oldState.requestValueCache,
-                          debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient,
-                          trace: oldState.trace,
-                          insight: oldState.insight
-                        };
+                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                  newrecord.diagram = diagram;
+                  return newrecord;
                 }));
           
         }), []);
@@ -1650,31 +1528,13 @@ function ChainEditor$Main(Props) {
             Debug.assignToWindowForDeveloperDebug("fullTransformedCode", fullTransformed_code);
             Inspector.evalBabelInQuick(fullTransformed, state.insight, (function (param, store) {
                     return Curry._1(setState, (function (oldState) {
-                                  return {
-                                          diagram: oldState.diagram,
-                                          card: oldState.card,
-                                          schema: oldState.schema,
-                                          chain: oldState.chain,
-                                          compiledChain: oldState.compiledChain,
-                                          chainResult: oldState.chainResult,
-                                          scriptFunctions: oldState.scriptFunctions,
-                                          chainExecutionResults: oldState.chainExecutionResults,
-                                          blocks: oldState.blocks,
-                                          inspected: oldState.inspected,
-                                          blockEdit: oldState.blockEdit,
-                                          scriptEditor: oldState.scriptEditor,
-                                          savedChainId: oldState.savedChainId,
-                                          requestValueCache: oldState.requestValueCache,
-                                          debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: oldState.connectionDrag,
-                                          subscriptionClient: oldState.subscriptionClient,
-                                          trace: oldState.trace,
-                                          insight: {
-                                            store: store,
-                                            latestRunId: runId,
-                                            previousRunId: oldState.insight.latestRunId
-                                          }
-                                        };
+                                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                  newrecord.insight = {
+                                    store: store,
+                                    latestRunId: runId,
+                                    previousRunId: oldState.insight.latestRunId
+                                  };
+                                  return newrecord;
                                 }));
                   }), (function (err) {
                     console.warn("Error hyperevaling: ", err);
@@ -1689,57 +1549,21 @@ function ChainEditor$Main(Props) {
       ]);
   var onPotentialVariableSourceConnect = function (connectionDrag) {
     return Curry._1(setState, (function (oldState) {
-                  return {
-                          diagram: oldState.diagram,
-                          card: oldState.card,
-                          schema: oldState.schema,
-                          chain: oldState.chain,
-                          compiledChain: oldState.compiledChain,
-                          chainResult: oldState.chainResult,
-                          scriptFunctions: oldState.scriptFunctions,
-                          chainExecutionResults: oldState.chainExecutionResults,
-                          blocks: oldState.blocks,
-                          inspected: oldState.inspected,
-                          blockEdit: oldState.blockEdit,
-                          scriptEditor: oldState.scriptEditor,
-                          savedChainId: oldState.savedChainId,
-                          requestValueCache: oldState.requestValueCache,
-                          debugUIItems: oldState.debugUIItems,
-                          connectionDrag: connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient,
-                          trace: oldState.trace,
-                          insight: oldState.insight
-                        };
+                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                  newrecord.connectionDrag = connectionDrag;
+                  return newrecord;
                 }));
   };
   var diagramFromChain$1 = function (chain) {
     return diagramFromChain(chain, (function (block) {
                   return Curry._1(setState, (function (oldState) {
-                                return {
-                                        diagram: oldState.diagram,
-                                        card: oldState.card,
-                                        schema: oldState.schema,
-                                        chain: oldState.chain,
-                                        compiledChain: oldState.compiledChain,
-                                        chainResult: oldState.chainResult,
-                                        scriptFunctions: oldState.scriptFunctions,
-                                        chainExecutionResults: oldState.chainExecutionResults,
-                                        blocks: oldState.blocks,
-                                        inspected: oldState.inspected,
-                                        blockEdit: {
-                                          TAG: 1,
-                                          _0: block,
-                                          [Symbol.for("name")]: "Edit"
-                                        },
-                                        scriptEditor: oldState.scriptEditor,
-                                        savedChainId: oldState.savedChainId,
-                                        requestValueCache: oldState.requestValueCache,
-                                        debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: oldState.connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient,
-                                        trace: oldState.trace,
-                                        insight: oldState.insight
-                                      };
+                                var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                newrecord.blockEdit = {
+                                  TAG: 1,
+                                  _0: block,
+                                  [Symbol.for("name")]: "Edit"
+                                };
+                                return newrecord;
                               }));
                 }), (function (param, request, domRef) {
                   var connectionDrag = Belt_Option.mapWithDefault((domRef == null) ? undefined : Caml_option.some(domRef), /* Empty */0, (function (domRef) {
@@ -1751,27 +1575,9 @@ function ChainEditor$Main(Props) {
                                 };
                         }));
                   return Curry._1(setState, (function (oldState) {
-                                return {
-                                        diagram: oldState.diagram,
-                                        card: oldState.card,
-                                        schema: oldState.schema,
-                                        chain: oldState.chain,
-                                        compiledChain: oldState.compiledChain,
-                                        chainResult: oldState.chainResult,
-                                        scriptFunctions: oldState.scriptFunctions,
-                                        chainExecutionResults: oldState.chainExecutionResults,
-                                        blocks: oldState.blocks,
-                                        inspected: oldState.inspected,
-                                        blockEdit: oldState.blockEdit,
-                                        scriptEditor: oldState.scriptEditor,
-                                        savedChainId: oldState.savedChainId,
-                                        requestValueCache: oldState.requestValueCache,
-                                        debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient,
-                                        trace: oldState.trace,
-                                        insight: oldState.insight
-                                      };
+                                var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                newrecord.connectionDrag = connectionDrag;
+                                return newrecord;
                               }));
                 }), schema, onPotentialVariableSourceConnect, undefined);
   };
@@ -1794,27 +1600,9 @@ function ChainEditor$Main(Props) {
       [Symbol.for("name")]: "Request"
     };
     return Curry._1(setState, (function (oldState) {
-                  return {
-                          diagram: oldState.diagram,
-                          card: oldState.card,
-                          schema: oldState.schema,
-                          chain: oldState.chain,
-                          compiledChain: oldState.compiledChain,
-                          chainResult: oldState.chainResult,
-                          scriptFunctions: oldState.scriptFunctions,
-                          chainExecutionResults: oldState.chainExecutionResults,
-                          blocks: oldState.blocks,
-                          inspected: inspected,
-                          blockEdit: oldState.blockEdit,
-                          scriptEditor: oldState.scriptEditor,
-                          savedChainId: oldState.savedChainId,
-                          requestValueCache: oldState.requestValueCache,
-                          debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient,
-                          trace: oldState.trace,
-                          insight: oldState.insight
-                        };
+                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                  newrecord.inspected = inspected;
+                  return newrecord;
                 }));
   };
   React.useEffect((function () {
@@ -1839,35 +1627,17 @@ function ChainEditor$Main(Props) {
         }), [state.chain.blocks]);
   React.useEffect((function () {
           Curry._1(setState, (function (oldState) {
+                  var newrecord = Caml_obj.caml_obj_dup(oldState);
                   var init = oldState.chain;
-                  return {
-                          diagram: oldState.diagram,
-                          card: oldState.card,
-                          schema: oldState.schema,
-                          chain: {
-                            name: initialChain.name,
-                            id: init.id,
-                            script: init.script,
-                            scriptDependencies: init.scriptDependencies,
-                            requests: init.requests,
-                            blocks: init.blocks
-                          },
-                          compiledChain: oldState.compiledChain,
-                          chainResult: oldState.chainResult,
-                          scriptFunctions: oldState.scriptFunctions,
-                          chainExecutionResults: oldState.chainExecutionResults,
-                          blocks: oldState.blocks,
-                          inspected: oldState.inspected,
-                          blockEdit: oldState.blockEdit,
-                          scriptEditor: oldState.scriptEditor,
-                          savedChainId: oldState.savedChainId,
-                          requestValueCache: oldState.requestValueCache,
-                          debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient,
-                          trace: oldState.trace,
-                          insight: oldState.insight
-                        };
+                  newrecord.chain = {
+                    name: initialChain.name,
+                    id: init.id,
+                    script: init.script,
+                    scriptDependencies: init.scriptDependencies,
+                    requests: init.requests,
+                    blocks: init.blocks
+                  };
+                  return newrecord;
                 }));
           
         }), [initialChain.name]);
@@ -1911,27 +1681,9 @@ function ChainEditor$Main(Props) {
           return Promise.resolve(Curry._1(setState, (function (oldState) {
                             oldState.requestValueCache[request.id] = result;
                             var newOne = Js_dict.fromArray(Js_dict.entries(oldState.requestValueCache));
-                            return {
-                                    diagram: oldState.diagram,
-                                    card: oldState.card,
-                                    schema: oldState.schema,
-                                    chain: oldState.chain,
-                                    compiledChain: oldState.compiledChain,
-                                    chainResult: oldState.chainResult,
-                                    scriptFunctions: oldState.scriptFunctions,
-                                    chainExecutionResults: oldState.chainExecutionResults,
-                                    blocks: oldState.blocks,
-                                    inspected: oldState.inspected,
-                                    blockEdit: oldState.blockEdit,
-                                    scriptEditor: oldState.scriptEditor,
-                                    savedChainId: oldState.savedChainId,
-                                    requestValueCache: newOne,
-                                    debugUIItems: oldState.debugUIItems,
-                                    connectionDrag: oldState.connectionDrag,
-                                    subscriptionClient: oldState.subscriptionClient,
-                                    trace: oldState.trace,
-                                    insight: oldState.insight
-                                  };
+                            var newrecord = Caml_obj.caml_obj_dup(oldState);
+                            newrecord.requestValueCache = newOne;
+                            return newrecord;
                           })));
         });
     
@@ -2043,27 +1795,11 @@ function ChainEditor$Main(Props) {
                       };
               })), state.inspected);
     return Curry._1(setState, (function (oldState) {
-                  return {
-                          diagram: diagram,
-                          card: oldState.card,
-                          schema: oldState.schema,
-                          chain: newChain,
-                          compiledChain: oldState.compiledChain,
-                          chainResult: oldState.chainResult,
-                          scriptFunctions: oldState.scriptFunctions,
-                          chainExecutionResults: oldState.chainExecutionResults,
-                          blocks: oldState.blocks,
-                          inspected: inspected,
-                          blockEdit: oldState.blockEdit,
-                          scriptEditor: oldState.scriptEditor,
-                          savedChainId: oldState.savedChainId,
-                          requestValueCache: oldState.requestValueCache,
-                          debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient,
-                          trace: oldState.trace,
-                          insight: oldState.insight
-                        };
+                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                  newrecord.inspected = inspected;
+                  newrecord.chain = newChain;
+                  newrecord.diagram = diagram;
+                  return newrecord;
                 }));
   };
   var removeRequest = function (oldChain, targetRequest) {
@@ -2183,61 +1919,32 @@ function ChainEditor$Main(Props) {
         onAdd: addBlock,
         onInspect: (function (block) {
             return Curry._1(setState, (function (oldState) {
-                          return {
-                                  diagram: oldState.diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: oldState.chain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: {
-                                    TAG: 1,
-                                    _0: block,
-                                    [Symbol.for("name")]: "Block"
-                                  },
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.inspected = {
+                            TAG: 1,
+                            _0: block,
+                            [Symbol.for("name")]: "Block"
+                          };
+                          return newrecord;
                         }));
           }),
         blocks: state.blocks,
         onCreate: (function (kind) {
             return Curry._1(setState, (function (oldState) {
-                          return {
-                                  diagram: oldState.diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: oldState.chain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: oldState.inspected,
-                                  blockEdit: {
-                                    TAG: 0,
-                                    _0: makeBlankBlock(kind),
-                                    [Symbol.for("name")]: "Create"
-                                  },
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.blockEdit = {
+                            TAG: 0,
+                            _0: makeBlankBlock(kind),
+                            [Symbol.for("name")]: "Create"
+                          };
+                          return newrecord;
+                        }));
+          }),
+        onClose: (function (param) {
+            return Curry._1(setState, (function (oldState) {
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.blockSearchOpen = false;
+                          return newrecord;
                         }));
           })
       });
@@ -2291,57 +1998,23 @@ function ChainEditor$Main(Props) {
             }
             var diagram = diagramFromChain$1(newChain);
             return Curry._1(setState, (function (oldState) {
-                          return {
-                                  diagram: diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: newChain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: inspected,
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.inspected = inspected;
+                          newrecord.chain = newChain;
+                          newrecord.diagram = diagram;
+                          return newrecord;
                         }));
           }),
         onReset: (function (param) {
             return Curry._1(setState, (function (oldState) {
-                          return {
-                                  diagram: oldState.diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: oldState.chain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: {
-                                    TAG: 0,
-                                    chain: state.chain,
-                                    trace: state.trace,
-                                    [Symbol.for("name")]: "Nothing"
-                                  },
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.inspected = {
+                            TAG: 0,
+                            chain: state.chain,
+                            trace: state.trace,
+                            [Symbol.for("name")]: "Nothing"
+                          };
+                          return newrecord;
                         }));
           }),
         chain: state.chain,
@@ -2389,27 +2062,10 @@ function ChainEditor$Main(Props) {
                                                   };
                                           }));
                                     Belt_Option.forEach(newTrace, Chain.Trace.saveToLocalStorage);
-                                    return {
-                                            diagram: oldState.diagram,
-                                            card: oldState.card,
-                                            schema: oldState.schema,
-                                            chain: oldState.chain,
-                                            compiledChain: oldState.compiledChain,
-                                            chainResult: oldState.chainResult,
-                                            scriptFunctions: oldState.scriptFunctions,
-                                            chainExecutionResults: result,
-                                            blocks: oldState.blocks,
-                                            inspected: oldState.inspected,
-                                            blockEdit: oldState.blockEdit,
-                                            scriptEditor: oldState.scriptEditor,
-                                            savedChainId: oldState.savedChainId,
-                                            requestValueCache: oldState.requestValueCache,
-                                            debugUIItems: oldState.debugUIItems,
-                                            connectionDrag: oldState.connectionDrag,
-                                            subscriptionClient: oldState.subscriptionClient,
-                                            trace: newTrace,
-                                            insight: oldState.insight
-                                          };
+                                    var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                    newrecord.trace = newTrace;
+                                    newrecord.chainExecutionResults = result;
+                                    return newrecord;
                                   })));
                 });
             
@@ -2426,27 +2082,9 @@ function ChainEditor$Main(Props) {
                             var docId = results.data.oneGraph.createPersistedQuery.persistedQuery.id;
                             Chain.saveToLocalStorage(state.chain);
                             return Curry._1(setState, (function (oldState) {
-                                          return {
-                                                  diagram: oldState.diagram,
-                                                  card: oldState.card,
-                                                  schema: oldState.schema,
-                                                  chain: oldState.chain,
-                                                  compiledChain: oldState.compiledChain,
-                                                  chainResult: oldState.chainResult,
-                                                  scriptFunctions: oldState.scriptFunctions,
-                                                  chainExecutionResults: oldState.chainExecutionResults,
-                                                  blocks: oldState.blocks,
-                                                  inspected: oldState.inspected,
-                                                  blockEdit: oldState.blockEdit,
-                                                  scriptEditor: oldState.scriptEditor,
-                                                  savedChainId: docId,
-                                                  requestValueCache: oldState.requestValueCache,
-                                                  debugUIItems: oldState.debugUIItems,
-                                                  connectionDrag: oldState.connectionDrag,
-                                                  subscriptionClient: oldState.subscriptionClient,
-                                                  trace: oldState.trace,
-                                                  insight: oldState.insight
-                                                };
+                                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                          newrecord.savedChainId = docId;
+                                          return newrecord;
                                         }));
                           }
                           catch (raw_ex){
@@ -2487,91 +2125,41 @@ function ChainEditor$Main(Props) {
             return Curry._1(setState, (function (oldState) {
                           var newChain = removeRequest(oldState.chain, targetRequest);
                           var diagram = diagramFromChain$1(newChain);
-                          return {
-                                  diagram: diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: newChain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: {
-                                    TAG: 0,
-                                    chain: newChain,
-                                    trace: state.trace,
-                                    [Symbol.for("name")]: "Nothing"
-                                  },
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.inspected = {
+                            TAG: 0,
+                            chain: newChain,
+                            trace: state.trace,
+                            [Symbol.for("name")]: "Nothing"
+                          };
+                          newrecord.chain = newChain;
+                          newrecord.diagram = diagram;
+                          return newrecord;
                         }));
           }),
         onDeleteEdge: (function (targetRequestId, dependencyId) {
             return Curry._1(setState, (function (oldState) {
                           var newChain = removeEdge(oldState.chain, dependencyId, targetRequestId);
                           var diagram = diagramFromChain$1(newChain);
-                          return {
-                                  diagram: diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: newChain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: {
-                                    TAG: 0,
-                                    chain: newChain,
-                                    trace: state.trace,
-                                    [Symbol.for("name")]: "Nothing"
-                                  },
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.inspected = {
+                            TAG: 0,
+                            chain: newChain,
+                            trace: state.trace,
+                            [Symbol.for("name")]: "Nothing"
+                          };
+                          newrecord.chain = newChain;
+                          newrecord.diagram = diagram;
+                          return newrecord;
                         }));
           }),
         onRequestInspected: onRequestInspected,
         oneGraphAuth: oneGraphAuth,
         onDragStart: (function (connectionDrag) {
             return Curry._1(setState, (function (oldState) {
-                          return {
-                                  diagram: oldState.diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: oldState.chain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: oldState.inspected,
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.connectionDrag = connectionDrag;
+                          return newrecord;
                         }));
           }),
         trace: state.trace,
@@ -2660,27 +2248,11 @@ function ChainEditor$Main(Props) {
             
           }
           return Curry._1(setState, (function (oldState) {
-                        return {
-                                diagram: oldState.diagram,
-                                card: oldState.card,
-                                schema: oldState.schema,
-                                chain: newChain,
-                                compiledChain: oldState.compiledChain,
-                                chainResult: oldState.chainResult,
-                                scriptFunctions: functionNames,
-                                chainExecutionResults: oldState.chainExecutionResults,
-                                blocks: oldState.blocks,
-                                inspected: inspected,
-                                blockEdit: oldState.blockEdit,
-                                scriptEditor: oldState.scriptEditor,
-                                savedChainId: oldState.savedChainId,
-                                requestValueCache: oldState.requestValueCache,
-                                debugUIItems: oldState.debugUIItems,
-                                connectionDrag: oldState.connectionDrag,
-                                subscriptionClient: oldState.subscriptionClient,
-                                trace: oldState.trace,
-                                insight: oldState.insight
-                              };
+                        var newrecord = Caml_obj.caml_obj_dup(oldState);
+                        newrecord.inspected = inspected;
+                        newrecord.scriptFunctions = functionNames;
+                        newrecord.chain = newChain;
+                        return newrecord;
                       }));
         }
         catch (raw_err){
@@ -2691,32 +2263,14 @@ function ChainEditor$Main(Props) {
       }),
     onMount: (function (editor, monaco) {
         return Curry._1(setState, (function (oldState) {
+                      var newrecord = Caml_obj.caml_obj_dup(oldState);
                       var init = oldState.scriptEditor;
-                      return {
-                              diagram: oldState.diagram,
-                              card: oldState.card,
-                              schema: oldState.schema,
-                              chain: oldState.chain,
-                              compiledChain: oldState.compiledChain,
-                              chainResult: oldState.chainResult,
-                              scriptFunctions: oldState.scriptFunctions,
-                              chainExecutionResults: oldState.chainExecutionResults,
-                              blocks: oldState.blocks,
-                              inspected: oldState.inspected,
-                              blockEdit: oldState.blockEdit,
-                              scriptEditor: {
-                                isOpen: init.isOpen,
-                                editor: Caml_option.some(editor),
-                                monaco: Caml_option.some(monaco)
-                              },
-                              savedChainId: oldState.savedChainId,
-                              requestValueCache: oldState.requestValueCache,
-                              debugUIItems: oldState.debugUIItems,
-                              connectionDrag: oldState.connectionDrag,
-                              subscriptionClient: oldState.subscriptionClient,
-                              trace: oldState.trace,
-                              insight: oldState.insight
-                            };
+                      newrecord.scriptEditor = {
+                        isOpen: init.isOpen,
+                        editor: Caml_option.some(editor),
+                        monaco: Caml_option.some(monaco)
+                      };
+                      return newrecord;
                     }));
       }),
     onPotentialScriptSourceConnect: (function (sourceRequest, sourceDom, scriptPosition, param) {
@@ -2740,27 +2294,9 @@ function ChainEditor$Main(Props) {
                         windowPosition: connectionDrag_3,
                         [Symbol.for("name")]: "Completed"
                       };
-                      return {
-                              diagram: oldState.diagram,
-                              card: oldState.card,
-                              schema: oldState.schema,
-                              chain: oldState.chain,
-                              compiledChain: oldState.compiledChain,
-                              chainResult: oldState.chainResult,
-                              scriptFunctions: oldState.scriptFunctions,
-                              chainExecutionResults: oldState.chainExecutionResults,
-                              blocks: oldState.blocks,
-                              inspected: oldState.inspected,
-                              blockEdit: oldState.blockEdit,
-                              scriptEditor: oldState.scriptEditor,
-                              savedChainId: oldState.savedChainId,
-                              requestValueCache: oldState.requestValueCache,
-                              debugUIItems: oldState.debugUIItems,
-                              connectionDrag: connectionDrag,
-                              subscriptionClient: oldState.subscriptionClient,
-                              trace: oldState.trace,
-                              insight: oldState.insight
-                            };
+                      var newrecord = Caml_obj.caml_obj_dup(oldState);
+                      newrecord.connectionDrag = connectionDrag;
+                      return newrecord;
                     }));
       }),
     onSaveChain: onSaveChain,
@@ -2786,27 +2322,9 @@ function ChainEditor$Main(Props) {
           block: match$3._0,
           onClose: (function (param) {
               return Curry._1(setState, (function (oldState) {
-                            return {
-                                    diagram: oldState.diagram,
-                                    card: oldState.card,
-                                    schema: oldState.schema,
-                                    chain: oldState.chain,
-                                    compiledChain: oldState.compiledChain,
-                                    chainResult: oldState.chainResult,
-                                    scriptFunctions: oldState.scriptFunctions,
-                                    chainExecutionResults: oldState.chainExecutionResults,
-                                    blocks: oldState.blocks,
-                                    inspected: oldState.inspected,
-                                    blockEdit: /* Nothing */0,
-                                    scriptEditor: oldState.scriptEditor,
-                                    savedChainId: oldState.savedChainId,
-                                    requestValueCache: oldState.requestValueCache,
-                                    debugUIItems: oldState.debugUIItems,
-                                    connectionDrag: oldState.connectionDrag,
-                                    subscriptionClient: oldState.subscriptionClient,
-                                    trace: oldState.trace,
-                                    insight: oldState.insight
-                                  };
+                            var newrecord = Caml_obj.caml_obj_dup(oldState);
+                            newrecord.blockEdit = /* Nothing */0;
+                            return newrecord;
                           }));
             }),
           onSave: (function (initial, superBlock) {
@@ -3081,27 +2599,13 @@ function ChainEditor$Main(Props) {
                               }
                               var allBlocks = Belt_Array.concat(oldState.blocks, blocks);
                               var diagram = diagramFromChain$1(newChain);
-                              return {
-                                      diagram: diagram,
-                                      card: oldState.card,
-                                      schema: oldState.schema,
-                                      chain: newChain,
-                                      compiledChain: oldState.compiledChain,
-                                      chainResult: oldState.chainResult,
-                                      scriptFunctions: oldState.scriptFunctions,
-                                      chainExecutionResults: oldState.chainExecutionResults,
-                                      blocks: allBlocks,
-                                      inspected: inspected,
-                                      blockEdit: /* Nothing */0,
-                                      scriptEditor: oldState.scriptEditor,
-                                      savedChainId: oldState.savedChainId,
-                                      requestValueCache: oldState.requestValueCache,
-                                      debugUIItems: oldState.debugUIItems,
-                                      connectionDrag: oldState.connectionDrag,
-                                      subscriptionClient: oldState.subscriptionClient,
-                                      trace: oldState.trace,
-                                      insight: oldState.insight
-                                    };
+                              var newrecord = Caml_obj.caml_obj_dup(oldState);
+                              newrecord.blockEdit = /* Nothing */0;
+                              newrecord.inspected = inspected;
+                              newrecord.blocks = allBlocks;
+                              newrecord.chain = newChain;
+                              newrecord.diagram = diagram;
+                              return newrecord;
                             }));
               }
               catch (exn){
@@ -3125,27 +2629,9 @@ function ChainEditor$Main(Props) {
                 source: dragInfo.sourceDom,
                 onDragEnd: (function (param) {
                     return Curry._1(setState, (function (oldState) {
-                                  return {
-                                          diagram: oldState.diagram,
-                                          card: oldState.card,
-                                          schema: oldState.schema,
-                                          chain: oldState.chain,
-                                          compiledChain: oldState.compiledChain,
-                                          chainResult: oldState.chainResult,
-                                          scriptFunctions: oldState.scriptFunctions,
-                                          chainExecutionResults: oldState.chainExecutionResults,
-                                          blocks: oldState.blocks,
-                                          inspected: oldState.inspected,
-                                          blockEdit: oldState.blockEdit,
-                                          scriptEditor: oldState.scriptEditor,
-                                          savedChainId: oldState.savedChainId,
-                                          requestValueCache: oldState.requestValueCache,
-                                          debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: /* Empty */0,
-                                          subscriptionClient: oldState.subscriptionClient,
-                                          trace: oldState.trace,
-                                          insight: oldState.insight
-                                        };
+                                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                  newrecord.connectionDrag = /* Empty */0;
+                                  return newrecord;
                                 }));
                   }),
                 invert: false
@@ -3156,27 +2642,9 @@ function ChainEditor$Main(Props) {
                   source: dragInfo.sourceDom,
                   onDragEnd: (function (param) {
                       return Curry._1(setState, (function (oldState) {
-                                    return {
-                                            diagram: oldState.diagram,
-                                            card: oldState.card,
-                                            schema: oldState.schema,
-                                            chain: oldState.chain,
-                                            compiledChain: oldState.compiledChain,
-                                            chainResult: oldState.chainResult,
-                                            scriptFunctions: oldState.scriptFunctions,
-                                            chainExecutionResults: oldState.chainExecutionResults,
-                                            blocks: oldState.blocks,
-                                            inspected: oldState.inspected,
-                                            blockEdit: oldState.blockEdit,
-                                            scriptEditor: oldState.scriptEditor,
-                                            savedChainId: oldState.savedChainId,
-                                            requestValueCache: oldState.requestValueCache,
-                                            debugUIItems: oldState.debugUIItems,
-                                            connectionDrag: /* Empty */0,
-                                            subscriptionClient: oldState.subscriptionClient,
-                                            trace: oldState.trace,
-                                            insight: oldState.insight
-                                          };
+                                    var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                    newrecord.connectionDrag = /* Empty */0;
+                                    return newrecord;
                                   }));
                     }),
                   invert: true
@@ -3216,27 +2684,9 @@ function ChainEditor$Main(Props) {
               connectionDrag = /* Empty */0;
             }
             return Curry._1(setState, (function (oldState) {
-                          return {
-                                  diagram: oldState.diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: oldState.chain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: oldState.inspected,
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.connectionDrag = connectionDrag;
+                          return newrecord;
                         }));
           };
           tmp$3 = React.createElement(ChainEditor$PopupPicker, {
@@ -3295,27 +2745,9 @@ function ChainEditor$Main(Props) {
                   }));
             var onClose$1 = function (param) {
               return Curry._1(setState, (function (oldState) {
-                            return {
-                                    diagram: oldState.diagram,
-                                    card: oldState.card,
-                                    schema: oldState.schema,
-                                    chain: oldState.chain,
-                                    compiledChain: oldState.compiledChain,
-                                    chainResult: oldState.chainResult,
-                                    scriptFunctions: oldState.scriptFunctions,
-                                    chainExecutionResults: oldState.chainExecutionResults,
-                                    blocks: oldState.blocks,
-                                    inspected: oldState.inspected,
-                                    blockEdit: oldState.blockEdit,
-                                    scriptEditor: oldState.scriptEditor,
-                                    savedChainId: oldState.savedChainId,
-                                    requestValueCache: oldState.requestValueCache,
-                                    debugUIItems: oldState.debugUIItems,
-                                    connectionDrag: /* Empty */0,
-                                    subscriptionClient: oldState.subscriptionClient,
-                                    trace: oldState.trace,
-                                    insight: oldState.insight
-                                  };
+                            var newrecord = Caml_obj.caml_obj_dup(oldState);
+                            newrecord.connectionDrag = /* Empty */0;
+                            return newrecord;
                           }));
             };
             var tmp$4 = {
@@ -3500,27 +2932,12 @@ function ChainEditor$Main(Props) {
                                             return oldState.inspected;
                                           }
                                         }));
-                                  return {
-                                          diagram: diagram,
-                                          card: oldState.card,
-                                          schema: oldState.schema,
-                                          chain: newChain,
-                                          compiledChain: oldState.compiledChain,
-                                          chainResult: oldState.chainResult,
-                                          scriptFunctions: oldState.scriptFunctions,
-                                          chainExecutionResults: oldState.chainExecutionResults,
-                                          blocks: oldState.blocks,
-                                          inspected: inspected,
-                                          blockEdit: oldState.blockEdit,
-                                          scriptEditor: oldState.scriptEditor,
-                                          savedChainId: oldState.savedChainId,
-                                          requestValueCache: oldState.requestValueCache,
-                                          debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: /* Empty */0,
-                                          subscriptionClient: oldState.subscriptionClient,
-                                          trace: oldState.trace,
-                                          insight: oldState.insight
-                                        };
+                                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                  newrecord.connectionDrag = /* Empty */0;
+                                  newrecord.inspected = inspected;
+                                  newrecord.chain = newChain;
+                                  newrecord.diagram = diagram;
+                                  return newrecord;
                                 }));
                   } else {
                     return Curry._1(setState, (function (oldState) {
@@ -3616,53 +3033,17 @@ function ChainEditor$Main(Props) {
                                                   [Symbol.for("name")]: "CompletedWithTypeMismatch"
                                                 };
                                         }));
-                                  return {
-                                          diagram: oldState.diagram,
-                                          card: oldState.card,
-                                          schema: oldState.schema,
-                                          chain: oldState.chain,
-                                          compiledChain: oldState.compiledChain,
-                                          chainResult: oldState.chainResult,
-                                          scriptFunctions: oldState.scriptFunctions,
-                                          chainExecutionResults: oldState.chainExecutionResults,
-                                          blocks: oldState.blocks,
-                                          inspected: oldState.inspected,
-                                          blockEdit: oldState.blockEdit,
-                                          scriptEditor: oldState.scriptEditor,
-                                          savedChainId: oldState.savedChainId,
-                                          requestValueCache: oldState.requestValueCache,
-                                          debugUIItems: oldState.debugUIItems,
-                                          connectionDrag: Belt_Option.getWithDefault(newConnectionDrag, /* Empty */0),
-                                          subscriptionClient: oldState.subscriptionClient,
-                                          trace: oldState.trace,
-                                          insight: oldState.insight
-                                        };
+                                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                  newrecord.connectionDrag = Belt_Option.getWithDefault(newConnectionDrag, /* Empty */0);
+                                  return newrecord;
                                 }));
                   }
                 }),
               onClose: (function (param) {
                   return Curry._1(setState, (function (oldState) {
-                                return {
-                                        diagram: oldState.diagram,
-                                        card: oldState.card,
-                                        schema: oldState.schema,
-                                        chain: oldState.chain,
-                                        compiledChain: oldState.compiledChain,
-                                        chainResult: oldState.chainResult,
-                                        scriptFunctions: oldState.scriptFunctions,
-                                        chainExecutionResults: oldState.chainExecutionResults,
-                                        blocks: oldState.blocks,
-                                        inspected: oldState.inspected,
-                                        blockEdit: oldState.blockEdit,
-                                        scriptEditor: oldState.scriptEditor,
-                                        savedChainId: oldState.savedChainId,
-                                        requestValueCache: oldState.requestValueCache,
-                                        debugUIItems: oldState.debugUIItems,
-                                        connectionDrag: /* Empty */0,
-                                        subscriptionClient: oldState.subscriptionClient,
-                                        trace: oldState.trace,
-                                        insight: oldState.insight
-                                      };
+                                var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                newrecord.connectionDrag = /* Empty */0;
+                                return newrecord;
                               }));
                 })
             };
@@ -3696,27 +3077,9 @@ function ChainEditor$Main(Props) {
             var definition$1 = Belt_Array.getExn(parsedOperation$1.definitions, 0);
             var onClose$2 = function (param) {
               return Curry._1(setState, (function (oldState) {
-                            return {
-                                    diagram: oldState.diagram,
-                                    card: oldState.card,
-                                    schema: oldState.schema,
-                                    chain: oldState.chain,
-                                    compiledChain: oldState.compiledChain,
-                                    chainResult: oldState.chainResult,
-                                    scriptFunctions: oldState.scriptFunctions,
-                                    chainExecutionResults: oldState.chainExecutionResults,
-                                    blocks: oldState.blocks,
-                                    inspected: oldState.inspected,
-                                    blockEdit: oldState.blockEdit,
-                                    scriptEditor: oldState.scriptEditor,
-                                    savedChainId: oldState.savedChainId,
-                                    requestValueCache: oldState.requestValueCache,
-                                    debugUIItems: oldState.debugUIItems,
-                                    connectionDrag: /* Empty */0,
-                                    subscriptionClient: oldState.subscriptionClient,
-                                    trace: oldState.trace,
-                                    insight: oldState.insight
-                                  };
+                            var newrecord = Caml_obj.caml_obj_dup(oldState);
+                            newrecord.connectionDrag = /* Empty */0;
+                            return newrecord;
                           }));
             };
             tmp$3 = React.createElement(ChainEditor$PopupPicker, {
@@ -3813,52 +3176,17 @@ function ChainEditor$Main(Props) {
                                           requests: newChain_requests,
                                           blocks: newChain_blocks
                                         };
-                                        return {
-                                                diagram: oldState.diagram,
-                                                card: oldState.card,
-                                                schema: oldState.schema,
-                                                chain: newChain,
-                                                compiledChain: oldState.compiledChain,
-                                                chainResult: oldState.chainResult,
-                                                scriptFunctions: oldState.scriptFunctions,
-                                                chainExecutionResults: oldState.chainExecutionResults,
-                                                blocks: oldState.blocks,
-                                                inspected: oldState.inspected,
-                                                blockEdit: oldState.blockEdit,
-                                                scriptEditor: oldState.scriptEditor,
-                                                savedChainId: oldState.savedChainId,
-                                                requestValueCache: oldState.requestValueCache,
-                                                debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: /* Empty */0,
-                                                subscriptionClient: oldState.subscriptionClient,
-                                                trace: oldState.trace,
-                                                insight: oldState.insight
-                                              };
+                                        var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                        newrecord.connectionDrag = /* Empty */0;
+                                        newrecord.chain = newChain;
+                                        return newrecord;
                                       }));
                         }),
                       onClose: (function (param) {
                           return Curry._1(setState, (function (oldState) {
-                                        return {
-                                                diagram: oldState.diagram,
-                                                card: oldState.card,
-                                                schema: oldState.schema,
-                                                chain: oldState.chain,
-                                                compiledChain: oldState.compiledChain,
-                                                chainResult: oldState.chainResult,
-                                                scriptFunctions: oldState.scriptFunctions,
-                                                chainExecutionResults: oldState.chainExecutionResults,
-                                                blocks: oldState.blocks,
-                                                inspected: oldState.inspected,
-                                                blockEdit: oldState.blockEdit,
-                                                scriptEditor: oldState.scriptEditor,
-                                                savedChainId: oldState.savedChainId,
-                                                requestValueCache: oldState.requestValueCache,
-                                                debugUIItems: oldState.debugUIItems,
-                                                connectionDrag: /* Empty */0,
-                                                subscriptionClient: oldState.subscriptionClient,
-                                                trace: oldState.trace,
-                                                insight: oldState.insight
-                                              };
+                                        var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                        newrecord.connectionDrag = /* Empty */0;
+                                        return newrecord;
                                       }));
                         })
                     }));
@@ -4081,52 +3409,17 @@ function ChainEditor$Main(Props) {
                             requests: newRequests,
                             blocks: newChain_blocks
                           };
-                          return {
-                                  diagram: oldState.diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: newChain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: oldState.inspected,
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: /* Empty */0,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.connectionDrag = /* Empty */0;
+                          newrecord.chain = newChain;
+                          return newrecord;
                         }));
           };
           var onClose$3 = function (param) {
             return Curry._1(setState, (function (oldState) {
-                          return {
-                                  diagram: oldState.diagram,
-                                  card: oldState.card,
-                                  schema: oldState.schema,
-                                  chain: oldState.chain,
-                                  compiledChain: oldState.compiledChain,
-                                  chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
-                                  chainExecutionResults: oldState.chainExecutionResults,
-                                  blocks: oldState.blocks,
-                                  inspected: oldState.inspected,
-                                  blockEdit: oldState.blockEdit,
-                                  scriptEditor: oldState.scriptEditor,
-                                  savedChainId: oldState.savedChainId,
-                                  requestValueCache: oldState.requestValueCache,
-                                  debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: /* Empty */0,
-                                  subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
-                                };
+                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                          newrecord.connectionDrag = /* Empty */0;
+                          return newrecord;
                         }));
           };
           tmp$3 = React.createElement(ChainEditor$PopupPicker, {
@@ -4211,20 +3504,33 @@ function ChainEditor$Main(Props) {
                         children: null
                       }, React.createElement("div", {
                             className: "flex flex-row flex-nowrap"
-                          }, React.createElement(ReactResizePanel, {
-                                direction: "e",
-                                style: {
-                                  width: "400px"
-                                },
-                                handleClass: "ResizeHandleHorizontal",
-                                children: React.createElement("div", {
-                                      className: "w-full",
-                                      style: {
-                                        backgroundColor: Comps.colors["gray-9"],
-                                        height: "calc(100vh - 56px)"
-                                      }
-                                    }, blockSearch)
-                              }), React.createElement("div", {
+                          }, state.blockSearchOpen ? React.createElement(ReactResizePanel, {
+                                  direction: "e",
+                                  style: {
+                                    width: "400px"
+                                  },
+                                  handleClass: "ResizeHandleHorizontal",
+                                  children: React.createElement("div", {
+                                        className: "w-full",
+                                        style: {
+                                          backgroundColor: Comps.colors["gray-9"],
+                                          height: "calc(100vh - 56px)"
+                                        }
+                                      }, blockSearch)
+                                }) : React.createElement("div", {
+                                  className: "cursor-pointer",
+                                  style: {
+                                    color: "white",
+                                    width: "25px"
+                                  },
+                                  onClick: (function (param) {
+                                      return Curry._1(setState, (function (oldState) {
+                                                    var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                                    newrecord.blockSearchOpen = true;
+                                                    return newrecord;
+                                                  }));
+                                    })
+                                }, "▹"), React.createElement("div", {
                                 className: "flex-1 overflow-x-hidden"
                               }, React.createElement("div", {
                                     style: {
@@ -4271,32 +3577,14 @@ function ChainEditor$Main(Props) {
                                         className: "",
                                         onClick: (function (param) {
                                             return Curry._1(setState, (function (oldState) {
+                                                          var newrecord = Caml_obj.caml_obj_dup(oldState);
                                                           var init = oldState.scriptEditor;
-                                                          return {
-                                                                  diagram: oldState.diagram,
-                                                                  card: oldState.card,
-                                                                  schema: oldState.schema,
-                                                                  chain: oldState.chain,
-                                                                  compiledChain: oldState.compiledChain,
-                                                                  chainResult: oldState.chainResult,
-                                                                  scriptFunctions: oldState.scriptFunctions,
-                                                                  chainExecutionResults: oldState.chainExecutionResults,
-                                                                  blocks: oldState.blocks,
-                                                                  inspected: oldState.inspected,
-                                                                  blockEdit: oldState.blockEdit,
-                                                                  scriptEditor: {
-                                                                    isOpen: !oldState.scriptEditor.isOpen,
-                                                                    editor: init.editor,
-                                                                    monaco: init.monaco
-                                                                  },
-                                                                  savedChainId: oldState.savedChainId,
-                                                                  requestValueCache: oldState.requestValueCache,
-                                                                  debugUIItems: oldState.debugUIItems,
-                                                                  connectionDrag: oldState.connectionDrag,
-                                                                  subscriptionClient: oldState.subscriptionClient,
-                                                                  trace: oldState.trace,
-                                                                  insight: oldState.insight
-                                                                };
+                                                          newrecord.scriptEditor = {
+                                                            isOpen: !oldState.scriptEditor.isOpen,
+                                                            editor: init.editor,
+                                                            monaco: init.monaco
+                                                          };
+                                                          return newrecord;
                                                         }));
                                           })
                                       }, React.createElement(Comps.Header.make, {
@@ -4320,35 +3608,17 @@ function ChainEditor$Main(Props) {
                                                                             singleQuote: true
                                                                           });
                                                                       return Curry._1(setState, (function (oldState) {
+                                                                                    var newrecord = Caml_obj.caml_obj_dup(oldState);
                                                                                     var init = oldState.chain;
-                                                                                    return {
-                                                                                            diagram: oldState.diagram,
-                                                                                            card: oldState.card,
-                                                                                            schema: oldState.schema,
-                                                                                            chain: {
-                                                                                              name: init.name,
-                                                                                              id: init.id,
-                                                                                              script: newScript,
-                                                                                              scriptDependencies: init.scriptDependencies,
-                                                                                              requests: init.requests,
-                                                                                              blocks: init.blocks
-                                                                                            },
-                                                                                            compiledChain: oldState.compiledChain,
-                                                                                            chainResult: oldState.chainResult,
-                                                                                            scriptFunctions: oldState.scriptFunctions,
-                                                                                            chainExecutionResults: oldState.chainExecutionResults,
-                                                                                            blocks: oldState.blocks,
-                                                                                            inspected: oldState.inspected,
-                                                                                            blockEdit: oldState.blockEdit,
-                                                                                            scriptEditor: oldState.scriptEditor,
-                                                                                            savedChainId: oldState.savedChainId,
-                                                                                            requestValueCache: oldState.requestValueCache,
-                                                                                            debugUIItems: oldState.debugUIItems,
-                                                                                            connectionDrag: oldState.connectionDrag,
-                                                                                            subscriptionClient: oldState.subscriptionClient,
-                                                                                            trace: oldState.trace,
-                                                                                            insight: oldState.insight
-                                                                                          };
+                                                                                    newrecord.chain = {
+                                                                                      name: init.name,
+                                                                                      id: init.id,
+                                                                                      script: newScript,
+                                                                                      scriptDependencies: init.scriptDependencies,
+                                                                                      requests: init.requests,
+                                                                                      blocks: init.blocks
+                                                                                    };
+                                                                                    return newrecord;
                                                                                   }));
                                                                     }));
                                                       })

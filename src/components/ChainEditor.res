@@ -55,6 +55,7 @@ type state = {
   blocks: array<Card.block>,
   inspected: Inspector.inspectable,
   blockEdit: blockEdit,
+  blockSearchOpen: bool,
   scriptEditor: scriptEditor,
   savedChainId: option<string>,
   requestValueCache: Js.Dict.t<Js.Json.t>,
@@ -1464,6 +1465,7 @@ module Main = {
 
       {
         diagram: None,
+        blockSearchOpen: true,
         chain: initialChain,
         card: Some(Card.watchTwitterFollower),
         schema: schema,
@@ -2012,6 +2014,12 @@ ${newScript}`
             blockEdit: Create(makeBlankBlock(kind)),
           })
         }}
+        onClose={() => {
+          setState(oldState => {
+            ...oldState,
+            blockSearchOpen: false,
+          })
+        }}
       />
 
     let sidebar = {
@@ -2256,20 +2264,31 @@ ${newScript}`
       <InspectedContextProvider value={Some(state.inspected)}>
         <ConnectionContext.Provider value={state.connectionDrag}>
           <div className="flex flex-row flex-nowrap">
-            <ReactResizePanel
-              direction=#e
-              style={ReactDOMStyle.make(~width="400px", ())}
-              handleClass="ResizeHandleHorizontal">
-              <div
-                className="w-full"
-                style={ReactDOMStyle.make(
-                  ~backgroundColor=Comps.colors["gray-9"],
-                  ~height="calc(100vh - 56px)",
-                  (),
-                )}>
-                {blockSearch}
-              </div>
-            </ReactResizePanel>
+            {state.blockSearchOpen
+              ? <ReactResizePanel
+                  direction=#e
+                  style={ReactDOMStyle.make(~width="400px", ())}
+                  handleClass="ResizeHandleHorizontal">
+                  <div
+                    className="w-full"
+                    style={ReactDOMStyle.make(
+                      ~backgroundColor=Comps.colors["gray-9"],
+                      ~height="calc(100vh - 56px)",
+                      (),
+                    )}>
+                    {blockSearch}
+                  </div>
+                </ReactResizePanel>
+              : <div
+                  className="cursor-pointer"
+                  style={ReactDOMStyle.make(~width="25px", ~color="white", ())}
+                  onClick={_ =>
+                    setState(oldState => {
+                      ...oldState,
+                      blockSearchOpen: true,
+                    })}>
+                  {j`▹`->string}
+                </div>}
             <div className="flex-1 overflow-x-hidden">
               <div
                 style={ReactDOMStyle.make(~height="calc(50vh - 28px)", ())}
