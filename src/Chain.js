@@ -844,8 +844,15 @@ function saveToLocalStorage$1(trace) {
   var existingTraces = loadFromLocalStorage$1(undefined);
   var newTraces = Belt_Array.concat(existingTraces, [trace]);
   var jsonString = JSON.stringify(newTraces);
-  localStorage.setItem(docId$1, jsonString);
-  
+  try {
+    localStorage.setItem(docId$1, jsonString);
+    return ;
+  }
+  catch (exn){
+    localStorage.removeItem(docId$1);
+    localStorage.setItem(docId$1, jsonString);
+    return ;
+  }
 }
 
 var Trace = {

@@ -2199,10 +2199,19 @@ function Inspector$Nothing(Props) {
                                   color: Comps.colors["gray-4"]
                                 }), "Delete Request")));
         }));
+  var runChain = function (param) {
+    var variables = Caml_option.some(formVariables);
+    return Curry._2(transformAndExecuteChain, variables, currentAuthToken);
+  };
   var formTab = React.createElement(React.Fragment, undefined, React.createElement(Inspector$CollapsableSection, {
             title: "Chain Form",
-            children: React.createElement("div", {
-                  className: "flex flex-col"
+            children: React.createElement("form", {
+                  className: "flex flex-col",
+                  onSubmit: (function ($$event) {
+                      $$event.preventDefault();
+                      $$event.stopPropagation();
+                      return runChain(undefined);
+                    })
                 }, form, authButtons, React.createElement(Comps.Select.make, {
                       children: null,
                       className: "w-full select-button comp-select my-4 mx-2",
@@ -2224,10 +2233,10 @@ function Inspector$Nothing(Props) {
                                       }, token.name);
                           }))), React.createElement(Comps.Button.make, {
                       onClick: (function (param) {
-                          var variables = Caml_option.some(formVariables);
-                          return Curry._2(transformAndExecuteChain, variables, currentAuthToken);
+                          return runChain(undefined);
                         }),
                       className: "w-full",
+                      type_: "submit",
                       children: null
                     }, React.createElement(Icons.RunLink.make, {
                           className: "inline-block",

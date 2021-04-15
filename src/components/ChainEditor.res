@@ -856,7 +856,9 @@ module Script = {
 
         let newContentWidgets = records->Belt.Array.map(result => {
           let adjustedLineNumber = result.lineNum - 1
-          let horizontalOffset = switch lines[adjustedLineNumber]->Js.String2.length {
+          let horizontalOffset = switch lines
+          ->Belt.Array.get(adjustedLineNumber)
+          ->Belt.Option.mapWithDefault(0, Js.String2.length) {
           | 0 => 0
           | other => other + 2
           }
@@ -2173,7 +2175,12 @@ ${newScript}`
 
                 newTrace->Belt.Option.forEach(Chain.Trace.saveToLocalStorage)
 
-                {...oldState, chainExecutionResults: json, trace: newTrace}
+                {
+                  ...oldState,
+                  chainExecutionResults: json,
+                  trace: newTrace,
+                  requestValueCache: Js.Dict.empty(),
+                }
               })->Js.Promise.resolve
             },
             // XXX This is a stand-in for OG's eventual server-side chain trace storage

@@ -1170,8 +1170,13 @@ module Trace = {
     let newTraces = existingTraces->Belt.Array.concat([trace])
 
     let jsonString = Obj.magic(newTraces)->Js.Json.stringify
-
-    Dom.Storage2.localStorage->Dom.Storage2.setItem(docId, jsonString)
+    try {
+      Dom.Storage2.localStorage->Dom.Storage2.setItem(docId, jsonString)
+    } catch {
+    | _ =>
+      Dom.Storage2.localStorage->Dom.Storage2.removeItem(docId)
+      Dom.Storage2.localStorage->Dom.Storage2.setItem(docId, jsonString)
+    }
   }
 }
 

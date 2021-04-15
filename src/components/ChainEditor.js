@@ -815,7 +815,9 @@ function ChainEditor$Script(Props) {
             var records = store.getGroupedLineDecorations(match$2.latestRunId, "/index.js", 1000, undefined);
             var newContentWidgets = Belt_Array.map(records, (function (result) {
                     var adjustedLineNumber = result.lineNum - 1 | 0;
-                    var other = Caml_array.get(lines, adjustedLineNumber).length;
+                    var other = Belt_Option.mapWithDefault(Belt_Array.get(lines, adjustedLineNumber), 0, (function (prim) {
+                            return prim.length;
+                          }));
                     var horizontalOffset = other !== 0 ? other + 2 | 0 : 0;
                     return BsReactMonaco.createWidget(monaco$1, result.lineNum, result.hasError, horizontalOffset, result.content);
                   }));
@@ -2064,6 +2066,7 @@ function ChainEditor$Main(Props) {
                                     Belt_Option.forEach(newTrace, Chain.Trace.saveToLocalStorage);
                                     var newrecord = Caml_obj.caml_obj_dup(oldState);
                                     newrecord.trace = newTrace;
+                                    newrecord.requestValueCache = {};
                                     newrecord.chainExecutionResults = result;
                                     return newrecord;
                                   })));

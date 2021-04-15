@@ -2445,10 +2445,26 @@ module Nothing = {
       </article>
     })
 
+    let runChain = () => {
+      let variables = Some(formVariables->Obj.magic)
+
+      switch isSubscription {
+      | false => transformAndExecuteChain(~variables, ~authToken=currentAuthToken)
+      | true => transformAndExecuteChain(~variables, ~authToken=currentAuthToken)
+      // | true => transformAndExecuteChainSubscription(~variables)
+      }
+    }
+
     let formTab =
       <>
         <CollapsableSection title={"Chain Form"->React.string}>
-          <div className={"flex flex-col"}>
+          <form
+            className="flex flex-col"
+            onSubmit={event => {
+              event->ReactEvent.Form.preventDefault
+              event->ReactEvent.Form.stopPropagation
+              runChain()
+            }}>
             {form}
             {authButtons->React.array}
             <Comps.Select
@@ -2472,19 +2488,14 @@ module Nothing = {
             </Comps.Select>
             <Comps.Button
               onClick={_ => {
-                let variables = Some(formVariables->Obj.magic)
-
-                switch isSubscription {
-                | false => transformAndExecuteChain(~variables, ~authToken=currentAuthToken)
-                | true => transformAndExecuteChain(~variables, ~authToken=currentAuthToken)
-                // | true => transformAndExecuteChainSubscription(~variables)
-                }
+                runChain()
               }}
+              type_="submit"
               className="w-full">
               <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
               {(isSubscription ? " Start chain" : "  Run chain")->React.string}
             </Comps.Button>
-          </div>
+          </form>
         </CollapsableSection>
         {chainExecutionResults
         ->Belt.Option.map(chainExecutionResults =>
