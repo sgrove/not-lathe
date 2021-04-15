@@ -8,6 +8,7 @@ import * as Chain from "../Chain.js";
 import * as Comps from "./Comps.js";
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as Debug from "../Debug.js";
+import * as Hooks from "../Hooks.js";
 import * as Icons from "../Icons.js";
 import * as Utils from "../Utils.js";
 import * as Acorn$1 from "acorn";
@@ -37,12 +38,14 @@ import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import FragmentNodeJs from "./FragmentNode.js";
 import * as ConnectionContext from "./ConnectionContext.js";
+import * as QuickJsEmscripten from "./QuickJsEmscripten.js";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 import * as ReactHotkeysHook from "react-hotkeys-hook";
 import ReactResizePanel from "react-resize-panel";
 import * as ReactFlowRenderer from "react-flow-renderer";
 import ReactFlowRenderer$1 from "react-flow-renderer";
 import ParserBabel from "prettier/parser-babel";
+import * as RecordStore from "insight-kit/lib/core/RecordStore";
 
 var SimpleTooltip = {};
 
@@ -776,6 +779,7 @@ function ChainEditor$Script(Props) {
   var onMount = Props.onMount;
   var onPotentialScriptSourceConnect = Props.onPotentialScriptSourceConnect;
   var onSaveChain = Props.onSaveChain;
+  var insight = Props.insight;
   var match = React.useState(function () {
         return chain.script;
       });
@@ -785,13 +789,54 @@ function ChainEditor$Script(Props) {
         return [];
       });
   var setHighlights = match$1[1];
+  var match$2 = React.useState(function () {
+        return [];
+      });
+  var setContentWidgets = match$2[1];
+  var contentWidgets = match$2[0];
   var content = chain.script;
   var editor = React.useRef(undefined);
   var monaco = React.useRef(undefined);
-  var match$2 = monacoTypelibForChain(schema, chain);
-  var types = match$2.dDotTs;
+  var match$3 = monacoTypelibForChain(schema, chain);
+  var types = match$3.dDotTs;
   var connectionDrag = React.useContext(ConnectionContext.context);
   var connectionDragRef = React.useRef(connectionDrag);
+  React.useEffect((function () {
+          var match = editor.current;
+          var match$1 = monaco.current;
+          if (insight.TAG === /* Ok */0 && match !== undefined && match$1 !== undefined) {
+            var monaco$1 = Caml_option.valFromOption(match$1);
+            var editor$1 = Caml_option.valFromOption(match);
+            var match$2 = insight._0;
+            var store = match$2.store;
+            var lines = content.split("\n");
+            Debug.assignToWindowForDeveloperDebug("MyRecordStore", store);
+            var records = store.getGroupedLineDecorations(match$2.latestRunId, "/index.js", 1000, undefined);
+            var newContentWidgets = Belt_Array.map(records, (function (result) {
+                    var adjustedLineNumber = result.lineNum - 1 | 0;
+                    var other = Caml_array.get(lines, adjustedLineNumber).length;
+                    var horizontalOffset = other !== 0 ? other + 2 | 0 : 0;
+                    return BsReactMonaco.createWidget(monaco$1, result.lineNum, result.hasError, horizontalOffset, result.content);
+                  }));
+            Belt_Array.forEach(contentWidgets, (function (contentWidget) {
+                    editor$1.removeContentWidget(contentWidget);
+                    
+                  }));
+            Belt_Array.forEach(newContentWidgets, (function (contentWidget) {
+                    editor$1.addContentWidget(contentWidget);
+                    
+                  }));
+            Curry._1(setContentWidgets, (function (param) {
+                    return newContentWidgets;
+                  }));
+          }
+          
+        }), [
+        insight,
+        content,
+        editor.current,
+        monaco.current
+      ]);
   React.useEffect((function () {
           connectionDragRef.current = connectionDrag;
           var match = editor.current;
@@ -901,7 +946,6 @@ function ChainEditor$Script(Props) {
       minimap: {
         enabled: false
       },
-      fixedOverflowWidgets: true,
       contextmenu: false,
       contextMenu: false
     },
@@ -914,6 +958,7 @@ function ChainEditor$Script(Props) {
     onMount: (function (editorHandle, monacoInstance) {
         Debug.assignToWindowForDeveloperDebug("myEditor", editorHandle);
         Debug.assignToWindowForDeveloperDebug("myMonaco", monacoInstance);
+        Debug.assignToWindowForDeveloperDebug("myQuickJSGlobalTest2", QuickJsEmscripten.main);
         Debug.assignToWindowForDeveloperDebug("ts", Typescript$1);
         editorHandle.onMouseUp(function (mouseEvent) {
               Debug.assignToWindowForDeveloperDebug("editorMouseEvent", mouseEvent);
@@ -1164,7 +1209,8 @@ function ChainEditor$Diagram(Props) {
                                                       requestValueCache: oldState.requestValueCache,
                                                       debugUIItems: oldState.debugUIItems,
                                                       connectionDrag: oldState.connectionDrag,
-                                                      subscriptionClient: oldState.subscriptionClient
+                                                      subscriptionClient: oldState.subscriptionClient,
+                                                      insight: oldState.insight
                                                     };
                                             }));
                               }));
@@ -1219,7 +1265,8 @@ function ChainEditor$Diagram(Props) {
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: oldState.connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient
+                                        subscriptionClient: oldState.subscriptionClient,
+                                        insight: oldState.insight
                                       };
                               }));
                 }),
@@ -1248,7 +1295,8 @@ function ChainEditor$Diagram(Props) {
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: oldState.connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient
+                                        subscriptionClient: oldState.subscriptionClient,
+                                        insight: oldState.insight
                                       };
                               }));
                 }),
@@ -1348,7 +1396,8 @@ function ChainEditor$Diagram(Props) {
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: oldState.connectionDrag,
-                                          subscriptionClient: oldState.subscriptionClient
+                                          subscriptionClient: oldState.subscriptionClient,
+                                          insight: oldState.insight
                                         };
                                 }));
                   } else {
@@ -1466,7 +1515,12 @@ function ChainEditor$Main(Props) {
                 requestValueCache: {},
                 debugUIItems: [],
                 connectionDrag: /* Empty */0,
-                subscriptionClient: undefined
+                subscriptionClient: undefined,
+                insight: {
+                  store: new RecordStore.RecordStore(),
+                  latestRunId: 0,
+                  previousRunId: -1
+                }
               };
       });
   var setState = match$1[1];
@@ -1501,7 +1555,8 @@ function ChainEditor$Main(Props) {
                                                 requestValueCache: oldState.requestValueCache,
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: oldState.connectionDrag,
-                                                subscriptionClient: oldState.subscriptionClient
+                                                subscriptionClient: oldState.subscriptionClient,
+                                                insight: oldState.insight
                                               };
                                       }));
                         }), (function (param, request, domRef) {
@@ -1531,7 +1586,8 @@ function ChainEditor$Main(Props) {
                                                 requestValueCache: oldState.requestValueCache,
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: connectionDrag,
-                                                subscriptionClient: oldState.subscriptionClient
+                                                subscriptionClient: oldState.subscriptionClient,
+                                                insight: oldState.insight
                                               };
                                       }));
                         }), schema, (function (param) {
@@ -1557,11 +1613,64 @@ function ChainEditor$Main(Props) {
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient
+                          subscriptionClient: oldState.subscriptionClient,
+                          insight: oldState.insight
                         };
                 }));
           
         }), []);
+  var debouncedScript = Hooks.useDebounce(state.chain.script, 250);
+  React.useEffect((function () {
+          var runId = state.insight.latestRunId + 1 | 0;
+          var transformed = Inspector.babelTranspile(debouncedScript, "/index.js", runId);
+          if (transformed.TAG === /* Ok */0) {
+            var transformed$1 = transformed._0;
+            var invocations = Inspector.babelInvocations(schema, undefined, state.chain, state.requestValueCache).join("\n\n");
+            var fullTransformed_code = transformed$1.code + "\n\n" + invocations;
+            var fullTransformed_map = transformed$1.map;
+            var fullTransformed_ast = transformed$1.ast;
+            var fullTransformed = {
+              code: fullTransformed_code,
+              map: fullTransformed_map,
+              ast: fullTransformed_ast
+            };
+            Inspector.evalBabelInQuick(fullTransformed, state.insight, (function (results, store) {
+                    return Curry._1(setState, (function (oldState) {
+                                  return {
+                                          diagram: oldState.diagram,
+                                          card: oldState.card,
+                                          schema: oldState.schema,
+                                          chain: oldState.chain,
+                                          compiledChain: oldState.compiledChain,
+                                          chainResult: oldState.chainResult,
+                                          scriptFunctions: oldState.scriptFunctions,
+                                          chainExecutionResults: oldState.chainExecutionResults,
+                                          blocks: oldState.blocks,
+                                          inspected: oldState.inspected,
+                                          blockEdit: oldState.blockEdit,
+                                          scriptEditor: oldState.scriptEditor,
+                                          savedChainId: oldState.savedChainId,
+                                          requestValueCache: oldState.requestValueCache,
+                                          debugUIItems: oldState.debugUIItems,
+                                          connectionDrag: oldState.connectionDrag,
+                                          subscriptionClient: oldState.subscriptionClient,
+                                          insight: {
+                                            store: store,
+                                            latestRunId: runId,
+                                            previousRunId: oldState.insight.latestRunId
+                                          }
+                                        };
+                                }));
+                  }), (function (err) {
+                    console.warn("Error hyperevaling: ", err);
+                    
+                  }));
+          }
+          
+        }), [
+        state.requestValueCache,
+        debouncedScript
+      ]);
   var onPotentialVariableSourceConnect = function (connectionDrag) {
     return Curry._1(setState, (function (oldState) {
                   return {
@@ -1581,7 +1690,8 @@ function ChainEditor$Main(Props) {
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient
+                          subscriptionClient: oldState.subscriptionClient,
+                          insight: oldState.insight
                         };
                 }));
   };
@@ -1609,7 +1719,8 @@ function ChainEditor$Main(Props) {
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: oldState.connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient
+                                        subscriptionClient: oldState.subscriptionClient,
+                                        insight: oldState.insight
                                       };
                               }));
                 }), (function (param, request, domRef) {
@@ -1639,7 +1750,8 @@ function ChainEditor$Main(Props) {
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: connectionDrag,
-                                        subscriptionClient: oldState.subscriptionClient
+                                        subscriptionClient: oldState.subscriptionClient,
+                                        insight: oldState.insight
                                       };
                               }));
                 }), schema, onPotentialVariableSourceConnect, undefined);
@@ -1680,7 +1792,8 @@ function ChainEditor$Main(Props) {
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient
+                          subscriptionClient: oldState.subscriptionClient,
+                          insight: oldState.insight
                         };
                 }));
   };
@@ -1731,7 +1844,8 @@ function ChainEditor$Main(Props) {
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient
+                          subscriptionClient: oldState.subscriptionClient,
+                          insight: oldState.insight
                         };
                 }));
           
@@ -1793,7 +1907,8 @@ function ChainEditor$Main(Props) {
                                     requestValueCache: newOne,
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: oldState.connectionDrag,
-                                    subscriptionClient: oldState.subscriptionClient
+                                    subscriptionClient: oldState.subscriptionClient,
+                                    insight: oldState.insight
                                   };
                           })));
         });
@@ -1923,7 +2038,8 @@ function ChainEditor$Main(Props) {
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
-                          subscriptionClient: oldState.subscriptionClient
+                          subscriptionClient: oldState.subscriptionClient,
+                          insight: oldState.insight
                         };
                 }));
   };
@@ -2065,7 +2181,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           }),
@@ -2093,7 +2210,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           })
@@ -2165,7 +2283,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           }),
@@ -2193,7 +2312,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           }),
@@ -2259,7 +2379,8 @@ function ChainEditor$Main(Props) {
                                             requestValueCache: oldState.requestValueCache,
                                             debugUIItems: oldState.debugUIItems,
                                             connectionDrag: oldState.connectionDrag,
-                                            subscriptionClient: oldState.subscriptionClient
+                                            subscriptionClient: oldState.subscriptionClient,
+                                            insight: oldState.insight
                                           };
                                   })));
                 });
@@ -2294,7 +2415,8 @@ function ChainEditor$Main(Props) {
                                                   requestValueCache: oldState.requestValueCache,
                                                   debugUIItems: oldState.debugUIItems,
                                                   connectionDrag: oldState.connectionDrag,
-                                                  subscriptionClient: oldState.subscriptionClient
+                                                  subscriptionClient: oldState.subscriptionClient,
+                                                  insight: oldState.insight
                                                 };
                                         }));
                           }
@@ -2358,7 +2480,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           }),
@@ -2388,7 +2511,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           }),
@@ -2413,7 +2537,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           }),
@@ -2520,7 +2645,8 @@ function ChainEditor$Main(Props) {
                                 requestValueCache: oldState.requestValueCache,
                                 debugUIItems: oldState.debugUIItems,
                                 connectionDrag: oldState.connectionDrag,
-                                subscriptionClient: oldState.subscriptionClient
+                                subscriptionClient: oldState.subscriptionClient,
+                                insight: oldState.insight
                               };
                       }));
         }
@@ -2554,7 +2680,8 @@ function ChainEditor$Main(Props) {
                               requestValueCache: oldState.requestValueCache,
                               debugUIItems: oldState.debugUIItems,
                               connectionDrag: oldState.connectionDrag,
-                              subscriptionClient: oldState.subscriptionClient
+                              subscriptionClient: oldState.subscriptionClient,
+                              insight: oldState.insight
                             };
                     }));
       }),
@@ -2596,11 +2723,17 @@ function ChainEditor$Main(Props) {
                               requestValueCache: oldState.requestValueCache,
                               debugUIItems: oldState.debugUIItems,
                               connectionDrag: connectionDrag,
-                              subscriptionClient: oldState.subscriptionClient
+                              subscriptionClient: oldState.subscriptionClient,
+                              insight: oldState.insight
                             };
                     }));
       }),
-    onSaveChain: onSaveChain
+    onSaveChain: onSaveChain,
+    insight: {
+      TAG: 0,
+      _0: state.insight,
+      [Symbol.for("name")]: "Ok"
+    }
   };
   var tmp$1 = state.scriptEditor.isOpen ? undefined : "none";
   if (tmp$1 !== undefined) {
@@ -2635,7 +2768,8 @@ function ChainEditor$Main(Props) {
                                     requestValueCache: oldState.requestValueCache,
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: oldState.connectionDrag,
-                                    subscriptionClient: oldState.subscriptionClient
+                                    subscriptionClient: oldState.subscriptionClient,
+                                    insight: oldState.insight
                                   };
                           }));
             }),
@@ -2928,7 +3062,8 @@ function ChainEditor$Main(Props) {
                                       requestValueCache: oldState.requestValueCache,
                                       debugUIItems: oldState.debugUIItems,
                                       connectionDrag: oldState.connectionDrag,
-                                      subscriptionClient: oldState.subscriptionClient
+                                      subscriptionClient: oldState.subscriptionClient,
+                                      insight: oldState.insight
                                     };
                             }));
               }
@@ -2970,7 +3105,8 @@ function ChainEditor$Main(Props) {
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: /* Empty */0,
-                                          subscriptionClient: oldState.subscriptionClient
+                                          subscriptionClient: oldState.subscriptionClient,
+                                          insight: oldState.insight
                                         };
                                 }));
                   }),
@@ -2999,7 +3135,8 @@ function ChainEditor$Main(Props) {
                                             requestValueCache: oldState.requestValueCache,
                                             debugUIItems: oldState.debugUIItems,
                                             connectionDrag: /* Empty */0,
-                                            subscriptionClient: oldState.subscriptionClient
+                                            subscriptionClient: oldState.subscriptionClient,
+                                            insight: oldState.insight
                                           };
                                   }));
                     }),
@@ -3057,7 +3194,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: connectionDrag,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           };
@@ -3134,7 +3272,8 @@ function ChainEditor$Main(Props) {
                                     requestValueCache: oldState.requestValueCache,
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: /* Empty */0,
-                                    subscriptionClient: oldState.subscriptionClient
+                                    subscriptionClient: oldState.subscriptionClient,
+                                    insight: oldState.insight
                                   };
                           }));
             };
@@ -3337,7 +3476,8 @@ function ChainEditor$Main(Props) {
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: /* Empty */0,
-                                          subscriptionClient: oldState.subscriptionClient
+                                          subscriptionClient: oldState.subscriptionClient,
+                                          insight: oldState.insight
                                         };
                                 }));
                   } else {
@@ -3451,7 +3591,8 @@ function ChainEditor$Main(Props) {
                                           requestValueCache: oldState.requestValueCache,
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: Belt_Option.getWithDefault(newConnectionDrag, /* Empty */0),
-                                          subscriptionClient: oldState.subscriptionClient
+                                          subscriptionClient: oldState.subscriptionClient,
+                                          insight: oldState.insight
                                         };
                                 }));
                   }
@@ -3475,7 +3616,8 @@ function ChainEditor$Main(Props) {
                                         requestValueCache: oldState.requestValueCache,
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: /* Empty */0,
-                                        subscriptionClient: oldState.subscriptionClient
+                                        subscriptionClient: oldState.subscriptionClient,
+                                        insight: oldState.insight
                                       };
                               }));
                 })
@@ -3527,7 +3669,8 @@ function ChainEditor$Main(Props) {
                                     requestValueCache: oldState.requestValueCache,
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: /* Empty */0,
-                                    subscriptionClient: oldState.subscriptionClient
+                                    subscriptionClient: oldState.subscriptionClient,
+                                    insight: oldState.insight
                                   };
                           }));
             };
@@ -3642,7 +3785,8 @@ function ChainEditor$Main(Props) {
                                                 requestValueCache: oldState.requestValueCache,
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: /* Empty */0,
-                                                subscriptionClient: oldState.subscriptionClient
+                                                subscriptionClient: oldState.subscriptionClient,
+                                                insight: oldState.insight
                                               };
                                       }));
                         }),
@@ -3665,7 +3809,8 @@ function ChainEditor$Main(Props) {
                                                 requestValueCache: oldState.requestValueCache,
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: /* Empty */0,
-                                                subscriptionClient: oldState.subscriptionClient
+                                                subscriptionClient: oldState.subscriptionClient,
+                                                insight: oldState.insight
                                               };
                                       }));
                         })
@@ -3792,13 +3937,14 @@ function ChainEditor$Main(Props) {
                                                             }));
                                               }));
                                 }));
-                          new RegExp("\\[.+\\]", "g");
+                          var re = new RegExp("\\[.+\\]", "g");
+                          var inputName = Caml_array.get(dataPath, dataPath.length - 1 | 0).replace(re, "");
                           var binding = targetVariableDependency.name;
                           var nullableTargetVariableType = Belt_Option.map(targetVariableType$1, (function (typ) {
                                   return namedGraphQLScalarTypeScriptType(typ.replace(new RegExp("!", "g"), ""));
                                 }));
                           var nullablePrintedType = sourceType.replace(new RegExp("!", "g"), "");
-                          var defaultCoercerName = nullablePrintedType + "To" + Belt_Option.getWithDefault(nullableTargetVariableType, "Unknown");
+                          var defaultCoercerName = nullablePrintedType + "To" + Utils.$$String.capitalizeFirstLetter(Belt_Option.getWithDefault(nullableTargetVariableType, "Unknown"));
                           var coercerName = Utils.$$String.safeCamelize(name !== undefined ? name : Belt_Option.getWithDefault(Caml_option.nullable_to_opt(prompt("Coercer function name: ", Utils.$$String.safeCamelize(defaultCoercerName))), defaultCoercerName));
                           var coercerExists;
                           var exit = 0;
@@ -3839,7 +3985,7 @@ function ChainEditor$Main(Props) {
                                   var signatureReturnType = Belt_Option.mapWithDefault(nullableTargetVariableType, "", (function (t) {
                                           return ": " + t;
                                         }));
-                                  var newFunctionDefinition = "function " + coercerName + "(" + binding + " : " + inputType + ") " + signatureReturnType + " {\n  return " + binding + "\n}";
+                                  var newFunctionDefinition = "function " + coercerName + "(" + inputName + " : " + inputType + ") " + signatureReturnType + " {\n  /* TODO: Convert " + inputName + " => " + binding + " */\n  return " + inputName + "\n}";
                                   if (coercerExists) {
                                     return temp.join("\n");
                                   } else {
@@ -3905,7 +4051,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: /* Empty */0,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           };
@@ -3928,7 +4075,8 @@ function ChainEditor$Main(Props) {
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: /* Empty */0,
-                                  subscriptionClient: oldState.subscriptionClient
+                                  subscriptionClient: oldState.subscriptionClient,
+                                  insight: oldState.insight
                                 };
                         }));
           };
@@ -4096,7 +4244,8 @@ function ChainEditor$Main(Props) {
                                                                   requestValueCache: oldState.requestValueCache,
                                                                   debugUIItems: oldState.debugUIItems,
                                                                   connectionDrag: oldState.connectionDrag,
-                                                                  subscriptionClient: oldState.subscriptionClient
+                                                                  subscriptionClient: oldState.subscriptionClient,
+                                                                  insight: oldState.insight
                                                                 };
                                                         }));
                                           })
@@ -4146,7 +4295,8 @@ function ChainEditor$Main(Props) {
                                                                                             requestValueCache: oldState.requestValueCache,
                                                                                             debugUIItems: oldState.debugUIItems,
                                                                                             connectionDrag: oldState.connectionDrag,
-                                                                                            subscriptionClient: oldState.subscriptionClient
+                                                                                            subscriptionClient: oldState.subscriptionClient,
+                                                                                            insight: oldState.insight
                                                                                           };
                                                                                   }));
                                                                     }));

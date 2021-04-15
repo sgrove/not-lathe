@@ -1847,14 +1847,12 @@ fragment Player on SpotifyPlayer {
     id: "5be36d92-3012-411e-861e-fb51640482e0"->Uuid.parseExn,
     contributedBy: Some("@sgrove"),
     services: ["spotify"],
-    description: "Get pumped at GraphQL Asia!
-",
-    body: `mutation SpotifyPlayTrack($trackId: String = "12PNcnMsjsZ3eHm62t8hiy") {
+    description: "Play a song by trackId on Spotify",
+    body: `mutation SpotifyPlayTrack($trackId: String!) {
   spotify {
     playTrack(
       input: {
         trackIds: [$trackId]
-        positionMs: 69500
       }
     ) {
       player {

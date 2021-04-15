@@ -1367,3 +1367,5 @@ let make = (~schema, ~config) => {
   }
   <> {makeNav(state.inspected)} {content} </>
 }
+
+let r = Babel.transform

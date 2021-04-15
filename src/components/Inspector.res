@@ -145,6 +145,7 @@ let ensureRequestFunctionExists = (
       j`
 
 export function ${names.functionName} (payload : ${names.inputTypeName}) : ${names.returnTypeName} {
+  /** TODO: Define ${returnProperties} */
   return {${returnProperties}}
 }`
 }
@@ -400,6 +401,157 @@ let evalRequest = (
     Js.Console.warn2("Error evalRequest: ", err)
     Js.Promise.resolve(Error(err))
   }, _)
+}
+
+let babelTranspile = (script, ~filename, ~runId) => {
+  let code = script
+
+  try {
+    let transformResult = Babel.transform(
+      code,
+      ~options={
+        "filename": filename,
+        "plugins": {
+          open Babel
+          [
+            (typescriptPlugin, pluginOptions({"allExtensions": true})),
+            (optionalChainingPlugin, pluginOptions({"allExtensions": true})),
+            (Insight.babelTransform, pluginOptions({"runId": runId})),
+          ]
+        },
+      },
+    )
+
+    let transformResult = {
+      ...transformResult,
+      code: transformResult.code->Js.String2.replaceByRe(
+        Js.Re.fromStringWithFlags("export ", ~flags="g"),
+        "",
+      ),
+    }
+
+    Ok(transformResult)
+  } catch {
+  | err =>
+    Js.Console.warn2("Exception while hyperevaling", err)
+    Error(err)
+  }
+}
+
+let babelInvocations = (
+  ~schema,
+  ~trace: option<Chain.Trace.t>,
+  ~chain: Chain.t,
+  ~requestValueCache: Js.Dict.t<Js.Json.t>,
+) => {
+  let calls = chain.requests->Belt.Array.map(request => {
+    let names = request->Chain.requestScriptNames
+    let payload =
+      request.variableDependencies
+      ->Belt.Array.keepMap(varDep =>
+        switch varDep.dependency {
+        | ArgumentDependency(argDep) => Some(argDep.fromRequestIds)
+        | _ => None
+        }
+      )
+      ->Belt.Array.concatMany
+      ->Belt.Array.keepMap(upstreamRequestId => {
+        chain.requests->Belt.Array.getBy(request => request.id == upstreamRequestId)
+      })
+      ->Belt.Array.reduce(Js.Dict.empty(), (acc, nextRequest) => {
+        switch acc->Js.Dict.get(nextRequest.id) {
+        | Some(_) => acc
+        | None =>
+          let parsedOperation = nextRequest.operation.body->GraphQLJs.parse
+          let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+          let variables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
+
+          let traceValue = trace->Belt.Option.flatMap(trace => {
+            try {
+              let results = Obj.magic(trace.trace)["data"]["oneGraph"]["executeChain"]["results"]
+              Debug.assignToWindowForDeveloperDebug(
+                ~name="variable_upstream_" ++ nextRequest.id,
+                results,
+              )
+              let returnedTrace =
+                results
+                ->Belt.Array.getBy(result => result["request"]["id"] == nextRequest.id)
+                ->Belt.Option.flatMap(request => request["result"][0])
+              returnedTrace
+            } catch {
+            | _ => None
+            }
+          })
+
+          switch (requestValueCache->Js.Dict.get(nextRequest.id), traceValue) {
+          | (Some(results), _) =>
+            acc->Js.Dict.set(
+              nextRequest.id,
+              {variables: variables, graphQLResult: results->Obj.magic},
+            )
+            acc
+          | (_, Some(traceValue)) =>
+            acc->Js.Dict.set(
+              nextRequest.id,
+              {variables: variables, graphQLResult: traceValue->Obj.magic},
+            )
+            acc
+
+          | (None, None) =>
+            let results = GraphQLJs.graphqlSync(
+              schema,
+              nextRequest.operation.body,
+              None,
+              None,
+              Some(variables),
+            )
+            acc->Js.Dict.set(nextRequest.id, {variables: variables, graphQLResult: results})
+            acc
+          }
+        }
+      })
+
+    let simplifiedPayload =
+      payload
+      ->Js.Dict.entries
+      ->Belt.Array.map(((key, {graphQLResult})) => (key, graphQLResult))
+      ->Js.Dict.fromArray
+
+    j`try {
+${names.functionName}(${simplifiedPayload->Obj.magic->Js.Json.stringify})
+} catch (e) {
+}`
+  })
+
+  calls
+}
+
+let evalBabelInQuick = (
+  ~transformResult: Babel.transformResult,
+  ~insight: Babel.Insight.insight,
+  ~onSuccess,
+  ~onError,
+) => {
+  let store = insight.store
+
+  let evalResults = Babel.Insight.asyncHyperEval(
+    ~transformResult=Ok(transformResult),
+    ~runner=Babel.Insight.wasmQuickJSRunner,
+  )
+
+  switch evalResults {
+  | Error(err) => onError(err)
+  | Ok(evalResults) =>
+    open Babel.Insight
+    let r = evalResults->Js.Promise.then_(results => {
+        results->Belt.Array.forEach(record => {
+          store->addRecord(record)
+        })
+        onSuccess(~results, ~store)->Js.Promise.resolve
+      }, _)->ignore
+    r
+  }
 }
 
 let findMissingAuthServicesFromChainResult = result => {
@@ -2482,10 +2634,12 @@ ${remoteChainCalls.netlify.code}
           {"Cancel changes and exit"->string}
         </Comps.Button>
         <CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
-          <Comps.Pre> {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string} </Comps.Pre>
+          <Comps.Pre selectAll=true>
+            {chain->Obj.magic->Js.Json.stringifyWithSpace(2)->React.string}
+          </Comps.Pre>
         </CollapsableSection>
         // <CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
-        //   <Comps.Pre>
+        //   <Comps.Pre selectAll=true>
         //     {
         //       let compiled = chain->transformChain(~schema)
         //       // let script = transformed.script

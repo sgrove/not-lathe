@@ -178,6 +178,19 @@ let formatDocument = (editor: editor) => {
   ->Belt.Option.forEach(action => action->runAction)
 }
 
+module Widget = {
+  type t
+
+  @deriving(abstract)
+  type options = {
+    @optional allowEditorOverflow: bool,
+    @optional suppressMouseDown: bool,
+  }
+}
+
+@send external addContentWidget: (editor, Widget.t) => unit = "addContentWidget"
+@send external removeContentWidget: (editor, Widget.t) => unit = "removeContentWidget"
+
 @deriving(abstract)
 type decorationMinimapOptions = {
   color: string,
@@ -308,3 +321,58 @@ monaco.languages.registerDocumentFormattingEditProvider('typescript', {
 })
 
 })`)
+
+let createWidget: (
+  ~monaco: monaco,
+  ~lineNum: int,
+  ~hasError: bool,
+  ~horizontalOffset: int,
+  ~content: string,
+) => Widget.t = %raw(`function createContentWidget(
+  Monaco,
+  lineNum,
+  hasError,
+  horizontalOffset,
+  content
+) {
+  const widget = {
+    domNode: null,
+    allowEditorOverflow: true,
+    getId: function () {
+      return "hypercode:" + lineNum;
+    },
+    getPosition: function () {
+      return {
+        position: {
+          lineNumber: lineNum,
+          column: horizontalOffset
+        },
+        preference: [Monaco.editor.ContentWidgetPositionPreference.EXACT]
+      };
+    },
+    getDomNode: function () {
+      if (!this.domNode) {
+        this.domNode = document.createElement("div");
+        this.domNode.innerText = content;
+
+        // layout
+        this.domNode.style.marginLeft = "4px";
+        this.domNode.style.padding = "0px 4px";
+        this.domNode.style.borderRadius = "2px";
+
+        // display
+        this.domNode.style.background = !hasError ? "lightgreen" : "pink";
+        this.domNode.style.color = !hasError ? "darkgreen" : "darkred";
+
+        // HACKY: copied from monaco internal
+        this.domNode.style.fontFamily = 'Menlo, Monaco, "Courier New", monospace';
+        this.domNode.style.fontSize = "12px";
+        this.domNode.style.lineHeight = "18px";
+      }
+      return this.domNode;
+    }
+  };
+
+  return widget;
+}
+`)

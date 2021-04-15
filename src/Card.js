@@ -623,8 +623,8 @@ var blocks = [
   {
     id: Uuid.parseExn("5be36d92-3012-411e-861e-fb51640482e0"),
     title: "SpotifyPlayTrack",
-    description: "Get pumped at GraphQL Asia!\n",
-    body: "mutation SpotifyPlayTrack($trackId: String = \"12PNcnMsjsZ3eHm62t8hiy\") {\n  spotify {\n    playTrack(\n      input: {\n        trackIds: [$trackId]\n        positionMs: 69500\n      }\n    ) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}",
+    description: "Play a song by trackId on Spotify",
+    body: "mutation SpotifyPlayTrack($trackId: String!) {\n  spotify {\n    playTrack(\n      input: {\n        trackIds: [$trackId]\n      }\n    ) {\n      player {\n        isPlaying\n      }\n    }\n  }\n}",
     kind: /* Mutation */1,
     contributedBy: "@sgrove",
     services: ["spotify"]

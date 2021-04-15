@@ -103,10 +103,14 @@ function Comps$Pre(Props) {
   var children = Props.children;
   var classNameOpt = Props.className;
   var styleOpt = Props.style;
+  var selectAllOpt = Props.selectAll;
   var className = classNameOpt !== undefined ? classNameOpt : "";
   var style = styleOpt !== undefined ? Caml_option.valFromOption(styleOpt) : defaultStyle$2;
+  var selectAll = selectAllOpt !== undefined ? selectAllOpt : false;
   return React.createElement("pre", {
-              className: className + " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll select-all",
+              className: className + " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll " + (
+                selectAll ? "select-all" : ""
+              ),
               style: style
             }, children);
 }

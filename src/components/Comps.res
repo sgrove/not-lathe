@@ -74,9 +74,10 @@ module Pre = {
   let defaultStyle = ReactDOMStyle.make(~backgroundColor=colors["gray-8"], ~maxHeight="150px", ())
 
   @react.component
-  let make = (~children, ~className="", ~style=defaultStyle) => {
+  let make = (~children, ~className="", ~style=defaultStyle, ~selectAll=false) => {
     <pre
-      className={className ++ " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll select-all"}
+      className={className ++
+      " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll " ++ (selectAll ? "select-all" : "")}
       style={style}>
       {children}
     </pre>

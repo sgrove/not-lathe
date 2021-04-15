@@ -61,6 +61,7 @@ type state = {
   debugUIItems: array<debuggable>,
   connectionDrag: ConnectionContext.connectionDrag,
   subscriptionClient: option<OneGraphSubscriptionClient.t>,
+  insight: Babel.Insight.insight,
 }
 
 let makeBlankBlock = (kind): Card.block => {
@@ -820,9 +821,11 @@ module Script = {
     ~onMount,
     ~onPotentialScriptSourceConnect,
     ~onSaveChain,
+    ~insight: result<Babel.Insight.insight, 'a>,
   ) => {
     let (localContent, setLocalContent) = React.useState(() => chain.script)
     let (_highlights, setHighlights) = React.useState(() => [])
+    let (contentWidgets, setContentWidgets) = React.useState(() => [])
     let content = chain.script
 
     let editor = React.useRef(None)
@@ -832,6 +835,52 @@ module Script = {
 
     let connectionDrag = React.useContext(ConnectionContext.context)
     let connectionDragRef = React.useRef(connectionDrag)
+
+    React.useEffect4(() => {
+      switch (insight, editor.current, monaco.current) {
+      | (_, None, _)
+      | (_, _, None)
+      | (Error(_), _, _) => ()
+      | (Ok({store, latestRunId}), Some(editor), Some(monaco)) =>
+        let lines = content->Js.String2.split("\n")
+        Debug.assignToWindowForDeveloperDebug(~name="MyRecordStore", store)
+        let records =
+          store->Babel.Insight.getGroupedLineDecorations(
+            ~runId=latestRunId,
+            ~filePath="/index.js",
+            ~maxRecordLen=Some(1000),
+            ~beforePosition=None,
+          )
+
+        let newContentWidgets = records->Belt.Array.map(result => {
+          let adjustedLineNumber = result.lineNum - 1
+          let horizontalOffset = switch lines[adjustedLineNumber]->Js.String2.length {
+          | 0 => 0
+          | other => other + 2
+          }
+
+          BsReactMonaco.createWidget(
+            ~monaco,
+            ~lineNum=result.lineNum,
+            ~hasError=result.hasError,
+            ~horizontalOffset,
+            ~content=result.content,
+          )
+        })
+
+        contentWidgets->Belt.Array.forEach(contentWidget =>
+          editor->BsReactMonaco.removeContentWidget(contentWidget)
+        )
+
+        newContentWidgets->Belt.Array.forEach(contentWidget =>
+          editor->BsReactMonaco.addContentWidget(contentWidget)
+        )
+
+        setContentWidgets(_ => newContentWidgets)
+      }
+
+      None
+    }, (insight, content, editor.current, monaco.current))
 
     React.useEffect1(() => {
       connectionDragRef.current = connectionDrag
@@ -994,7 +1043,7 @@ ${chain.script}`
         options={
           "minimap": {"enabled": false},
           // "automaticLayout": true,
-          "fixedOverflowWidgets": true,
+          // "fixedOverflowWidgets": true,
           "contextmenu": false,
           "contextMenu": false,
         }
@@ -1007,6 +1056,11 @@ ${chain.script}`
         onMount={(editorHandle, monacoInstance) => {
           Debug.assignToWindowForDeveloperDebug(~name="myEditor", editorHandle)
           Debug.assignToWindowForDeveloperDebug(~name="myMonaco", monacoInstance)
+          Debug.assignToWindowForDeveloperDebug(
+            ~name="myQuickJSGlobalTest2",
+            QuickJsEmscripten.main,
+          )
+
           Debug.assignToWindowForDeveloperDebug(~name="ts", TypeScript.ts)
 
           let _disposable = editorHandle->BsReactMonaco.onMouseUp(mouseEvent => {
@@ -1429,6 +1483,11 @@ module Main = {
         debugUIItems: [],
         connectionDrag: Empty,
         subscriptionClient: None,
+        insight: {
+          store: Babel.Insight.createRecordStore(),
+          latestRunId: 0,
+          previousRunId: -1,
+        },
       }
     })
 
@@ -1485,6 +1544,52 @@ module Main = {
       setState(oldState => {...oldState, diagram: Some(diagram)})
       None
     })
+
+    let debouncedScript = Hooks.useDebounce(state.chain.script, 250)
+
+    useEffect2(() => {
+      let code = debouncedScript
+      let filename = "/index.js"
+      let runId = state.insight.latestRunId + 1
+
+      let transformed = code->Inspector.babelTranspile(~filename, ~runId)
+
+      switch transformed {
+      | Error(_err) => // Probably syntax errors
+        ()
+      | Ok(transformed) =>
+        let invocations =
+          Inspector.babelInvocations(
+            ~schema,
+            ~trace=None,
+            ~chain=state.chain,
+            ~requestValueCache=state.requestValueCache,
+          )->Js.Array2.joinWith("\n\n")
+
+        let fullTransformed = {...transformed, code: transformed.code ++ "\n\n" ++ invocations}
+
+        Inspector.evalBabelInQuick(
+          ~transformResult=fullTransformed,
+          ~insight=state.insight,
+          ~onError=err => Js.Console.warn2("Error hyperevaling: ", err),
+          ~onSuccess=(
+            ~results: array<Babel.Insight.evaluationRecord>,
+            ~store: Babel.Insight.recordStore,
+          ) => {
+            setState(oldState => {
+              ...oldState,
+              insight: {
+                store: store,
+                previousRunId: oldState.insight.latestRunId,
+                latestRunId: runId,
+              },
+            })
+          },
+        )
+      }
+
+      None
+    }, (state.requestValueCache, debouncedScript))
 
     let selectRequestFunctionScript = (request: Chain.request) => {
       let names = request->Chain.requestScriptNames
@@ -2243,6 +2348,7 @@ ${newScript}`
                       schema={state.schema}
                       chain={state.chain}
                       onSaveChain
+                      insight={Ok(state.insight)}
                       className=?{switch state.scriptEditor.isOpen {
                       | false => Some("none")
                       | true => None
@@ -2815,7 +2921,10 @@ ${newScript}`
                   target
                 })
 
-                let _re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
+                let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
+                let inputName =
+                  dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
+
                 let binding = // Should we use the last item, or the targetVariable name?
                 // dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
                 targetVariableDependency.name
@@ -2830,9 +2939,9 @@ ${newScript}`
                 let nullablePrintedType =
                   sourceType->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
 
-                let defaultCoercerName = j`${nullablePrintedType}To${nullableTargetVariableType->Belt.Option.getWithDefault(
-                    "Unknown",
-                  )}`
+                let defaultCoercerName = j`${nullablePrintedType}To${nullableTargetVariableType
+                  ->Belt.Option.getWithDefault("Unknown")
+                  ->Utils.String.capitalizeFirstLetter}`
 
                 let coercerName = switch name {
                 | None =>
@@ -2892,8 +3001,9 @@ ${newScript}`
                   let signatureReturnType =
                     nullableTargetVariableType->Belt.Option.mapWithDefault("", t => j`: ${t}`)
 
-                  let newFunctionDefinition = j`function ${coercerName}(${binding} : ${inputType}) ${signatureReturnType} {
-  return ${binding}
+                  let newFunctionDefinition = j`function ${coercerName}(${inputName} : ${inputType}) ${signatureReturnType} {
+  /* TODO: Convert ${inputName} => ${binding} */
+  return ${inputName}
 }`
 
                   coercerExists

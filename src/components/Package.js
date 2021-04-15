@@ -15,6 +15,7 @@ import * as Caml_option from "bs-platform/lib/es6/caml_option.mjs";
 import * as ChainEditor from "./ChainEditor.js";
 import * as Belt_SortArray from "bs-platform/lib/es6/belt_SortArray.mjs";
 import ReactJsonView from "react-json-view";
+import * as Standalone from "@babel/standalone";
 import * as DevTime_JsonJs from "../DevTime_Json.js";
 import * as ReactHotkeysHook from "react-hotkeys-hook";
 
@@ -1519,6 +1520,10 @@ function Package(Props) {
   return React.createElement(React.Fragment, undefined, makeNav(state.inspected), content);
 }
 
+function r(prim, prim$1) {
+  return Standalone.transform(prim, prim$1);
+}
+
 var make = Package;
 
 export {
@@ -1534,6 +1539,7 @@ export {
   CollapsableTable ,
   ChainLogs ,
   make ,
+  r ,
   
 }
 /* traces Not a pure module */

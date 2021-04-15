@@ -64,6 +64,8 @@ function formatDocument(editor) {
               }));
 }
 
+var Widget = {};
+
 function transpileFile(monaco, uri, onComplete) {
   var __x = monaco.languages.typescript.getTypeScriptWorker();
   __x.then(function (worker) {
@@ -132,6 +134,54 @@ monaco.languages.registerDocumentFormattingEditProvider('typescript', {
 
 }));
 
+var createWidget = (function createContentWidget(
+  Monaco,
+  lineNum,
+  hasError,
+  horizontalOffset,
+  content
+) {
+  const widget = {
+    domNode: null,
+    allowEditorOverflow: true,
+    getId: function () {
+      return "hypercode:" + lineNum;
+    },
+    getPosition: function () {
+      return {
+        position: {
+          lineNumber: lineNum,
+          column: horizontalOffset
+        },
+        preference: [Monaco.editor.ContentWidgetPositionPreference.EXACT]
+      };
+    },
+    getDomNode: function () {
+      if (!this.domNode) {
+        this.domNode = document.createElement("div");
+        this.domNode.innerText = content;
+
+        // layout
+        this.domNode.style.marginLeft = "4px";
+        this.domNode.style.padding = "0px 4px";
+        this.domNode.style.borderRadius = "2px";
+
+        // display
+        this.domNode.style.background = !hasError ? "lightgreen" : "pink";
+        this.domNode.style.color = !hasError ? "darkgreen" : "darkred";
+
+        // HACKY: copied from monaco internal
+        this.domNode.style.fontFamily = 'Menlo, Monaco, "Courier New", monospace';
+        this.domNode.style.fontSize = "12px";
+        this.domNode.style.lineHeight = "18px";
+      }
+      return this.domNode;
+    }
+  };
+
+  return widget;
+});
+
 export {
   makeRange ,
   Model ,
@@ -139,8 +189,10 @@ export {
   Key ,
   options ,
   formatDocument ,
+  Widget ,
   TypeScript ,
   registerPrettier ,
+  createWidget ,
   
 }
 /* Editor Not a pure module */
