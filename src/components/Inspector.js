@@ -426,21 +426,12 @@ function babelTranspile(script, filename, runId) {
 function babelInvocations(schema, trace, chain, requestValueCache) {
   return Belt_Array.map(chain.requests, (function (request) {
                 var names = Chain.requestScriptNames(request);
-                var payload = Belt_Array.reduce(Belt_Array.keepMap(Belt_Array.concatMany(Belt_Array.keepMap(request.variableDependencies, (function (varDep) {
-                                    var argDep = varDep.dependency;
-                                    switch (argDep.TAG | 0) {
-                                      case /* ArgumentDependency */0 :
-                                          return argDep._0.fromRequestIds;
-                                      case /* Direct */1 :
-                                      case /* GraphQLProbe */2 :
-                                          return ;
-                                      
-                                    }
-                                  }))), (function (upstreamRequestId) {
-                            return Belt_Array.getBy(chain.requests, (function (request) {
-                                          return request.id === upstreamRequestId;
-                                        }));
-                          })), {}, (function (acc, nextRequest) {
+                var upstreamRequests = Belt_Array.keepMap(request.dependencyRequestIds, (function (upstreamRequestId) {
+                        return Belt_Array.getBy(chain.requests, (function (request) {
+                                      return request.id === upstreamRequestId;
+                                    }));
+                      }));
+                var payload = Belt_Array.reduce(upstreamRequests, {}, (function (acc, nextRequest) {
                         var match = Js_dict.get(acc, nextRequest.id);
                         if (match !== undefined) {
                           return acc;
@@ -490,7 +481,7 @@ function babelInvocations(schema, trace, chain, requestValueCache) {
                                     param[1].graphQLResult
                                   ];
                           })));
-                return "try {\n" + names.functionName + "(" + JSON.stringify(simplifiedPayload) + ")\n} catch (e) {\n}";
+                return "try {\n" + names.functionName + "(" + JSON.stringify(simplifiedPayload) + ")\n} catch (e) {\n  console.warn(\"" + names.functionName + " error: \", e)\n}";
               }));
 }
 

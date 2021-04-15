@@ -3,15 +3,31 @@
 import * as Curry from "bs-platform/lib/es6/curry.mjs";
 import * as React from "react";
 
-function useDebounce(value, delay) {
+function useLeadingDebounce(value, delay) {
   var match = React.useState(function () {
         return value;
       });
   var setDebouncedValue = match[1];
+  var match$1 = React.useState(function () {
+        return true;
+      });
+  var setAfterSleep = match$1[1];
+  var afterSleep = match$1[0];
   React.useEffect((function () {
+          if (afterSleep) {
+            Curry._1(setDebouncedValue, (function (param) {
+                    return value;
+                  }));
+            Curry._1(setAfterSleep, (function (param) {
+                    return false;
+                  }));
+          }
           var handler = setTimeout((function (param) {
-                  return Curry._1(setDebouncedValue, (function (param) {
-                                return value;
+                  Curry._1(setDebouncedValue, (function (param) {
+                          return value;
+                        }));
+                  return Curry._1(setAfterSleep, (function (param) {
+                                return true;
                               }));
                 }), delay);
           return (function (param) {
@@ -26,7 +42,7 @@ function useDebounce(value, delay) {
 }
 
 export {
-  useDebounce ,
+  useLeadingDebounce ,
   
 }
 /* react Not a pure module */

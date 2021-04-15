@@ -446,81 +446,77 @@ let babelInvocations = (
 ) => {
   let calls = chain.requests->Belt.Array.map(request => {
     let names = request->Chain.requestScriptNames
-    let payload =
-      request.variableDependencies
-      ->Belt.Array.keepMap(varDep =>
-        switch varDep.dependency {
-        | ArgumentDependency(argDep) => Some(argDep.fromRequestIds)
-        | _ => None
-        }
-      )
-      ->Belt.Array.concatMany
-      ->Belt.Array.keepMap(upstreamRequestId => {
-        chain.requests->Belt.Array.getBy(request => request.id == upstreamRequestId)
-      })
-      ->Belt.Array.reduce(Js.Dict.empty(), (acc, nextRequest) => {
-        switch acc->Js.Dict.get(nextRequest.id) {
-        | Some(_) => acc
-        | None =>
-          let parsedOperation = nextRequest.operation.body->GraphQLJs.parse
-          let definition = parsedOperation.definitions->Belt.Array.getExn(0)
 
-          let variables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
+    let upstreamRequests = request.dependencyRequestIds->Belt.Array.keepMap(upstreamRequestId => {
+      chain.requests->Belt.Array.getBy(request => request.id == upstreamRequestId)
+    })
 
-          let traceValue = trace->Belt.Option.flatMap(trace => {
-            try {
-              let results = Obj.magic(trace.trace)["data"]["oneGraph"]["executeChain"]["results"]
-              Debug.assignToWindowForDeveloperDebug(
-                ~name="variable_upstream_" ++ nextRequest.id,
-                results,
-              )
-              let returnedTrace =
-                results
-                ->Belt.Array.getBy(result => result["request"]["id"] == nextRequest.id)
-                ->Belt.Option.flatMap(request => request["result"][0])
-              returnedTrace
-            } catch {
-            | _ => None
-            }
-          })
+    let payload = upstreamRequests->Belt.Array.reduce(Js.Dict.empty(), (acc, nextRequest) => {
+      switch acc->Js.Dict.get(nextRequest.id) {
+      | Some(_) => acc
+      | None =>
+        let parsedOperation = nextRequest.operation.body->GraphQLJs.parse
+        let definition = parsedOperation.definitions->Belt.Array.getExn(0)
 
-          switch (requestValueCache->Js.Dict.get(nextRequest.id), traceValue) {
-          | (Some(results), _) =>
-            acc->Js.Dict.set(
-              nextRequest.id,
-              {variables: variables, graphQLResult: results->Obj.magic},
+        let variables = GraphQLJs.Mock.mockOperationVariables(schema, definition->Obj.magic)
+
+        let traceValue = trace->Belt.Option.flatMap(trace => {
+          try {
+            let results = Obj.magic(trace.trace)["data"]["oneGraph"]["executeChain"]["results"]
+            Debug.assignToWindowForDeveloperDebug(
+              ~name="variable_upstream_" ++ nextRequest.id,
+              results,
             )
-            acc
-          | (_, Some(traceValue)) =>
-            acc->Js.Dict.set(
-              nextRequest.id,
-              {variables: variables, graphQLResult: traceValue->Obj.magic},
-            )
-            acc
-
-          | (None, None) =>
-            let results = GraphQLJs.graphqlSync(
-              schema,
-              nextRequest.operation.body,
-              None,
-              None,
-              Some(variables),
-            )
-            acc->Js.Dict.set(nextRequest.id, {variables: variables, graphQLResult: results})
-            acc
+            let returnedTrace =
+              results
+              ->Belt.Array.getBy(result => result["request"]["id"] == nextRequest.id)
+              ->Belt.Option.flatMap(request => request["result"][0])
+            returnedTrace
+          } catch {
+          | _ => None
           }
+        })
+
+        switch (requestValueCache->Js.Dict.get(nextRequest.id), traceValue) {
+        | (Some(results), _) =>
+          acc->Js.Dict.set(
+            nextRequest.id,
+            {variables: variables, graphQLResult: results->Obj.magic},
+          )
+          acc
+        | (_, Some(traceValue)) =>
+          acc->Js.Dict.set(
+            nextRequest.id,
+            {variables: variables, graphQLResult: traceValue->Obj.magic},
+          )
+          acc
+
+        | (None, None) =>
+          let results = GraphQLJs.graphqlSync(
+            schema,
+            nextRequest.operation.body,
+            None,
+            None,
+            Some(variables),
+          )
+          acc->Js.Dict.set(nextRequest.id, {variables: variables, graphQLResult: results})
+          acc
         }
-      })
+      }
+    })
 
     let simplifiedPayload =
       payload
       ->Js.Dict.entries
-      ->Belt.Array.map(((key, {graphQLResult})) => (key, graphQLResult))
+      ->Belt.Array.map(((key, value)) => {
+        (key, value.graphQLResult)
+      })
       ->Js.Dict.fromArray
 
     j`try {
 ${names.functionName}(${simplifiedPayload->Obj.magic->Js.Json.stringify})
 } catch (e) {
+  console.warn("${names.functionName} error: ", e)
 }`
   })
 

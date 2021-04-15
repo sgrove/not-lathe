@@ -45,6 +45,7 @@ import ReactResizePanel from "react-resize-panel";
 import * as ReactFlowRenderer from "react-flow-renderer";
 import ReactFlowRenderer$1 from "react-flow-renderer";
 import ParserBabel from "prettier/parser-babel";
+import * as QuickjsEmscripten from "@dww/quickjs-emscripten";
 import * as RecordStore from "insight-kit/lib/core/RecordStore";
 
 var SimpleTooltip = {};
@@ -1210,6 +1211,7 @@ function ChainEditor$Diagram(Props) {
                                                       debugUIItems: oldState.debugUIItems,
                                                       connectionDrag: oldState.connectionDrag,
                                                       subscriptionClient: oldState.subscriptionClient,
+                                                      trace: oldState.trace,
                                                       insight: oldState.insight
                                                     };
                                             }));
@@ -1266,6 +1268,7 @@ function ChainEditor$Diagram(Props) {
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: oldState.connectionDrag,
                                         subscriptionClient: oldState.subscriptionClient,
+                                        trace: oldState.trace,
                                         insight: oldState.insight
                                       };
                               }));
@@ -1296,6 +1299,7 @@ function ChainEditor$Diagram(Props) {
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: oldState.connectionDrag,
                                         subscriptionClient: oldState.subscriptionClient,
+                                        trace: oldState.trace,
                                         insight: oldState.insight
                                       };
                               }));
@@ -1397,6 +1401,7 @@ function ChainEditor$Diagram(Props) {
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: oldState.connectionDrag,
                                           subscriptionClient: oldState.subscriptionClient,
+                                          trace: oldState.trace,
                                           insight: oldState.insight
                                         };
                                 }));
@@ -1471,7 +1476,7 @@ function ChainEditor$Main(Props) {
   var oneGraphAuth = Props.oneGraphAuth;
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
-  var trace = Props.trace;
+  var initialTrace = Props.trace;
   var helpOpen = Props.helpOpen;
   var match = React.useState(function () {
         return [];
@@ -1491,7 +1496,7 @@ function ChainEditor$Main(Props) {
         var inspected = {
           TAG: 0,
           chain: initialChain,
-          trace: trace,
+          trace: initialTrace,
           [Symbol.for("name")]: "Nothing"
         };
         return {
@@ -1516,6 +1521,7 @@ function ChainEditor$Main(Props) {
                 debugUIItems: [],
                 connectionDrag: /* Empty */0,
                 subscriptionClient: undefined,
+                trace: initialTrace,
                 insight: {
                   store: new RecordStore.RecordStore(),
                   latestRunId: 0,
@@ -1556,6 +1562,7 @@ function ChainEditor$Main(Props) {
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: oldState.connectionDrag,
                                                 subscriptionClient: oldState.subscriptionClient,
+                                                trace: oldState.trace,
                                                 insight: oldState.insight
                                               };
                                       }));
@@ -1587,6 +1594,7 @@ function ChainEditor$Main(Props) {
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: connectionDrag,
                                                 subscriptionClient: oldState.subscriptionClient,
+                                                trace: oldState.trace,
                                                 insight: oldState.insight
                                               };
                                       }));
@@ -1614,18 +1622,19 @@ function ChainEditor$Main(Props) {
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
                           subscriptionClient: oldState.subscriptionClient,
+                          trace: oldState.trace,
                           insight: oldState.insight
                         };
                 }));
           
         }), []);
-  var debouncedScript = Hooks.useDebounce(state.chain.script, 250);
+  var debouncedScript = Hooks.useLeadingDebounce(state.chain.script, 100);
   React.useEffect((function () {
           var runId = state.insight.latestRunId + 1 | 0;
           var transformed = Inspector.babelTranspile(debouncedScript, "/index.js", runId);
           if (transformed.TAG === /* Ok */0) {
             var transformed$1 = transformed._0;
-            var invocations = Inspector.babelInvocations(schema, undefined, state.chain, state.requestValueCache).join("\n\n");
+            var invocations = Inspector.babelInvocations(schema, state.trace, state.chain, state.requestValueCache).join("\n\n");
             var fullTransformed_code = transformed$1.code + "\n\n" + invocations;
             var fullTransformed_map = transformed$1.map;
             var fullTransformed_ast = transformed$1.ast;
@@ -1634,7 +1643,12 @@ function ChainEditor$Main(Props) {
               map: fullTransformed_map,
               ast: fullTransformed_ast
             };
-            Inspector.evalBabelInQuick(fullTransformed, state.insight, (function (results, store) {
+            var __x = QuickjsEmscripten.getQuickJS();
+            __x.then(function (quickjs) {
+                  return Promise.resolve(Debug.assignToWindowForDeveloperDebug("quickjs", quickjs));
+                });
+            Debug.assignToWindowForDeveloperDebug("fullTransformedCode", fullTransformed_code);
+            Inspector.evalBabelInQuick(fullTransformed, state.insight, (function (param, store) {
                     return Curry._1(setState, (function (oldState) {
                                   return {
                                           diagram: oldState.diagram,
@@ -1654,6 +1668,7 @@ function ChainEditor$Main(Props) {
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: oldState.connectionDrag,
                                           subscriptionClient: oldState.subscriptionClient,
+                                          trace: oldState.trace,
                                           insight: {
                                             store: store,
                                             latestRunId: runId,
@@ -1669,7 +1684,8 @@ function ChainEditor$Main(Props) {
           
         }), [
         state.requestValueCache,
-        debouncedScript
+        debouncedScript,
+        state.trace
       ]);
   var onPotentialVariableSourceConnect = function (connectionDrag) {
     return Curry._1(setState, (function (oldState) {
@@ -1691,6 +1707,7 @@ function ChainEditor$Main(Props) {
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: connectionDrag,
                           subscriptionClient: oldState.subscriptionClient,
+                          trace: oldState.trace,
                           insight: oldState.insight
                         };
                 }));
@@ -1720,6 +1737,7 @@ function ChainEditor$Main(Props) {
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: oldState.connectionDrag,
                                         subscriptionClient: oldState.subscriptionClient,
+                                        trace: oldState.trace,
                                         insight: oldState.insight
                                       };
                               }));
@@ -1751,6 +1769,7 @@ function ChainEditor$Main(Props) {
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: connectionDrag,
                                         subscriptionClient: oldState.subscriptionClient,
+                                        trace: oldState.trace,
                                         insight: oldState.insight
                                       };
                               }));
@@ -1793,6 +1812,7 @@ function ChainEditor$Main(Props) {
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
                           subscriptionClient: oldState.subscriptionClient,
+                          trace: oldState.trace,
                           insight: oldState.insight
                         };
                 }));
@@ -1845,6 +1865,7 @@ function ChainEditor$Main(Props) {
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
                           subscriptionClient: oldState.subscriptionClient,
+                          trace: oldState.trace,
                           insight: oldState.insight
                         };
                 }));
@@ -1908,6 +1929,7 @@ function ChainEditor$Main(Props) {
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: oldState.connectionDrag,
                                     subscriptionClient: oldState.subscriptionClient,
+                                    trace: oldState.trace,
                                     insight: oldState.insight
                                   };
                           })));
@@ -2039,6 +2061,7 @@ function ChainEditor$Main(Props) {
                           debugUIItems: oldState.debugUIItems,
                           connectionDrag: oldState.connectionDrag,
                           subscriptionClient: oldState.subscriptionClient,
+                          trace: oldState.trace,
                           insight: oldState.insight
                         };
                 }));
@@ -2182,6 +2205,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -2211,6 +2235,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -2227,7 +2252,7 @@ function ChainEditor$Main(Props) {
                   inspected = {
                     TAG: 0,
                     chain: newChain,
-                    trace: trace,
+                    trace: state.trace,
                     [Symbol.for("name")]: "Nothing"
                   };
                   break;
@@ -2284,6 +2309,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -2303,7 +2329,7 @@ function ChainEditor$Main(Props) {
                                   inspected: {
                                     TAG: 0,
                                     chain: state.chain,
-                                    trace: trace,
+                                    trace: state.trace,
                                     [Symbol.for("name")]: "Nothing"
                                   },
                                   blockEdit: oldState.blockEdit,
@@ -2313,6 +2339,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -2380,6 +2407,7 @@ function ChainEditor$Main(Props) {
                                             debugUIItems: oldState.debugUIItems,
                                             connectionDrag: oldState.connectionDrag,
                                             subscriptionClient: oldState.subscriptionClient,
+                                            trace: newTrace,
                                             insight: oldState.insight
                                           };
                                   })));
@@ -2416,6 +2444,7 @@ function ChainEditor$Main(Props) {
                                                   debugUIItems: oldState.debugUIItems,
                                                   connectionDrag: oldState.connectionDrag,
                                                   subscriptionClient: oldState.subscriptionClient,
+                                                  trace: oldState.trace,
                                                   insight: oldState.insight
                                                 };
                                         }));
@@ -2471,7 +2500,7 @@ function ChainEditor$Main(Props) {
                                   inspected: {
                                     TAG: 0,
                                     chain: newChain,
-                                    trace: trace,
+                                    trace: state.trace,
                                     [Symbol.for("name")]: "Nothing"
                                   },
                                   blockEdit: oldState.blockEdit,
@@ -2481,6 +2510,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -2502,7 +2532,7 @@ function ChainEditor$Main(Props) {
                                   inspected: {
                                     TAG: 0,
                                     chain: newChain,
-                                    trace: trace,
+                                    trace: state.trace,
                                     [Symbol.for("name")]: "Nothing"
                                   },
                                   blockEdit: oldState.blockEdit,
@@ -2512,6 +2542,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -2538,11 +2569,12 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
           }),
-        trace: trace,
+        trace: state.trace,
         initialChain: initialChain,
         onSaveChain: onSaveChain,
         onClose: onClose,
@@ -2590,7 +2622,7 @@ function ChainEditor$Main(Props) {
                 inspected = {
                   TAG: 0,
                   chain: newChain,
-                  trace: trace,
+                  trace: state.trace,
                   [Symbol.for("name")]: "Nothing"
                 };
                 break;
@@ -2646,6 +2678,7 @@ function ChainEditor$Main(Props) {
                                 debugUIItems: oldState.debugUIItems,
                                 connectionDrag: oldState.connectionDrag,
                                 subscriptionClient: oldState.subscriptionClient,
+                                trace: oldState.trace,
                                 insight: oldState.insight
                               };
                       }));
@@ -2681,6 +2714,7 @@ function ChainEditor$Main(Props) {
                               debugUIItems: oldState.debugUIItems,
                               connectionDrag: oldState.connectionDrag,
                               subscriptionClient: oldState.subscriptionClient,
+                              trace: oldState.trace,
                               insight: oldState.insight
                             };
                     }));
@@ -2724,6 +2758,7 @@ function ChainEditor$Main(Props) {
                               debugUIItems: oldState.debugUIItems,
                               connectionDrag: connectionDrag,
                               subscriptionClient: oldState.subscriptionClient,
+                              trace: oldState.trace,
                               insight: oldState.insight
                             };
                     }));
@@ -2769,6 +2804,7 @@ function ChainEditor$Main(Props) {
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: oldState.connectionDrag,
                                     subscriptionClient: oldState.subscriptionClient,
+                                    trace: oldState.trace,
                                     insight: oldState.insight
                                   };
                           }));
@@ -2966,7 +3002,7 @@ function ChainEditor$Main(Props) {
                                 inspected = Belt_Option.mapWithDefault(request, {
                                       TAG: 0,
                                       chain: newChain,
-                                      trace: trace,
+                                      trace: state.trace,
                                       [Symbol.for("name")]: "Nothing"
                                     }, (function (request) {
                                         var newRequest_id = request.id;
@@ -2992,7 +3028,7 @@ function ChainEditor$Main(Props) {
                                       inspected = {
                                         TAG: 0,
                                         chain: newChain,
-                                        trace: trace,
+                                        trace: state.trace,
                                         [Symbol.for("name")]: "Nothing"
                                       };
                                       break;
@@ -3063,6 +3099,7 @@ function ChainEditor$Main(Props) {
                                       debugUIItems: oldState.debugUIItems,
                                       connectionDrag: oldState.connectionDrag,
                                       subscriptionClient: oldState.subscriptionClient,
+                                      trace: oldState.trace,
                                       insight: oldState.insight
                                     };
                             }));
@@ -3106,6 +3143,7 @@ function ChainEditor$Main(Props) {
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: /* Empty */0,
                                           subscriptionClient: oldState.subscriptionClient,
+                                          trace: oldState.trace,
                                           insight: oldState.insight
                                         };
                                 }));
@@ -3136,6 +3174,7 @@ function ChainEditor$Main(Props) {
                                             debugUIItems: oldState.debugUIItems,
                                             connectionDrag: /* Empty */0,
                                             subscriptionClient: oldState.subscriptionClient,
+                                            trace: oldState.trace,
                                             insight: oldState.insight
                                           };
                                   }));
@@ -3195,6 +3234,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -3273,6 +3313,7 @@ function ChainEditor$Main(Props) {
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: /* Empty */0,
                                     subscriptionClient: oldState.subscriptionClient,
+                                    trace: oldState.trace,
                                     insight: oldState.insight
                                   };
                           }));
@@ -3477,6 +3518,7 @@ function ChainEditor$Main(Props) {
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: /* Empty */0,
                                           subscriptionClient: oldState.subscriptionClient,
+                                          trace: oldState.trace,
                                           insight: oldState.insight
                                         };
                                 }));
@@ -3592,6 +3634,7 @@ function ChainEditor$Main(Props) {
                                           debugUIItems: oldState.debugUIItems,
                                           connectionDrag: Belt_Option.getWithDefault(newConnectionDrag, /* Empty */0),
                                           subscriptionClient: oldState.subscriptionClient,
+                                          trace: oldState.trace,
                                           insight: oldState.insight
                                         };
                                 }));
@@ -3617,6 +3660,7 @@ function ChainEditor$Main(Props) {
                                         debugUIItems: oldState.debugUIItems,
                                         connectionDrag: /* Empty */0,
                                         subscriptionClient: oldState.subscriptionClient,
+                                        trace: oldState.trace,
                                         insight: oldState.insight
                                       };
                               }));
@@ -3670,6 +3714,7 @@ function ChainEditor$Main(Props) {
                                     debugUIItems: oldState.debugUIItems,
                                     connectionDrag: /* Empty */0,
                                     subscriptionClient: oldState.subscriptionClient,
+                                    trace: oldState.trace,
                                     insight: oldState.insight
                                   };
                           }));
@@ -3786,6 +3831,7 @@ function ChainEditor$Main(Props) {
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: /* Empty */0,
                                                 subscriptionClient: oldState.subscriptionClient,
+                                                trace: oldState.trace,
                                                 insight: oldState.insight
                                               };
                                       }));
@@ -3810,6 +3856,7 @@ function ChainEditor$Main(Props) {
                                                 debugUIItems: oldState.debugUIItems,
                                                 connectionDrag: /* Empty */0,
                                                 subscriptionClient: oldState.subscriptionClient,
+                                                trace: oldState.trace,
                                                 insight: oldState.insight
                                               };
                                       }));
@@ -4052,6 +4099,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: /* Empty */0,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -4076,6 +4124,7 @@ function ChainEditor$Main(Props) {
                                   debugUIItems: oldState.debugUIItems,
                                   connectionDrag: /* Empty */0,
                                   subscriptionClient: oldState.subscriptionClient,
+                                  trace: oldState.trace,
                                   insight: oldState.insight
                                 };
                         }));
@@ -4212,7 +4261,7 @@ function ChainEditor$Main(Props) {
                                                       removeEdge: removeEdge,
                                                       removeRequest: removeRequest,
                                                       diagramFromChain: diagramFromChain$1,
-                                                      trace: trace
+                                                      trace: state.trace
                                                     });
                                         }))), React.createElement("div", {
                                     style: {
@@ -4245,6 +4294,7 @@ function ChainEditor$Main(Props) {
                                                                   debugUIItems: oldState.debugUIItems,
                                                                   connectionDrag: oldState.connectionDrag,
                                                                   subscriptionClient: oldState.subscriptionClient,
+                                                                  trace: oldState.trace,
                                                                   insight: oldState.insight
                                                                 };
                                                         }));
@@ -4296,6 +4346,7 @@ function ChainEditor$Main(Props) {
                                                                                             debugUIItems: oldState.debugUIItems,
                                                                                             connectionDrag: oldState.connectionDrag,
                                                                                             subscriptionClient: oldState.subscriptionClient,
+                                                                                            trace: oldState.trace,
                                                                                             insight: oldState.insight
                                                                                           };
                                                                                   }));

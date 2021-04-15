@@ -61,6 +61,7 @@ type state = {
   debugUIItems: array<debuggable>,
   connectionDrag: ConnectionContext.connectionDrag,
   subscriptionClient: option<OneGraphSubscriptionClient.t>,
+  trace: option<Chain.Trace.t>,
   insight: Babel.Insight.insight,
 }
 
@@ -1435,7 +1436,7 @@ module Main = {
     ~onSaveChain,
     ~onClose,
     ~onSaveAndClose as _,
-    ~trace: option<Chain.Trace.t>,
+    ~trace as initialTrace: option<Chain.Trace.t>,
     ~helpOpen: bool,
   ) => {
     open React
@@ -1454,7 +1455,7 @@ module Main = {
       | _ => []
       }
 
-      let inspected: Inspector.inspectable = Nothing({chain: initialChain, trace: trace})
+      let inspected: Inspector.inspectable = Nothing({chain: initialChain, trace: initialTrace})
       // Request({
       //   chain: initialChain,
       //   request: initialChain.requests->Belt.Array.get(1)->Belt.Option.getExn,
@@ -1488,6 +1489,7 @@ module Main = {
           latestRunId: 0,
           previousRunId: -1,
         },
+        trace: initialTrace,
       }
     })
 
@@ -1545,9 +1547,9 @@ module Main = {
       None
     })
 
-    let debouncedScript = Hooks.useDebounce(state.chain.script, 250)
+    let debouncedScript = Hooks.useLeadingDebounce(state.chain.script, 100)
 
-    useEffect2(() => {
+    useEffect3(() => {
       let code = debouncedScript
       let filename = "/index.js"
       let runId = state.insight.latestRunId + 1
@@ -1561,19 +1563,29 @@ module Main = {
         let invocations =
           Inspector.babelInvocations(
             ~schema,
-            ~trace=None,
+            ~trace=state.trace,
             ~chain=state.chain,
             ~requestValueCache=state.requestValueCache,
           )->Js.Array2.joinWith("\n\n")
 
         let fullTransformed = {...transformed, code: transformed.code ++ "\n\n" ++ invocations}
 
+        QuickJsEmscripten.getQuickJS()
+        ->Js.Promise.then_(
+          quickjs =>
+            Debug.assignToWindowForDeveloperDebug(~name="quickjs", quickjs)->Js.Promise.resolve,
+          _,
+        )
+        ->ignore
+
+        Debug.assignToWindowForDeveloperDebug(~name="fullTransformedCode", fullTransformed.code)
+
         Inspector.evalBabelInQuick(
           ~transformResult=fullTransformed,
           ~insight=state.insight,
           ~onError=err => Js.Console.warn2("Error hyperevaling: ", err),
           ~onSuccess=(
-            ~results: array<Babel.Insight.evaluationRecord>,
+            ~results as _: array<Babel.Insight.evaluationRecord>,
             ~store: Babel.Insight.recordStore,
           ) => {
             setState(oldState => {
@@ -1589,7 +1601,7 @@ module Main = {
       }
 
       None
-    }, (state.requestValueCache, debouncedScript))
+    }, (state.requestValueCache, debouncedScript, state.trace))
 
     let selectRequestFunctionScript = (request: Chain.request) => {
       let names = request->Chain.requestScriptNames
@@ -2024,7 +2036,7 @@ ${newScript}`
         inspected={state.inspected}
         chain={state.chain}
         initialChain
-        trace
+        trace=state.trace
         onAddBlock={addBlock}
         onSaveChain
         onClose
@@ -2047,7 +2059,7 @@ ${newScript}`
             {
               ...oldState,
               chain: newChain,
-              inspected: Nothing({chain: newChain, trace: trace}),
+              inspected: Nothing({chain: newChain, trace: state.trace}),
               diagram: diagram,
             }
           })
@@ -2061,7 +2073,7 @@ ${newScript}`
             {
               ...oldState,
               chain: newChain,
-              inspected: Nothing({chain: newChain, trace: trace}),
+              inspected: Nothing({chain: newChain, trace: state.trace}),
               diagram: diagram,
             }
           })
@@ -2071,7 +2083,7 @@ ${newScript}`
         onReset={() => {
           setState(oldState => {
             ...oldState,
-            inspected: Nothing({chain: state.chain, trace: trace}),
+            inspected: Nothing({chain: state.chain, trace: state.trace}),
           })
         }}
         savedChainId={state.savedChainId}
@@ -2153,7 +2165,7 @@ ${newScript}`
 
                 newTrace->Belt.Option.forEach(Chain.Trace.saveToLocalStorage)
 
-                {...oldState, chainExecutionResults: json}
+                {...oldState, chainExecutionResults: json, trace: newTrace}
               })->Js.Promise.resolve
             },
             // XXX This is a stand-in for OG's eventual server-side chain trace storage
@@ -2212,7 +2224,7 @@ ${newScript}`
         }}
         onChainUpdated={newChain => {
           let inspected: Inspector.inspectable = switch state.inspected {
-          | Nothing(_) => Nothing({chain: newChain, trace: trace})
+          | Nothing(_) => Nothing({chain: newChain, trace: state.trace})
           | Block(block) => Block(block)
           | Request(v) =>
             let request =
@@ -2294,7 +2306,7 @@ ${newScript}`
                     removeEdge
                     removeRequest
                     diagramFromChain
-                    trace
+                    trace=state.trace
                   />
                 )}
               </div>
@@ -2398,7 +2410,7 @@ ${newScript}`
                           let functionNames = []
 
                           let inspected: Inspector.inspectable = switch state.inspected {
-                          | Nothing(_) => Nothing({chain: newChain, trace: trace})
+                          | Nothing(_) => Nothing({chain: newChain, trace: state.trace})
                           | Block(block) => Block(block)
                           | Request(v) =>
                             let request =
@@ -2700,7 +2712,7 @@ ${newScript}`
                           )
 
                         request->Belt.Option.mapWithDefault(
-                          Inspector.Nothing({chain: newChain, trace: trace}),
+                          Inspector.Nothing({chain: newChain, trace: state.trace}),
                           request => {
                             let newRequest = {...request, operation: newInitialBlock}
                             Request({request: newRequest, chain: newChain})
@@ -2709,7 +2721,7 @@ ${newScript}`
                       | false =>
                         switch oldState.inspected {
                         | Block(_) => Block(newInitialBlock)
-                        | Nothing(_) => Nothing({chain: newChain, trace: trace})
+                        | Nothing(_) => Nothing({chain: newChain, trace: state.trace})
                         | Request({request}) =>
                           let newRequest = {...request, operation: newInitialBlock}
                           Request({request: newRequest, chain: newChain})
