@@ -2132,7 +2132,10 @@ module Request = {
 
     let form =
       <form
-        className="flex flex-col"
+        className={switch connectionDrag {
+        | StartedSource(_) => "drag-enabled"
+        | _ => ""
+        } ++ " flex flex-col"}
         onSubmit={event => {
           event->ReactEvent.Form.preventDefault
           event->ReactEvent.Form.stopPropagation
@@ -2529,7 +2532,10 @@ module Nothing = {
       <>
         <CollapsableSection title={"Chain Form"->React.string}>
           <form
-            className="flex flex-col"
+            className={switch connectionDrag {
+            | StartedSource(_) => "drag-enabled"
+            | _ => ""
+            } ++ " flex flex-col"}
             onSubmit={event => {
               event->ReactEvent.Form.preventDefault
               event->ReactEvent.Form.stopPropagation

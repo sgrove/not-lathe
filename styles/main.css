@@ -2233,3 +2233,16 @@ label {
 .ResizeHandleHorizontal>span::after{
   content: '. . . . . . . .';
 }
+
+form.drag-enabled input[type="text"] {
+  background-color: var(--color-green-1);
+}
+
+form.drag-enabled input[type="text"]:hover,
+form.drag-enabled input:hover {
+  background-color: var(--color-green-3);
+}
+
+form input.form-input {
+  background-color: var(--color-gray-7);
+}

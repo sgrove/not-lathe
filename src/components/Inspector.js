@@ -1912,8 +1912,10 @@ function Inspector$Request(Props) {
           }
           return formInput(schema, def, setFormVariables, tmp);
         }));
+  var tmp;
+  tmp = typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0 ? "" : "drag-enabled";
   var form = React.createElement("form", {
-        className: "flex flex-col",
+        className: tmp + " flex flex-col",
         onSubmit: (function ($$event) {
             $$event.preventDefault();
             $$event.stopPropagation();
@@ -2280,10 +2282,12 @@ function Inspector$Nothing(Props) {
                                   color: Comps.colors["gray-4"]
                                 }), "Delete Request")));
         }));
+  var tmp;
+  tmp = typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0 ? "" : "drag-enabled";
   var formTab = React.createElement(React.Fragment, undefined, React.createElement(Inspector$CollapsableSection, {
             title: "Chain Form",
             children: React.createElement("form", {
-                  className: "flex flex-col",
+                  className: tmp + " flex flex-col",
                   onSubmit: (function ($$event) {
                       $$event.preventDefault();
                       $$event.stopPropagation();
@@ -2323,18 +2327,18 @@ function Inspector$Nothing(Props) {
                               chainExecutionResults: Caml_option.some(chainExecutionResults)
                             });
                 })), null));
-  var tmp = {
+  var tmp$1 = {
     margin: "10px",
     textAlign: "center",
     width: "100%"
   };
-  var tmp$1 = Belt_Option.isNone(savedChainId) ? undefined : Comps.colors["blue-1"];
-  if (tmp$1 !== undefined) {
-    tmp.backgroundColor = Caml_option.valFromOption(tmp$1);
-  }
-  var tmp$2 = Belt_Option.isNone(savedChainId) ? undefined : Comps.colors["gray-6"];
+  var tmp$2 = Belt_Option.isNone(savedChainId) ? undefined : Comps.colors["blue-1"];
   if (tmp$2 !== undefined) {
-    tmp.color = Caml_option.valFromOption(tmp$2);
+    tmp$1.backgroundColor = Caml_option.valFromOption(tmp$2);
+  }
+  var tmp$3 = Belt_Option.isNone(savedChainId) ? undefined : Comps.colors["gray-6"];
+  if (tmp$3 !== undefined) {
+    tmp$1.color = Caml_option.valFromOption(tmp$3);
   }
   var saveTab = React.createElement("div", {
         className: "flex flex-col"
@@ -2405,7 +2409,7 @@ function Inspector$Nothing(Props) {
                                           }));
                             }));
               }),
-            style: tmp,
+            style: tmp$1,
             value: ""
           }, React.createElement("option", {
                 value: ""

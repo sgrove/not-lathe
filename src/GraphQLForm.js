@@ -230,8 +230,7 @@ export const formInput = (schema, def, setFormVariables, options) => {
               onChange={updateFunction}
               defaultValue={options.defaultValue}
               {...finalInputAttrs}
-              className="bg-transparent border-none px-2 leading-tight outline-none text-white"
-              style={{ backgroundColor: "#282B30" }}
+              className="bg-transparent border-none px-2 leading-tight outline-none text-white form-input"
               type="text"
               placeholder={namedType.name}
               onMouseUp={(event) =>
