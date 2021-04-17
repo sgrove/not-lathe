@@ -2380,7 +2380,7 @@ module Nothing = {
     let targetChain = compiledOperation.chains->Belt.Array.get(0)
 
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
-    let (openedTab, setOpenedTab) = React.useState(() => #form)
+    let (openedTab, setOpenedTab) = React.useState(() => #inspector)
 
     let isSubscription =
       chain.requests->Belt.Array.some(request => request.operation.kind == Subscription)
@@ -2560,9 +2560,9 @@ module Nothing = {
               <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
               {(isSubscription ? " Start chain" : "  Run chain")->React.string}
             </Comps.Button>
-            <Comps.Pre>
-              {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->string}
-            </Comps.Pre>
+            // <Comps.Pre>
+            //   {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->string}
+            // </Comps.Pre>
           </form>
         </CollapsableSection>
         {chainExecutionResults

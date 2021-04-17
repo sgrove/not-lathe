@@ -2137,7 +2137,7 @@ function Inspector$Nothing(Props) {
   var setFormVariables = match$1[1];
   var formVariables = match$1[0];
   var match$2 = React.useState(function () {
-        return "form";
+        return "inspector";
       });
   var setOpenedTab = match$2[1];
   var openedTab = match$2[0];
@@ -2316,9 +2316,7 @@ function Inspector$Nothing(Props) {
                     }, React.createElement(Icons.RunLink.make, {
                           className: "inline-block",
                           color: Comps.colors["gray-6"]
-                        }), isSubscription ? " Start chain" : "  Run chain"), React.createElement(Comps.Pre.make, {
-                      children: JSON.stringify(formVariables, null, 2)
-                    }))
+                        }), isSubscription ? " Start chain" : "  Run chain"))
           }), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
                   return React.createElement(Inspector$ChainResultsViewer, {
                               chain: chain,
