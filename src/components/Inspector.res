@@ -14,6 +14,7 @@ module GraphQLPreview = {
     printedType: string,
     path: array<string>,
     simplePath: array<string>,
+    displayedData: Js.Json.t,
   }
 
   @react.component @module("../GraphQLMockInputType.js")
@@ -25,6 +26,7 @@ module GraphQLPreview = {
     ~targetGqlType: string=?,
     ~onCopy: previewCopyPayload => unit,
     ~onClose: unit => unit=?,
+    ~definitionResultData: Js.Dict.t<Js.Json.t>=?,
   ) => React.element = "GraphQLPreview"
 }
 
@@ -36,6 +38,8 @@ type formInputOptions = {
   inputClassName: string,
   @optional
   defaultValue: Js.Json.t,
+  @optional
+  onMouseUp: ReactEvent.Mouse.t => unit,
 }
 
 @module("../GraphQLForm.js")
@@ -45,6 +49,28 @@ external formInput: (
   'setFormVariablesFn,
   formInputOptions,
 ) => React.element = "formInput"
+
+let forceablySetInputValue = (node, value) => {
+  let helper = %raw(`function(node, value) {
+  // only process the change on elements we know have a value setter in their constructor
+const inputTypes =  [
+    window.HTMLInputElement,
+    window.HTMLSelectElement,
+    window.HTMLTextAreaElement,
+]
+
+  if ( inputTypes.indexOf(node.__proto__.constructor) >-1 ) {
+
+        const setValue = Object.getOwnPropertyDescriptor(node.__proto__, 'value').set;
+        const event = new Event('input', { bubbles: true });
+
+        setValue.call(node, value);
+        node.dispatchEvent(event);
+
+    }}`)
+
+  helper(node, value)
+}
 
 type inspectable =
   | Nothing({chain: Chain.t, trace: option<Chain.Trace.t>})
@@ -2077,10 +2103,32 @@ module Request = {
                 variables->Obj.magic->Js.Dict.get(name)
               )
             ),
+            ~onMouseUp={
+              event => {
+                let element = ReactEvent.Mouse.target(event)->Obj.magic
+                let clientX = event->ReactEvent.Mouse.clientX
+                let clientY = event->ReactEvent.Mouse.clientY
+                let mouseClientPosition = (clientX, clientY)
+                switch connectionDrag {
+                | ConnectionContext.StartedSource({sourceRequest, sourceDom}) =>
+                  let connectionDrag = ConnectionContext.Completed({
+                    sourceDom: sourceDom,
+                    sourceRequest: sourceRequest,
+                    target: Input({inputDom: element}),
+                    windowPosition: mouseClientPosition,
+                  })
+
+                  onPotentialVariableSourceConnect(~connectionDrag)
+                | _ => ()
+                }
+              }
+            },
             (),
           ),
         )
       })
+
+    let definitionResultData = requestValueCache
 
     let form =
       <form
@@ -2225,6 +2273,7 @@ module Request = {
 
                   fullPath->Clipboard.copy
                 }}
+                definitionResultData
               />
             </div>
           </CollapsableSection>
@@ -2305,6 +2354,11 @@ module Nothing = {
     ~onClose,
     ~authTokens,
   ) => {
+    open React
+
+    let connectionDrag = useContext(ConnectionContext.context)
+    let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
+
     let webhookUrl = webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
     let compiledOperation = chain->Chain.compileOperationDoc(~schema, ~webhookUrl)
 
@@ -2326,7 +2380,7 @@ module Nothing = {
     let targetChain = compiledOperation.chains->Belt.Array.get(0)
 
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
-    let (openedTab, setOpenedTab) = React.useState(() => #inspector)
+    let (openedTab, setOpenedTab) = React.useState(() => #form)
 
     let isSubscription =
       chain.requests->Belt.Array.some(request => request.operation.kind == Subscription)
@@ -2357,6 +2411,26 @@ module Nothing = {
                   variables->Obj.magic->Js.Dict.get(exposedVariable.exposedName)
                 )
               ),
+              ~onMouseUp={
+                event => {
+                  let element = ReactEvent.Mouse.target(event)->Obj.magic
+                  let clientX = event->ReactEvent.Mouse.clientX
+                  let clientY = event->ReactEvent.Mouse.clientY
+                  let mouseClientPosition = (clientX, clientY)
+                  switch connectionDrag {
+                  | ConnectionContext.StartedSource({sourceRequest, sourceDom}) =>
+                    let connectionDrag = ConnectionContext.Completed({
+                      sourceDom: sourceDom,
+                      sourceRequest: sourceRequest,
+                      target: Input({inputDom: element}),
+                      windowPosition: mouseClientPosition,
+                    })
+
+                    onPotentialVariableSourceConnect(~connectionDrag)
+                  | _ => ()
+                  }
+                }
+              },
               (),
             ),
           )
@@ -2368,11 +2442,7 @@ module Nothing = {
 
     let isChainViable = chain.requests->Belt.Array.length > 0
 
-    open React
     let (currentAuthToken, setCurrentAuthToken) = useState(() => None)
-
-    let connectionDrag = useContext(ConnectionContext.context)
-    let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
 
     let requests = chain.requests->Belt.Array.map(request => {
       let dragClassName =
@@ -2486,15 +2556,13 @@ module Nothing = {
               })
               ->array}
             </Comps.Select>
-            <Comps.Button
-              onClick={_ => {
-                runChain()
-              }}
-              type_="submit"
-              className="w-full">
+            <Comps.Button type_="submit" className="w-full">
               <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
               {(isSubscription ? " Start chain" : "  Run chain")->React.string}
             </Comps.Button>
+            <Comps.Pre>
+              {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->string}
+            </Comps.Pre>
           </form>
         </CollapsableSection>
         {chainExecutionResults

@@ -216,6 +216,9 @@ module Mock = {
   @module("../GraphQLMockInputType.js")
   external compileComputeToIdentityQuery: graphqlOperationDefinition => graphqlOperationDefinition =
     "compileComputeToIdentityQuery"
+
+  @module("../GraphQLMockInputType.js")
+  external getIn: (Js.Json.t, 'path) => Js.Null_undefined.t<Js.Json.t> = "getIn"
 }
 
 let operationNames = (ast: graphqlAst) => {

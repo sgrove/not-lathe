@@ -5,6 +5,7 @@ type variableTarget = {targetRequest: Chain.request, variableDependency: Chain.v
 type target =
   | Variable(variableTarget)
   | Script({scriptPosition: scriptPosition})
+  | Input({inputDom: Dom.element})
 
 type connectionDrag =
   | Empty

@@ -105,6 +105,10 @@ function compileComputeToIdentityQuery(prim) {
   return GraphQLMockInputTypeJs.compileComputeToIdentityQuery(prim);
 }
 
+function getIn(prim, prim$1) {
+  return GraphQLMockInputTypeJs.getIn(prim, prim$1);
+}
+
 var Mock = {
   stripVariables: stripVariables,
   mockOperationVariables: mockOperationVariables,
@@ -115,7 +119,8 @@ var Mock = {
   typeScriptSignatureForOperationVariables: typeScriptSignatureForOperationVariables,
   gatherFragmentDefinitions: gatherFragmentDefinitions,
   patchSubscriptionWebhookField: patchSubscriptionWebhookField,
-  compileComputeToIdentityQuery: compileComputeToIdentityQuery
+  compileComputeToIdentityQuery: compileComputeToIdentityQuery,
+  getIn: getIn
 };
 
 function operationNames(ast) {

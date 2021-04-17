@@ -112,6 +112,28 @@ export const formInput = (schema, def, setFormVariables, options) => {
           </fieldset>
         </div>
       );
+    } else if (isScalar && namedType.name === "Boolean") {
+      const updateFunction = updateFormVariables(
+        setFormVariables,
+        path,
+        (value) => value === "true"
+      );
+
+      subDataEl = (
+        <select
+          className="ml-2 mr-2 m-0 pt-0 pb-0 pl-4 pr-8 w-full rounded-sm"
+          id={path.join("-")}
+          onChange={updateFunction}
+          key={path.join("-")}
+        >
+          <option key={"true"} value={"true"}>
+            true
+          </option>
+          <option key={"false"} value={"false"}>
+            false
+          </option>
+        </select>
+      );
     } else if (isScalar) {
       let coerceFn;
       let inputAttrs;
@@ -212,6 +234,9 @@ export const formInput = (schema, def, setFormVariables, options) => {
               style={{ backgroundColor: "#282B30" }}
               type="text"
               placeholder={namedType.name}
+              onMouseUp={(event) =>
+                options.onMouseUp && options.onMouseUp(event)
+              }
             />
           </div>
         </div>

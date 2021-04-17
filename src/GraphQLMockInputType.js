@@ -143,6 +143,44 @@ let basicToTypeScript = (type, nesting) => {
   return base;
 };
 
+export const getIn = (object, rawPath) => {
+  const helper = (object, path) => {
+    // if (path.length === 0) {
+    //   console.error(object, path, updater);
+    //   throw "No path to update at";
+    // }
+
+    if (path.length === 1) {
+      return object && object[path[0]];
+    }
+
+    const next = object[path[0]];
+    const deadEnd = [undefined, null].indexOf(next) > -1;
+
+    if (deadEnd) {
+      return next;
+    }
+    return getIn(next, path.slice(1));
+  };
+
+  const path = rawPath
+    .map((step) => {
+      if (typeof step === "number") {
+        return step;
+      }
+
+      const match = step.match(/(.+)\[0\]/);
+      if (match) {
+        return [match[1], 0];
+      } else {
+        return step;
+      }
+    })
+    .flat();
+
+  return helper(object, path);
+};
+
 const modifyIn = (object, path, modify) => {
   // if (path.length === 0) {
   //   console.error(object, path, updater);
@@ -497,8 +535,10 @@ function PreviewForAst({
   onCopy,
   fragmentDefinitions,
   targetGqlType,
+  definitionResultData,
 }) {
   let nullableTargetGqlType = targetGqlType?.replace(/\!/g, "");
+  let hasExampleData = typeof definitionResultData !== "undefined";
 
   let baseGqlType =
     ast.kind === "OperationDefinition"
@@ -598,8 +638,12 @@ function PreviewForAst({
     let typeNameMatches =
       printedType && nullableTypes === nullableTargetGqlType;
 
+    let exampleData = getIn(definitionResultData || {}, fullPath);
+
     let mock = isScalarType(namedType)
-      ? JSON.stringify(mockInputType(schema, namedType))
+      ? typeof exampleData !== "undefined"
+        ? exampleData
+        : JSON.stringify(mockInputType(schema, namedType))
       : isObjectLike
       ? "{}"
       : "";
@@ -623,6 +667,7 @@ function PreviewForAst({
               printedType: printedType,
               path: fullPath,
               simplePath: simplePath,
+              displayedData: mock,
             });
           }}
         >
@@ -658,6 +703,7 @@ export function GraphQLPreview({
   onCopy,
   onClose,
   targetGqlType,
+  definitionResultData,
 }) {
   useHotkeys("esc", (_event, _handler) => {
     onClose && onClose();
@@ -679,6 +725,7 @@ export function GraphQLPreview({
         onCopy={onCopy}
         targetGqlType={targetGqlType}
         fragmentDefinitions={fragmentDefinitions || {}}
+        definitionResultData={definitionResultData}
       />
     </div>
   );

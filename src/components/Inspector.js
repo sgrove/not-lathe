@@ -55,6 +55,27 @@ function formInput(prim, prim$1, prim$2, prim$3) {
   return GraphQLFormJs.formInput(prim, prim$1, prim$2, prim$3);
 }
 
+function forceablySetInputValue(node, value) {
+  var helper = (function(node, value) {
+  // only process the change on elements we know have a value setter in their constructor
+const inputTypes =  [
+    window.HTMLInputElement,
+    window.HTMLSelectElement,
+    window.HTMLTextAreaElement,
+]
+
+  if ( inputTypes.indexOf(node.__proto__.constructor) >-1 ) {
+
+        const setValue = Object.getOwnPropertyDescriptor(node.__proto__, 'value').set;
+        const event = new Event('input', { bubbles: true });
+
+        setValue.call(node, value);
+        node.dispatchEvent(event);
+
+    }});
+  return helper(node, value);
+}
+
 function Inspector$CollapsableSection(Props) {
   var title = Props.title;
   var defaultOpenOpt = Props.defaultOpen;
@@ -1483,7 +1504,16 @@ function Inspector$Request(Props) {
                   break;
               case /* StartedTarget */1 :
                   var match = connectionDrag.target;
-                  dragClassName = match.TAG === /* Variable */0 && match._0.variableDependency.name === variableName ? "drag-source" : "";
+                  switch (match.TAG | 0) {
+                    case /* Variable */0 :
+                        dragClassName = match._0.variableDependency.name === variableName ? "drag-source" : "";
+                        break;
+                    case /* Script */1 :
+                    case /* Input */2 :
+                        dragClassName = "";
+                        break;
+                    
+                  }
                   break;
               default:
                 dragClassName = "";
@@ -1845,7 +1875,32 @@ function Inspector$Request(Props) {
             type: def_type
           };
           var tmp = {
-            labelClassname: "text-underline pl-2 m-2 mt-0 mb-0 font-thin text-sm font-mono"
+            labelClassname: "text-underline pl-2 m-2 mt-0 mb-0 font-thin text-sm font-mono",
+            onMouseUp: (function ($$event) {
+                var element = $$event.target;
+                var clientX = $$event.clientX;
+                var clientY = $$event.clientY;
+                var mouseClientPosition = [
+                  clientX,
+                  clientY
+                ];
+                if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                  return ;
+                } else {
+                  return Curry._1(onPotentialVariableSourceConnect, {
+                              TAG: 3,
+                              sourceRequest: connectionDrag.sourceRequest,
+                              sourceDom: connectionDrag.sourceDom,
+                              target: {
+                                TAG: 2,
+                                inputDom: element,
+                                [Symbol.for("name")]: "Input"
+                              },
+                              windowPosition: mouseClientPosition,
+                              [Symbol.for("name")]: "Completed"
+                            });
+                }
+              })
           };
           var tmp$1 = Belt_Option.flatMap(trace, (function (trace) {
                   return Belt_Option.flatMap(trace.variables, (function (variables) {
@@ -1984,7 +2039,8 @@ function Inspector$Request(Props) {
                                       var fullPath = "payload." + dataPath;
                                       CopyToClipboard(fullPath);
                                       
-                                    })
+                                    }),
+                                  definitionResultData: requestValueCache
                                 }))
                       })) : React.createElement(Inspector$CollapsableSection, {
                     title: "Execute block",
@@ -2056,6 +2112,12 @@ function Inspector$Nothing(Props) {
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
   var authTokens = Props.authTokens;
+  var connectionDrag = React.useContext(ConnectionContext.context);
+  var match = React.useState(function () {
+        
+      });
+  var setPotentialConnection = match[1];
+  var potentialConnection = match[0];
   var webhookUrl = "https://websmee.com/hook/" + oneGraphAuth.appId;
   var compiledOperation = Chain.compileOperationDoc(schema, webhookUrl, chain);
   var missingAuthServices = Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, findMissingAuthServicesFromChainResult), []);
@@ -2069,16 +2131,16 @@ function Inspector$Nothing(Props) {
                     });
         }));
   var targetChain = Belt_Array.get(compiledOperation.chains, 0);
-  var match = React.useState(function () {
+  var match$1 = React.useState(function () {
         return {};
       });
-  var setFormVariables = match[1];
-  var formVariables = match[0];
-  var match$1 = React.useState(function () {
-        return "inspector";
+  var setFormVariables = match$1[1];
+  var formVariables = match$1[0];
+  var match$2 = React.useState(function () {
+        return "form";
       });
-  var setOpenedTab = match$1[1];
-  var openedTab = match$1[0];
+  var setOpenedTab = match$2[1];
+  var openedTab = match$2[0];
   var isSubscription = Belt_Array.some(chain.requests, (function (request) {
           return request.operation.kind === /* Subscription */2;
         }));
@@ -2097,7 +2159,32 @@ function Inspector$Nothing(Props) {
                               type: def_type
                             };
                             var tmp = {
-                              labelClassname: "background-blue-400"
+                              labelClassname: "background-blue-400",
+                              onMouseUp: (function ($$event) {
+                                  var element = $$event.target;
+                                  var clientX = $$event.clientX;
+                                  var clientY = $$event.clientY;
+                                  var mouseClientPosition = [
+                                    clientX,
+                                    clientY
+                                  ];
+                                  if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                                    return ;
+                                  } else {
+                                    return Curry._1(onPotentialVariableSourceConnect, {
+                                                TAG: 3,
+                                                sourceRequest: connectionDrag.sourceRequest,
+                                                sourceDom: connectionDrag.sourceDom,
+                                                target: {
+                                                  TAG: 2,
+                                                  inputDom: element,
+                                                  [Symbol.for("name")]: "Input"
+                                                },
+                                                windowPosition: mouseClientPosition,
+                                                [Symbol.for("name")]: "Completed"
+                                              });
+                                  }
+                                })
                             };
                             var tmp$1 = Belt_Option.flatMap(trace, (function (trace) {
                                     return Belt_Option.flatMap(trace.variables, (function (variables) {
@@ -2111,17 +2198,11 @@ function Inspector$Nothing(Props) {
                           }));
             })), null);
   var isChainViable = chain.requests.length !== 0;
-  var match$2 = React.useState(function () {
-        
-      });
-  var setCurrentAuthToken = match$2[1];
-  var currentAuthToken = match$2[0];
-  var connectionDrag = React.useContext(ConnectionContext.context);
   var match$3 = React.useState(function () {
         
       });
-  var setPotentialConnection = match$3[1];
-  var potentialConnection = match$3[0];
+  var setCurrentAuthToken = match$3[1];
+  var currentAuthToken = match$3[0];
   var requests = Belt_Array.map(chain.requests, (function (request) {
           var tmp;
           tmp = typeof connectionDrag === "number" || !(connectionDrag.TAG === /* StartedSource */0 && connectionDrag.sourceRequest.id !== request.id) ? "" : "node-drop drag-target";
@@ -2199,10 +2280,6 @@ function Inspector$Nothing(Props) {
                                   color: Comps.colors["gray-4"]
                                 }), "Delete Request")));
         }));
-  var runChain = function (param) {
-    var variables = Caml_option.some(formVariables);
-    return Curry._2(transformAndExecuteChain, variables, currentAuthToken);
-  };
   var formTab = React.createElement(React.Fragment, undefined, React.createElement(Inspector$CollapsableSection, {
             title: "Chain Form",
             children: React.createElement("form", {
@@ -2210,7 +2287,8 @@ function Inspector$Nothing(Props) {
                   onSubmit: (function ($$event) {
                       $$event.preventDefault();
                       $$event.stopPropagation();
-                      return runChain(undefined);
+                      var variables = Caml_option.some(formVariables);
+                      return Curry._2(transformAndExecuteChain, variables, currentAuthToken);
                     })
                 }, form, authButtons, React.createElement(Comps.Select.make, {
                       children: null,
@@ -2232,16 +2310,15 @@ function Inspector$Nothing(Props) {
                                         value: token.accessToken
                                       }, token.name);
                           }))), React.createElement(Comps.Button.make, {
-                      onClick: (function (param) {
-                          return runChain(undefined);
-                        }),
                       className: "w-full",
                       type_: "submit",
                       children: null
                     }, React.createElement(Icons.RunLink.make, {
                           className: "inline-block",
                           color: Comps.colors["gray-6"]
-                        }), isSubscription ? " Start chain" : "  Run chain"))
+                        }), isSubscription ? " Start chain" : "  Run chain"), React.createElement(Comps.Pre.make, {
+                      children: JSON.stringify(formVariables, null, 2)
+                    }))
           }), Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, (function (chainExecutionResults) {
                   return React.createElement(Inspector$ChainResultsViewer, {
                               chain: chain,
@@ -2709,6 +2786,7 @@ export {
   Clipboard ,
   GraphQLPreview ,
   formInput ,
+  forceablySetInputValue ,
   CollapsableSection ,
   checkFunctionExists ,
   ensureRequestFunctionExists ,

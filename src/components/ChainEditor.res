@@ -1401,8 +1401,10 @@ module Diagram = {
 }
 
 module PopupPicker = {
+  let draggablePattern = `url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAABaADAAQAAAABAAAABQAAAAB/qhzxAAAAGElEQVQIHWNgwAWmTJnyH4Rh8kwwBnk0AJwCBXmDfKBPAAAAAElFTkSuQmCC) repeat`
+
   @react.component
-  let make = (~top, ~left, ~width="500px", ~children, ~onClose) => {
+  let make = (~top, ~left, ~width="500px", ~title="", ~children, ~onClose) => {
     ReactHotKeysHook.useHotkeys(
       ~keys="esc",
       ~callback=(_event, _handler) => {
@@ -1412,21 +1414,59 @@ module PopupPicker = {
       ~deps=None,
     )
 
-    <div
-      className="absolute graphql-structure-container rounded-sm text-gray-200"
-      style={ReactDOMRe.Style.make(
-        ~width,
-        ~top=j`${top->string_of_int}px`,
-        ~left=j`${left->string_of_int}px`,
-        ~maxHeight="200px",
-        ~overflowY="scroll",
-        ~color=Comps.colors["gray-6"],
-        ~zIndex="999",
-        (),
-      )}>
-      {children}
-    </div>
+    <ReactDraggable>
+      <div
+        className="absolute graphql-structure-container rounded-sm text-gray-200"
+        style={ReactDOMRe.Style.make(
+          ~width,
+          ~top=j`${top->string_of_int}px`,
+          ~left=j`${left->string_of_int}px`,
+          ~maxHeight="200px",
+          ~overflowY="scroll",
+          ~color=Comps.colors["gray-6"],
+          ~zIndex="999",
+          (),
+        )}>
+        <div
+          style={ReactDOMRe.Style.make(
+            ~width="100%",
+            ~height="15px",
+            ~cursor="move",
+            ~color=Comps.colors["gray-6"],
+            ~display="flex",
+            ~justifyContent="space-between",
+            (),
+          )}>
+          <span
+            style={ReactDOMStyle.make(~background=draggablePattern, ())}
+            className="text-white cursor-move flex-grow flex-1 mr-4 mt mb">
+            {title->React.string}
+          </span>
+          <span className="text-white cursor-pointer" onClick={_ => onClose()}>
+            {j`⨂`->React.string}
+          </span>
+        </div>
+        {children}
+      </div>
+    </ReactDraggable>
   }
+}
+
+let chainResultToRequestValueCache = chainExecutionResults => {
+  let emptyObj = %raw(`{}`)
+  let requestValueCache = Obj.magic(
+    chainExecutionResults,
+  )["data"]["oneGraph"]["executeChain"]["results"]->Belt.Array.reduce(Js.Dict.empty(), (
+    acc,
+    next,
+  ) => {
+    let reqId = next["request"]["id"]
+    let result = next["result"]->Belt.Array.get(0)->Belt.Option.getWithDefault(emptyObj)
+    acc->Js.Dict.set(reqId, result)
+    acc
+  })
+
+  requestValueCache
 }
 
 module Main = {
@@ -1721,6 +1761,13 @@ module Main = {
         : ()
       None
     }, [state.chain.requests->Belt.Array.length])
+
+    let definitionResultData = switch state.trace {
+    | None => state.requestValueCache
+    | Some(trace) =>
+      let transformed = trace.trace->chainResultToRequestValueCache
+      transformed
+    }
 
     let onExecuteRequest = (~request: Chain.request, ~variables, ~authToken) => {
       let ast = request.operation.body->GraphQLJs.parse
@@ -2179,7 +2226,7 @@ ${newScript}`
                   ...oldState,
                   chainExecutionResults: json,
                   trace: newTrace,
-                  requestValueCache: Js.Dict.empty(),
+                  requestValueCache: chainResultToRequestValueCache(json),
                 }
               })->Js.Promise.resolve
             },
@@ -2827,12 +2874,6 @@ ${newScript}`
                 {"Choose destination variable: "->string}
               </span>
               <ul>
-                <li
-                  className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
-                  key="CANCEL"
-                  onClick={_ => onClick(None)}>
-                  {"Cancel"->string}
-                </li>
                 {variableDependencies
                 ->Belt.Array.map(variableDependency => {
                   <li
@@ -2845,7 +2886,6 @@ ${newScript}`
                 ->array}
               </ul>
             </PopupPicker>
-
           | CompletedWithTypeMismatch({
               sourceRequest,
               variableTarget,
@@ -3126,12 +3166,6 @@ ${newScript}`
               </span>
               <ul>
                 <li
-                  className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
-                  key="CANCEL"
-                  onClick={_ => onClose()}>
-                  {"Cancel"->string}
-                </li>
-                <li
                   className="cursor-pointer graphql-structure-preview-entry"
                   key="INTERNAL_PASSTHROUGH"
                   onClick={_ => onClick(Some("INTERNAL_PASSTHROUGH"))}>
@@ -3176,12 +3210,6 @@ ${newScript}`
               })
 
             <PopupPicker top=y left=x onClose>
-              <div
-                className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
-                key="CANCEL"
-                onClick={_ => onClose()}>
-                {"Cancel"->string}
-              </div>
               <Inspector.GraphQLPreview
                 requestId=sourceRequest.id
                 schema
@@ -3193,6 +3221,7 @@ ${newScript}`
                 onClose={() => {
                   setState(oldState => {...oldState, connectionDrag: Empty})
                 }}
+                definitionResultData
                 onCopy={payload => {
                   let {path} = payload
                   let dataPath = ["payload"]->Belt.Array.concat(path)
@@ -3288,6 +3317,61 @@ ${newScript}`
                 }}
               />
             </PopupPicker>
+          | Completed({sourceRequest, target: Input({inputDom}), windowPosition: (x, y)}) =>
+            let chainFragmentsDoc =
+              state.chain.blocks
+              ->Belt.Array.keepMap(block => {
+                switch block.kind {
+                | Fragment => Some(block.body)
+                | _ => None
+                }
+              })
+              ->Js.Array2.joinWith("\n\n")
+
+            let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
+            let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+            let onClose = () =>
+              setState(oldState => {
+                ...oldState,
+                connectionDrag: Empty,
+              })
+
+            <PopupPicker top=y left=x onClose>
+              <Inspector.GraphQLPreview
+                requestId=sourceRequest.id
+                schema
+                definition
+                fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                  "operationDoc": chainFragmentsDoc,
+                })}
+                targetGqlType="[String]"
+                onClose={() => {
+                  setState(oldState => {...oldState, connectionDrag: Empty})
+                }}
+                definitionResultData
+                onCopy={payload => {
+                  let {displayedData} = payload
+
+                  let _ = try {
+                    inputDom->Inspector.forceablySetInputValue(displayedData)
+                  } catch {
+                  | _ => ()
+                  }
+
+                  setState(oldState => {
+                    ...oldState,
+                    connectionDrag: Empty,
+                  })
+                }}
+              />
+            </PopupPicker>
+          | StartedTarget({target: Input(_)}) =>
+            setState(oldState => {
+              ...oldState,
+              connectionDrag: Empty,
+            })
+            null
           | Completed({
               sourceRequest,
               sourceDom,
@@ -3327,12 +3411,6 @@ ${newScript}`
               })
 
             <PopupPicker top=y left=x onClose>
-              <div
-                className="cursor-pointer graphql-structure-preview-entry border-b mb-2 pb-2"
-                key="CANCEL"
-                onClick={_ => onClose()}>
-                {"Cancel"->string}
-              </div>
               <Inspector.GraphQLPreview
                 requestId=sourceRequest.id
                 schema
@@ -3344,6 +3422,7 @@ ${newScript}`
                 onClose={() => {
                   setState(oldState => {...oldState, connectionDrag: Empty})
                 }}
+                definitionResultData
                 onCopy={({printedType, path}) => {
                   let dataPath = ["payload"]->Belt.Array.concat(path)
 
