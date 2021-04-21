@@ -29,6 +29,7 @@ import * as Belt_SetString from "bs-platform/lib/es6/belt_SetString.mjs";
 import * as GraphQLFormJs from "../GraphQLForm.js";
 import * as Standalone from "@babel/standalone";
 import * as ConnectionContext from "./ConnectionContext.js";
+import * as RequestValueCache from "../RequestValueCache.js";
 import CopyToClipboard from "copy-to-clipboard";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 import * as ReactHotkeysHook from "react-hotkeys-hook";
@@ -324,7 +325,7 @@ function evalRequest(schema, chain, request, requestValueCache, trace) {
                 if (match$1 !== undefined) {
                   acc[nextRequest.id] = {
                     variables: variables,
-                    graphQLResult: Caml_option.valFromOption(match$1)
+                    graphQLResult: match$1
                   };
                   return acc;
                 }
@@ -479,7 +480,7 @@ function babelInvocations(schema, trace, chain, requestValueCache) {
                         if (match$1 !== undefined) {
                           acc[nextRequest.id] = {
                             variables: variables,
-                            graphQLResult: Caml_option.valFromOption(match$1)
+                            graphQLResult: match$1
                           };
                           return acc;
                         }
@@ -553,6 +554,7 @@ function internallyPatchChain(chain) {
   var requestsWithLockedVariables = patchChainRequestsArgDeps(chain);
   return {
           name: chain.name,
+          description: chain.description,
           id: chain.id,
           script: transpiled,
           scriptDependencies: chain.scriptDependencies,
@@ -1437,12 +1439,14 @@ function Inspector$Request(Props) {
   React.useEffect((function () {
           var requestsWithLockedVariables = patchChainRequestsArgDeps(chain);
           var chain_name = chain.name;
+          var chain_description = chain.description;
           var chain_id = chain.id;
           var chain_script = chain.script;
           var chain_scriptDependencies = chain.scriptDependencies;
           var chain_blocks = chain.blocks;
           var chain$1 = {
             name: chain_name,
+            description: chain_description,
             id: chain_id,
             script: chain_script,
             scriptDependencies: chain_scriptDependencies,
@@ -1770,11 +1774,13 @@ function Inspector$Request(Props) {
                                     }
                                   }
                                   var newChain_name = chain.name;
+                                  var newChain_description = chain.description;
                                   var newChain_id = chain.id;
                                   var newChain_scriptDependencies = chain.scriptDependencies;
                                   var newChain_blocks = chain.blocks;
                                   var newChain = {
                                     name: newChain_name,
+                                    description: newChain_description,
                                     id: newChain_id,
                                     script: newScript,
                                     scriptDependencies: newChain_scriptDependencies,
@@ -1808,6 +1814,7 @@ function Inspector$Request(Props) {
                               onRequestUpdated: (function (newRequest) {
                                   return Curry._1(onChainUpdated, {
                                               name: chain.name,
+                                              description: chain.description,
                                               id: chain.id,
                                               script: chain.script,
                                               scriptDependencies: chain.scriptDependencies,
@@ -1943,7 +1950,7 @@ function Inspector$Request(Props) {
             children: "Execute"
           }));
   var missingAuthServices = Belt_Option.mapWithDefault(cachedResult, [], (function (results) {
-          return OnegraphAuth.findMissingAuthServices(Caml_option.some(results));
+          return OnegraphAuth.findMissingAuthServices(results);
         }));
   var authButtons = Belt_Array.map(missingAuthServices, (function (service) {
           return React.createElement(Comps.Button.make, {
@@ -2114,6 +2121,7 @@ function Inspector$Nothing(Props) {
   var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
   var authTokens = Props.authTokens;
+  var onChainUpdated = Props.onChainUpdated;
   var connectionDrag = React.useContext(ConnectionContext.context);
   var match = React.useState(function () {
         
@@ -2436,7 +2444,36 @@ function Inspector$Nothing(Props) {
                   color: Comps.colors["gray-13"]
                 }), React.createElement("span", {
                   className: "mt-2"
-                }, "Add some blocks to get started")), requests.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
+                }, "Add some blocks to get started")), React.createElement(Inspector$CollapsableSection, {
+            title: "Metadata",
+            defaultOpen: false,
+            children: React.createElement("div", {
+                  className: "relative text-lg bg-transparent text-gray-800"
+                }, React.createElement("div", {
+                      className: "flex items-center ml-2 mr-2"
+                    }, React.createElement("textarea", {
+                          defaultValue: Belt_Option.getWithDefault(chain.description, ""),
+                          className: "border-none px-2 leading-tight outline-none text-white form-input",
+                          style: {
+                            backgroundColor: Comps.colors["gray-9"]
+                          },
+                          placeholder: "Chain description",
+                          type: "text",
+                          onChange: (function ($$event) {
+                              var value = $$event.target.value.trim();
+                              var description = value === "" ? undefined : value;
+                              return Curry._1(onChainUpdated, {
+                                          name: chain.name,
+                                          description: description,
+                                          id: chain.id,
+                                          script: chain.script,
+                                          scriptDependencies: chain.scriptDependencies,
+                                          requests: chain.requests,
+                                          blocks: chain.blocks
+                                        });
+                            })
+                        })))
+          }), requests.length !== 0 ? React.createElement(Inspector$CollapsableSection, {
               title: "Chain Requests",
               children: requests
             }) : null, Caml_obj.caml_equal(initialChain, chain) ? null : React.createElement(Comps.Button.make, {
@@ -2576,7 +2613,7 @@ function Inspector$SubInspector(Props) {
   }
   if (exit === 1) {
     var request = inspected.request;
-    var cachedResult = Js_dict.get(requestValueCache, request.id);
+    var cachedResult = RequestValueCache.get(requestValueCache, request.id);
     tmp$1 = React.createElement(Inspector$Request, {
           appId: appId,
           request: request,
@@ -2707,7 +2744,8 @@ function Inspector(Props) {
           initialChain: initialChain,
           onSaveChain: onSaveChain,
           onClose: onClose,
-          authTokens: authTokens
+          authTokens: authTokens,
+          onChainUpdated: onChainUpdated
         }) : React.createElement(Inspector$Nothing, {
           chain: chain,
           schema: schema,
@@ -2724,7 +2762,8 @@ function Inspector(Props) {
           initialChain: initialChain,
           onSaveChain: onSaveChain,
           onClose: onClose,
-          authTokens: authTokens
+          authTokens: authTokens,
+          onChainUpdated: onChainUpdated
         });
   return React.createElement("div", {
               className: " text-white border-l border-gray-800",

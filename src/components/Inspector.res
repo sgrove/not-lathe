@@ -26,7 +26,7 @@ module GraphQLPreview = {
     ~targetGqlType: string=?,
     ~onCopy: previewCopyPayload => unit,
     ~onClose: unit => unit=?,
-    ~definitionResultData: Js.Dict.t<Js.Json.t>=?,
+    ~definitionResultData: RequestValueCache.t=?,
   ) => React.element = "GraphQLPreview"
 }
 
@@ -286,7 +286,7 @@ let evalRequest = (
   ~schema: GraphQLJs.schema,
   ~chain: Chain.t,
   ~request: Chain.request,
-  ~requestValueCache: Js.Dict.t<Js.Json.t>,
+  ~requestValueCache: RequestValueCache.t,
   ~trace: option<Chain.Trace.t>,
 ): Js.Promise.t<result<mockRequestValues, 'err>> => {
   QuickJsEmscripten.getQuickJS()->Js.Promise.then_(quickjs => {
@@ -462,7 +462,7 @@ let babelInvocations = (
   ~schema,
   ~trace: option<Chain.Trace.t>,
   ~chain: Chain.t,
-  ~requestValueCache: Js.Dict.t<Js.Json.t>,
+  ~requestValueCache: RequestValueCache.t,
 ) => {
   let calls = chain.requests->Belt.Array.map(request => {
     let names = request->Chain.requestScriptNames
@@ -1751,7 +1751,7 @@ module Request = {
     ~inspected as _: inspectable,
     ~schema: GraphQLJs.schema,
     ~onRequestCodeInspected,
-    ~cachedResult: option<Js.Json.t>,
+    ~cachedResult: option<GraphQLJs.queryResult>,
     ~onExecuteRequest,
     ~onLogin,
     ~requestValueCache,
@@ -2287,7 +2287,9 @@ module Request = {
           {authButtons->array}
           <Comps.Pre>
             {cachedResult
-            ->Belt.Option.mapWithDefault("Nothing", json => json->Js.Json.stringifyWithSpace(2))
+            ->Belt.Option.mapWithDefault("Nothing", json =>
+              Obj.magic(json)->Js.Json.stringifyWithSpace(2)
+            )
             ->string}
           </Comps.Pre>
         </CollapsableSection>
@@ -2356,6 +2358,7 @@ module Nothing = {
     ~onSaveChain,
     ~onClose,
     ~authTokens,
+    ~onChainUpdated,
   ) => {
     open React
 
@@ -2695,6 +2698,28 @@ ${remoteChainCalls.netlify.code}
                 <span className="mt-2"> {"Add some blocks to get started"->React.string} </span>
               </div>
         }
+        <CollapsableSection defaultOpen=false title={"Metadata"->React.string}>
+          <div className="relative text-lg bg-transparent text-gray-800">
+            <div className="flex items-center ml-2 mr-2">
+              <textarea
+                defaultValue={chain.description->Belt.Option.getWithDefault("")}
+                style={ReactDOMStyle.make(~backgroundColor=Comps.colors["gray-9"], ())}
+                className="border-none px-2 leading-tight outline-none text-white form-input"
+                type_="text"
+                placeholder={"Chain description"}
+                onChange={event => {
+                  let value = ReactEvent.Form.target(event)["value"]->Js.String2.trim
+                  let description = switch value {
+                  | "" => None
+                  | other => Some(other)
+                  }
+                  let newChain = {...chain, description: description}
+                  onChainUpdated(newChain)
+                }}
+              />
+            </div>
+          </div>
+        </CollapsableSection>
         {requests->Belt.Array.length > 0
           ? <CollapsableSection title={"Chain Requests"->React.string}>
               {requests->array}
@@ -2800,7 +2825,7 @@ module SubInspector = {
     ~onLogin: string => unit,
     ~onRequestCodeInspected,
     ~onExecuteRequest,
-    ~requestValueCache,
+    ~requestValueCache: RequestValueCache.t,
     ~onDeleteEdge,
     ~onDragStart,
     ~trace,
@@ -2849,7 +2874,7 @@ module SubInspector = {
         | Block(block) => <Block schema block onAddBlock />
         | Request({request})
         | RequestArgument({request}) =>
-          let cachedResult = requestValueCache->Js.Dict.get(request.id)
+          let cachedResult = requestValueCache->RequestValueCache.get(~requestId=request.id)
           <Request
             inspected
             onRequestCodeInspected
@@ -2990,6 +3015,7 @@ let make = (
           onClose
           onPotentialVariableSourceConnect
           authTokens
+          onChainUpdated
         />
       | _ =>
         <Nothing
@@ -3009,6 +3035,7 @@ let make = (
           onClose
           onPotentialVariableSourceConnect
           authTokens
+          onChainUpdated
         />
       }}
     </div>

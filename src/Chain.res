@@ -93,6 +93,7 @@ type scriptDependency = {
 
 type t = {
   name: string,
+  description: option<string>,
   id: option<Uuid.v4>,
   script: string,
   scriptDependencies: array<scriptDependency>,
@@ -477,6 +478,7 @@ let req6 = {
 let chain2 = {
   name: "chain2",
   id: None,
+  description: None,
   scriptDependencies: [],
   script: "export function getRow(result) {
           const event = result.SlackReactionSubscription[0].data.slack.reactionAddedEvent.event;
@@ -506,6 +508,7 @@ let chain2 = {
 let _chain = {
   name: "chain3",
   id: None,
+  description: None,
   scriptDependencies: [],
   script: "// export function greet(hello) {
 //  return true
@@ -551,6 +554,7 @@ export function getIssueTitle(payload) {
 let _chain = {
   name: "main",
   id: None,
+  description: None,
   scriptDependencies: [],
   script: `import {
   GitHubStatusInput,
@@ -582,6 +586,7 @@ export function makeVariablesForSetSlackStatus(
 
 let makeEmptyChain = name => {
   name: name,
+  description: None,
   id: Some(Uuid.v4()),
   script: ``,
   scriptDependencies: [],
@@ -591,6 +596,7 @@ let makeEmptyChain = name => {
 
 let emptyChain = {
   name: "new_chain",
+  description: None,
   id: None,
   script: ``,
   scriptDependencies: [],
@@ -1186,6 +1192,7 @@ type typeScriptDefinition = {
   inputType: string,
   returnTypeName: string,
   returnType: string,
+  fullExport: string,
 }
 
 let chainPrincipleKind = (chain: t) => {
@@ -1310,12 +1317,32 @@ let typeScriptDefinition = (~schema: GraphQLJs.schema, chain: t): typeScriptDefi
     ->Js.Array2.joinWith(",")
     ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags(",", ~flags="g"), ",\n\t")
 
+  let inputTypeName = makeInputTypeName(chain)
+  let returnTypeName = makeReturnTypeName(chain)
+  let functionName = javaScriptFunctionName(chain)
+  let description = chain.description->Belt.Option.mapWithDefault("", description => {
+    let description =
+      description->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("\n", ~flags="g"), "\n*")
+
+    j`/**
+* ${description}
+*/`
+  })
+
+  let fullExport = j`type ${inputTypeName} = {${inputType}};
+
+type ${returnTypeName} = {errors: Array<any>, ${returnType}};
+
+${description}
+export function ${functionName}(input: ${inputTypeName}): Promise<${returnTypeName}> {};`
+
   {
-    functionName: javaScriptFunctionName(chain),
-    inputTypeName: makeInputTypeName(chain),
+    functionName: functionName,
+    inputTypeName: inputTypeName,
     inputType: j`{${inputType}}`,
-    returnType: j`Promise<{${returnType}}>`,
-    returnTypeName: makeReturnTypeName(chain),
+    returnType: j`Promise<${returnType}>`,
+    returnTypeName: returnTypeName,
+    fullExport: fullExport,
   }
 }
 
@@ -1326,3 +1353,68 @@ let requestHasComputedVariables = (request: request) =>
     | _ => false
     }
   )
+
+module TypeScript = {
+  let fetchSource = (~schema, ~appId, ~docId, ~typeScriptDefinition, chain: t) => {
+    let compiled = compileOperationDoc(
+      ~schema,
+      ~webhookUrl="https://serve.onegraph.io/dev/null",
+      chain,
+    )
+
+    let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
+
+    let freeVariables =
+      targetChain.exposedVariables
+      ->Belt.Array.map(exposed => {
+        let key = exposed.exposedName
+
+        j`"${key}": params.${key}`
+      })
+      ->Js.Array2.joinWith(", ")
+
+    let pluckers =
+      chain.requests
+      ->Belt.Array.map(request => {
+        j`const ${request.id}Results = json?.data?.oneGraph?.executeChain?.results?.find(result => result?.request?.id === "${request.id}")?.result?.[0];`
+      })
+      ->Js.Array2.joinWith("\n\t")
+
+    let pluckedFields =
+      chain.requests
+      ->Belt.Array.map(request => {
+        j`${request.id}: ${request.id}Results`
+      })
+      ->Js.Array2.joinWith(",\n\t\t")
+
+    j`export async function ${typeScriptDefinition.functionName} (params) {
+  const resp = await fetch("https://serve.onegraph.com/graphql?app_id=${appId}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+        body: JSON.stringify({
+        "doc_id": "${docId}",
+        "operationName": "${targetChain.operationName}",
+        "variables": {${freeVariables}}
+        }
+      )
+    }
+  )
+
+  const json = await resp.json();
+  
+  ${pluckers}
+
+ const allErrors = json?.data?.oneGraph?.executeChain?.results
+    ?.map((step) => step?.result[0].errors)
+    .flat()
+    .filter(Boolean);
+
+  return {
+    errors: [...(json?.errors || []), ...(allErrors || [])],
+    ${pluckedFields}
+  }
+}`
+  }
+}

@@ -40,6 +40,7 @@ import ReactDraggable from "react-draggable";
 import FragmentNodeJs from "./FragmentNode.js";
 import * as ConnectionContext from "./ConnectionContext.js";
 import * as QuickJsEmscripten from "./QuickJsEmscripten.js";
+import * as RequestValueCache from "../RequestValueCache.js";
 import * as Caml_js_exceptions from "bs-platform/lib/es6/caml_js_exceptions.mjs";
 import * as ReactHotkeysHook from "react-hotkeys-hook";
 import ReactResizePanel from "react-resize-panel";
@@ -47,7 +48,7 @@ import * as ReactFlowRenderer from "react-flow-renderer";
 import ReactFlowRenderer$1 from "react-flow-renderer";
 import ParserBabel from "prettier/parser-babel";
 import * as QuickjsEmscripten from "@dww/quickjs-emscripten";
-import * as RecordStore from "insight-kit/lib/core/RecordStore";
+import * as RecordStore from "@insightdotjs-hackers/platform/lib/core/RecordStore";
 
 var SimpleTooltip = {};
 
@@ -135,6 +136,28 @@ var InspectedContextProvider = {
   make: ChainEditor$InspectedContextProvider
 };
 
+var empty = RequestValueCache.make(undefined);
+
+var context$1 = React.createContext(empty);
+
+var provider$1 = context$1.Provider;
+
+function ChainEditor$RequestValueCacheProvider(Props) {
+  var value = Props.value;
+  var children = Props.children;
+  return React.createElement(provider$1, {
+              value: value,
+              children: children
+            });
+}
+
+var RequestValueCacheProvider = {
+  empty: empty,
+  context: context$1,
+  provider: provider$1,
+  make: ChainEditor$RequestValueCacheProvider
+};
+
 function ChainEditor$NodeLabel(Props) {
   var request = Props.request;
   var block = Props.block;
@@ -159,11 +182,23 @@ function ChainEditor$NodeLabel(Props) {
                       }));
         }));
   var connectionDrag = React.useContext(ConnectionContext.context);
+  var requestValueCache = React.useContext(context$1);
   var match = React.useState(function () {
         return false;
       });
   var setMouseHover = match[1];
   var mouseHover = match[0];
+  var result = Belt_Option.flatMap(request, (function (request) {
+          return RequestValueCache.get(requestValueCache, request.id);
+        }));
+  var dataState = result !== undefined ? (
+      Belt_Option.mapWithDefault(Caml_option.undefined_to_opt(result.errors), 0, (function (prim) {
+              return prim.length;
+            })) > 0 ? "error" : "data"
+    ) : "mocked";
+  var indicatorClass = dataState === "data" ? "data-indicator" : (
+      dataState === "error" ? "error-indicator" : "mocked-indicator"
+    );
   var domRef = React.useRef(null);
   var match$1 = block.kind;
   var className;
@@ -265,7 +300,7 @@ function ChainEditor$NodeLabel(Props) {
   }
   return React.createElement("div", {
               ref: domRef,
-              className: "flex align-middle items-center min-w-max flex-col " + className,
+              className: "flex align-middle items-center min-w-max flex-row items-stretch " + className,
               onContextMenu: (function ($$event) {
                   
                 }),
@@ -329,6 +364,12 @@ function ChainEditor$NodeLabel(Props) {
                               }));
                 })
             }, React.createElement("div", {
+                  className: indicatorClass + " pl-2",
+                  style: {
+                    width: "4px"
+                  },
+                  title: "Data for this block is mocked"
+                }), React.createElement("div", {
                   className: "flex flex-row items-center justify-end font-mono"
                 }, React.createElement("div", {
                       className: "m-2"
@@ -1327,6 +1368,7 @@ function ChainEditor$Diagram(Props) {
                                   }
                                   var init = oldState.chain;
                                   var newChain_name = init.name;
+                                  var newChain_description = init.description;
                                   var newChain_id = init.id;
                                   var newChain_script = init.script;
                                   var newChain_scriptDependencies = init.scriptDependencies;
@@ -1334,6 +1376,7 @@ function ChainEditor$Diagram(Props) {
                                   var newChain_blocks = init.blocks;
                                   var newChain = {
                                     name: newChain_name,
+                                    description: newChain_description,
                                     id: newChain_id,
                                     script: newChain_script,
                                     scriptDependencies: newChain_scriptDependencies,
@@ -1437,12 +1480,41 @@ var PopupPicker = {
 };
 
 function chainResultToRequestValueCache(chainExecutionResults) {
-  var emptyObj = {};
   return Belt_Array.reduce(chainExecutionResults.data.oneGraph.executeChain.results, {}, (function (acc, next) {
                 var reqId = next.request.id;
-                var result = Belt_Option.getWithDefault(Belt_Array.get(next.result, 0), emptyObj);
-                acc[reqId] = result;
+                var result = Belt_Option.flatMap(Belt_Array.get(next.result, 0), (function (prim) {
+                        if (prim == null) {
+                          return ;
+                        } else {
+                          return Caml_option.some(prim);
+                        }
+                      }));
+                if (result !== undefined) {
+                  acc[reqId] = result;
+                }
                 return acc;
+              }));
+}
+
+function persistChain(config, schema, authToken, chain, onComplete) {
+  var appId = config.oneGraphAppId;
+  var webhookUrl = Inspector.webhookUrlForAppId(config.oneGraphAppId);
+  var compiled = Curry._1(Inspector.transformChain(chain)(schema), webhookUrl);
+  var targetChain = compiled.chains[0];
+  var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+          return exposed.exposedName;
+        }));
+  return OneGraphRe.persistQuery(appId, config.persistQueryToken, compiled.operationDoc, freeVariables, config.chainAccessToken, undefined, (function (results) {
+                try {
+                  var docId = results.data.oneGraph.createPersistedQuery.persistedQuery.id;
+                  Chain.saveToLocalStorage(chain);
+                  return Curry._1(onComplete, docId);
+                }
+                catch (raw_ex){
+                  var ex = Caml_js_exceptions.internalToOCamlException(raw_ex);
+                  console.error("Error saving chain locally", ex);
+                  return ;
+                }
               }));
 }
 
@@ -1495,7 +1567,7 @@ function ChainEditor$Main(Props) {
                   monaco: undefined
                 },
                 savedChainId: undefined,
-                requestValueCache: {},
+                requestValueCache: RequestValueCache.make(undefined),
                 debugUIItems: [],
                 connectionDrag: /* Empty */0,
                 subscriptionClient: undefined,
@@ -1677,6 +1749,7 @@ function ChainEditor$Main(Props) {
                   var init = oldState.chain;
                   newrecord.chain = {
                     name: initialChain.name,
+                    description: init.description,
                     id: init.id,
                     script: init.script,
                     scriptDependencies: init.scriptDependencies,
@@ -1727,8 +1800,8 @@ function ChainEditor$Main(Props) {
     var promise = OneGraphRe.fetchOneGraph(oneGraphAuth$1, fullDoc, operationName, Caml_option.some(variables));
     promise.then(function (result) {
           return Promise.resolve(Curry._1(setState, (function (oldState) {
-                            oldState.requestValueCache[request.id] = result;
-                            var newOne = Js_dict.fromArray(Js_dict.entries(oldState.requestValueCache));
+                            RequestValueCache.set(oldState.requestValueCache, request.id, result);
+                            var newOne = RequestValueCache.copy(oldState.requestValueCache);
                             var newrecord = Caml_obj.caml_obj_dup(oldState);
                             newrecord.requestValueCache = newOne;
                             return newrecord;
@@ -1766,6 +1839,7 @@ function ChainEditor$Main(Props) {
             if (match === 3) {
               return {
                       name: newChain.name,
+                      description: newChain.description,
                       id: newChain.id,
                       script: newChain.script,
                       scriptDependencies: newChain.scriptDependencies,
@@ -1808,12 +1882,14 @@ function ChainEditor$Main(Props) {
             var match$1 = Chain.requestHasComputedVariables(newReq);
             var newScript = match$1 && !nameExistsInScript ? newChain.script + ("\n\nexport function " + names.functionName + " (payload : " + names.inputTypeName + ") : " + names.returnTypeName + " {\n  return {}\n}") : newChain.script;
             var newChain_name = newChain.name;
+            var newChain_description = newChain.description;
             var newChain_id = newChain.id;
             var newChain_scriptDependencies = newChain.scriptDependencies;
             var newChain_requests = Belt_Array.concat(newChain.requests, [newReq]);
             var newChain_blocks = Belt_Array.concat(newChain.blocks, [block]);
             var newChain$1 = {
               name: newChain_name,
+              description: newChain_description,
               id: newChain_id,
               script: newScript,
               scriptDependencies: newChain_scriptDependencies,
@@ -1826,6 +1902,7 @@ function ChainEditor$Main(Props) {
             var newScript$1 = hasImport ? newScript.replace(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"), importLine) : importLine + "\n\n" + newScript;
             return {
                     name: newChain_name,
+                    description: newChain_description,
                     id: newChain_id,
                     script: newScript$1,
                     scriptDependencies: newChain_scriptDependencies,
@@ -1899,6 +1976,7 @@ function ChainEditor$Main(Props) {
     var newScript = Belt_Result.getWithDefault(Inspector.deleteRequestFunctionIfEmpty(undefined, oldChain.script, targetRequest, undefined), oldChain.script).trim();
     return {
             name: oldChain.name,
+            description: oldChain.description,
             id: oldChain.id,
             script: newScript,
             scriptDependencies: oldChain.scriptDependencies,
@@ -1956,6 +2034,7 @@ function ChainEditor$Main(Props) {
           }));
     return {
             name: oldChain.name,
+            description: oldChain.description,
             id: oldChain.id,
             script: oldChain.script,
             scriptDependencies: oldChain.scriptDependencies,
@@ -2120,28 +2199,14 @@ function ChainEditor$Main(Props) {
             
           }),
         onPersistChain: (function (authToken) {
-            var webhookUrl = Inspector.webhookUrlForAppId(config.oneGraphAppId);
-            var compiled = Curry._1(Inspector.transformChain(state.chain)(schema), webhookUrl);
-            var targetChain = compiled.chains[0];
-            var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
-                    return exposed.exposedName;
+            persistChain(config, schema, authToken, state.chain, (function (docId) {
+                    return Curry._1(setState, (function (oldState) {
+                                  var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                  newrecord.savedChainId = docId;
+                                  return newrecord;
+                                }));
                   }));
-            return OneGraphRe.persistQuery(Belt_Option.getWithDefault(authToken, config.oneGraphAppId), config.persistQueryToken, compiled.operationDoc, freeVariables, config.chainAccessToken, undefined, (function (results) {
-                          try {
-                            var docId = results.data.oneGraph.createPersistedQuery.persistedQuery.id;
-                            Chain.saveToLocalStorage(state.chain);
-                            return Curry._1(setState, (function (oldState) {
-                                          var newrecord = Caml_obj.caml_obj_dup(oldState);
-                                          newrecord.savedChainId = docId;
-                                          return newrecord;
-                                        }));
-                          }
-                          catch (raw_ex){
-                            var ex = Caml_js_exceptions.internalToOCamlException(raw_ex);
-                            console.error("Error saving chain locally", ex);
-                            return ;
-                          }
-                        }));
+            
           }),
         savedChainId: state.savedChainId,
         onRequestCodeInspected: (function (request) {
@@ -2239,12 +2304,14 @@ function ChainEditor$Main(Props) {
         try {
           var init = state.chain;
           var newChain_name = init.name;
+          var newChain_description = init.description;
           var newChain_id = init.id;
           var newChain_scriptDependencies = init.scriptDependencies;
           var newChain_requests = init.requests;
           var newChain_blocks = init.blocks;
           var newChain = {
             name: newChain_name,
+            description: newChain_description,
             id: newChain_id,
             script: newScript,
             scriptDependencies: newChain_scriptDependencies,
@@ -2461,6 +2528,7 @@ function ChainEditor$Main(Props) {
                                       if (match === 3) {
                                         return {
                                                 name: newChain.name,
+                                                description: newChain.description,
                                                 id: newChain.id,
                                                 script: newChain.script,
                                                 scriptDependencies: newChain.scriptDependencies,
@@ -2527,6 +2595,7 @@ function ChainEditor$Main(Props) {
                                             }));
                                       var newScript = Inspector.ensureRequestFunctionExists(undefined, returnProperties, newChain.script, newReq, undefined);
                                       var newChain_name = newChain.name;
+                                      var newChain_description = newChain.description;
                                       var newChain_id = newChain.id;
                                       var newChain_scriptDependencies = newChain.scriptDependencies;
                                       var newChain_requests = Belt_Array.concat(Belt_Array.keep(newChain.requests, (function (existingRequest) {
@@ -2539,6 +2608,7 @@ function ChainEditor$Main(Props) {
                                                 })), [block]);
                                       var newChain$1 = {
                                         name: newChain_name,
+                                        description: newChain_description,
                                         id: newChain_id,
                                         script: newScript,
                                         scriptDependencies: newChain_scriptDependencies,
@@ -2551,6 +2621,7 @@ function ChainEditor$Main(Props) {
                                       var newScript$1 = hasImport ? newScript.replace(new RegExp("import[\\s\\S.]+from[\\s\\S]+'oneGraphStudio';"), importLine) : importLine + "\n\n" + newScript;
                                       return {
                                               name: newChain_name,
+                                              description: newChain_description,
                                               id: newChain_id,
                                               script: newScript$1,
                                               scriptDependencies: newChain_scriptDependencies,
@@ -2964,11 +3035,13 @@ function ChainEditor$Main(Props) {
                                       var newScript = Belt_Result.getWithDefault(Inspector.deleteRequestFunctionIfEmpty(undefined, oldState.chain.script, targetRequest$1, undefined), oldState.chain.script).trim();
                                       var init = oldState.chain;
                                       var newChain_name = init.name;
+                                      var newChain_description = init.description;
                                       var newChain_id = init.id;
                                       var newChain_scriptDependencies = init.scriptDependencies;
                                       var newChain_blocks = init.blocks;
                                       var newChain = {
                                         name: newChain_name,
+                                        description: newChain_description,
                                         id: newChain_id,
                                         script: newScript,
                                         scriptDependencies: newChain_scriptDependencies,
@@ -3212,12 +3285,14 @@ function ChainEditor$Main(Props) {
                                               }
                                               var init = oldState.chain;
                                               var newChain_name = init.name;
+                                              var newChain_description = init.description;
                                               var newChain_id = init.id;
                                               var newChain_scriptDependencies = init.scriptDependencies;
                                               var newChain_requests = init.requests;
                                               var newChain_blocks = init.blocks;
                                               var newChain = {
                                                 name: newChain_name,
+                                                description: newChain_description,
                                                 id: newChain_id,
                                                 script: newScript,
                                                 scriptDependencies: newChain_scriptDependencies,
@@ -3506,12 +3581,14 @@ function ChainEditor$Main(Props) {
                                 }));
                           var init = oldState.chain;
                           var newChain_name = init.name;
+                          var newChain_description = init.description;
                           var newChain_id = init.id;
                           var newChain_script = Belt_Option.getWithDefault(newScript$1, script);
                           var newChain_scriptDependencies = init.scriptDependencies;
                           var newChain_blocks = init.blocks;
                           var newChain = {
                             name: newChain_name,
+                            description: newChain_description,
                             id: newChain_id,
                             script: newChain_script,
                             scriptDependencies: newChain_scriptDependencies,
@@ -3600,148 +3677,152 @@ function ChainEditor$Main(Props) {
               style: {
                 height: "calc(100vh - 56px)"
               }
-            }, React.createElement(ChainEditor$InspectedContextProvider, {
-                  value: state.inspected,
-                  children: React.createElement(ConnectionContext.Provider.make, {
-                        value: state.connectionDrag,
-                        children: null
-                      }, React.createElement("div", {
-                            className: "flex flex-row flex-nowrap"
-                          }, state.blockSearchOpen ? React.createElement(ReactResizePanel, {
-                                  direction: "e",
-                                  style: {
-                                    width: "400px"
-                                  },
-                                  handleClass: "ResizeHandleHorizontal",
-                                  children: React.createElement("div", {
-                                        className: "w-full",
+            }, React.createElement(ChainEditor$RequestValueCacheProvider, {
+                  value: definitionResultData,
+                  children: React.createElement(ChainEditor$InspectedContextProvider, {
+                        value: state.inspected,
+                        children: React.createElement(ConnectionContext.Provider.make, {
+                              value: state.connectionDrag,
+                              children: null
+                            }, React.createElement("div", {
+                                  className: "flex flex-row flex-nowrap"
+                                }, state.blockSearchOpen ? React.createElement(ReactResizePanel, {
+                                        direction: "e",
                                         style: {
-                                          backgroundColor: Comps.colors["gray-9"],
-                                          height: "calc(100vh - 56px)"
-                                        }
-                                      }, blockSearch)
-                                }) : React.createElement("div", {
-                                  className: "cursor-pointer",
-                                  style: {
-                                    color: "white",
-                                    width: "25px"
-                                  },
-                                  onClick: (function (param) {
-                                      return Curry._1(setState, (function (oldState) {
-                                                    var newrecord = Caml_obj.caml_obj_dup(oldState);
-                                                    newrecord.blockSearchOpen = true;
-                                                    return newrecord;
-                                                  }));
-                                    })
-                                }, "▹"), React.createElement("div", {
-                                className: "flex-1 overflow-x-hidden"
-                              }, React.createElement("div", {
-                                    style: {
-                                      height: "calc(50vh - 28px)"
-                                    },
-                                    onDragEnter: (function ($$event) {
-                                        $$event.stopPropagation();
-                                        $$event.preventDefault();
-                                        var dataTransfer = $$event.dataTransfer;
-                                        dataTransfer.dropEffect = "copy";
-                                        
-                                      }),
-                                    onDragOver: (function ($$event) {
-                                        $$event.stopPropagation();
-                                        $$event.preventDefault();
-                                        var dataTransfer = $$event.dataTransfer;
-                                        dataTransfer.dropEffect = "copy";
-                                        
-                                      }),
-                                    onDrop: (function ($$event) {
-                                        $$event.stopPropagation();
-                                        var dataTransfer = $$event.dataTransfer;
-                                        dataTransfer.dropEffect = "copy";
-                                        var blockId = dataTransfer.getData("text");
-                                        return Belt_Option.forEach(Belt_Array.getBy(state.blocks, (function (block) {
-                                                          return block.id.toString() === blockId;
-                                                        })), addBlock);
-                                      })
-                                  }, Belt_Option.mapWithDefault(state.diagram, null, (function (diagram) {
-                                          return React.createElement(ChainEditor$Diagram, {
-                                                      setState: setState,
-                                                      diagram: diagram,
-                                                      chain: state.chain,
-                                                      removeEdge: removeEdge,
-                                                      removeRequest: removeRequest,
-                                                      diagramFromChain: diagramFromChain$1,
-                                                      trace: state.trace
-                                                    });
-                                        }))), React.createElement("div", {
-                                    style: {
-                                      height: "calc(50vh - 67px)"
-                                    }
-                                  }, React.createElement("div", {
-                                        className: "",
+                                          width: "400px"
+                                        },
+                                        handleClass: "ResizeHandleHorizontal",
+                                        children: React.createElement("div", {
+                                              className: "w-full",
+                                              style: {
+                                                backgroundColor: Comps.colors["gray-9"],
+                                                height: "calc(100vh - 56px)"
+                                              }
+                                            }, blockSearch)
+                                      }) : React.createElement("div", {
+                                        className: "cursor-pointer",
+                                        style: {
+                                          color: "white",
+                                          width: "25px"
+                                        },
                                         onClick: (function (param) {
                                             return Curry._1(setState, (function (oldState) {
                                                           var newrecord = Caml_obj.caml_obj_dup(oldState);
-                                                          var init = oldState.scriptEditor;
-                                                          newrecord.scriptEditor = {
-                                                            isOpen: !oldState.scriptEditor.isOpen,
-                                                            editor: init.editor,
-                                                            monaco: init.monaco
-                                                          };
+                                                          newrecord.blockSearchOpen = true;
                                                           return newrecord;
                                                         }));
                                           })
-                                      }, React.createElement(Comps.Header.make, {
+                                      }, "▹"), React.createElement("div", {
+                                      className: "flex-1 overflow-x-hidden"
+                                    }, React.createElement("div", {
+                                          style: {
+                                            height: "calc(50vh - 28px)"
+                                          },
+                                          onDragEnter: (function ($$event) {
+                                              $$event.stopPropagation();
+                                              $$event.preventDefault();
+                                              var dataTransfer = $$event.dataTransfer;
+                                              dataTransfer.dropEffect = "copy";
+                                              
+                                            }),
+                                          onDragOver: (function ($$event) {
+                                              $$event.stopPropagation();
+                                              $$event.preventDefault();
+                                              var dataTransfer = $$event.dataTransfer;
+                                              dataTransfer.dropEffect = "copy";
+                                              
+                                            }),
+                                          onDrop: (function ($$event) {
+                                              $$event.stopPropagation();
+                                              var dataTransfer = $$event.dataTransfer;
+                                              dataTransfer.dropEffect = "copy";
+                                              var blockId = dataTransfer.getData("text");
+                                              return Belt_Option.forEach(Belt_Array.getBy(state.blocks, (function (block) {
+                                                                return block.id.toString() === blockId;
+                                                              })), addBlock);
+                                            })
+                                        }, Belt_Option.mapWithDefault(state.diagram, null, (function (diagram) {
+                                                return React.createElement(ChainEditor$Diagram, {
+                                                            setState: setState,
+                                                            diagram: diagram,
+                                                            chain: state.chain,
+                                                            removeEdge: removeEdge,
+                                                            removeRequest: removeRequest,
+                                                            diagramFromChain: diagramFromChain$1,
+                                                            trace: state.trace
+                                                          });
+                                              }))), React.createElement("div", {
+                                          style: {
+                                            height: "calc(50vh - 67px)"
+                                          }
+                                        }, React.createElement("div", {
+                                              className: "",
+                                              onClick: (function (param) {
+                                                  return Curry._1(setState, (function (oldState) {
+                                                                var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                                                var init = oldState.scriptEditor;
+                                                                newrecord.scriptEditor = {
+                                                                  isOpen: !oldState.scriptEditor.isOpen,
+                                                                  editor: init.editor,
+                                                                  monaco: init.monaco
+                                                                };
+                                                                return newrecord;
+                                                              }));
+                                                })
+                                            }, React.createElement(Comps.Header.make, {
+                                                  style: {
+                                                    backgroundColor: Comps.colors["gray-9"],
+                                                    display: "flex",
+                                                    marginRight: "0px",
+                                                    marginLeft: "0px"
+                                                  },
+                                                  children: null
+                                                }, React.createElement("div", {
+                                                      className: "flex-grow"
+                                                    }, "Chain JavaScript"), React.createElement("div", undefined, React.createElement("button", {
+                                                          title: "Format code",
+                                                          onClick: (function (param) {
+                                                              return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
+                                                                            var script = editor.getValue();
+                                                                            var newScript = Prettier.format(script, {
+                                                                                  parser: "babel",
+                                                                                  plugins: [ParserBabel],
+                                                                                  singleQuote: true
+                                                                                });
+                                                                            return Curry._1(setState, (function (oldState) {
+                                                                                          var newrecord = Caml_obj.caml_obj_dup(oldState);
+                                                                                          var init = oldState.chain;
+                                                                                          newrecord.chain = {
+                                                                                            name: init.name,
+                                                                                            description: init.description,
+                                                                                            id: init.id,
+                                                                                            script: newScript,
+                                                                                            scriptDependencies: init.scriptDependencies,
+                                                                                            requests: init.requests,
+                                                                                            blocks: init.blocks
+                                                                                          };
+                                                                                          return newrecord;
+                                                                                        }));
+                                                                          }));
+                                                            })
+                                                        }, React.createElement(Icons.Prettier.Dark.make, {
+                                                              width: "16px",
+                                                              height: "16px"
+                                                            }))))), React.createElement(ChainEditor$Script, tmp))), React.createElement(ReactResizePanel, {
+                                      direction: "w",
+                                      style: {
+                                        width: "400px"
+                                      },
+                                      handleClass: "ResizeHandleHorizontal",
+                                      children: React.createElement("div", {
+                                            className: "w-full",
                                             style: {
                                               backgroundColor: Comps.colors["gray-9"],
-                                              display: "flex",
-                                              marginRight: "0px",
-                                              marginLeft: "0px"
-                                            },
-                                            children: null
-                                          }, React.createElement("div", {
-                                                className: "flex-grow"
-                                              }, "Chain JavaScript"), React.createElement("div", undefined, React.createElement("button", {
-                                                    title: "Format code",
-                                                    onClick: (function (param) {
-                                                        return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
-                                                                      var script = editor.getValue();
-                                                                      var newScript = Prettier.format(script, {
-                                                                            parser: "babel",
-                                                                            plugins: [ParserBabel],
-                                                                            singleQuote: true
-                                                                          });
-                                                                      return Curry._1(setState, (function (oldState) {
-                                                                                    var newrecord = Caml_obj.caml_obj_dup(oldState);
-                                                                                    var init = oldState.chain;
-                                                                                    newrecord.chain = {
-                                                                                      name: init.name,
-                                                                                      id: init.id,
-                                                                                      script: newScript,
-                                                                                      scriptDependencies: init.scriptDependencies,
-                                                                                      requests: init.requests,
-                                                                                      blocks: init.blocks
-                                                                                    };
-                                                                                    return newrecord;
-                                                                                  }));
-                                                                    }));
-                                                      })
-                                                  }, React.createElement(Icons.Prettier.Dark.make, {
-                                                        width: "16px",
-                                                        height: "16px"
-                                                      }))))), React.createElement(ChainEditor$Script, tmp))), React.createElement(ReactResizePanel, {
-                                direction: "w",
-                                style: {
-                                  width: "400px"
-                                },
-                                handleClass: "ResizeHandleHorizontal",
-                                children: React.createElement("div", {
-                                      className: "w-full",
-                                      style: {
-                                        backgroundColor: Comps.colors["gray-9"],
-                                        height: "calc(100vh - 56px)"
-                                      }
-                                    }, sidebar)
-                              })), tmp$2, tmp$3)
+                                              height: "calc(100vh - 56px)"
+                                            }
+                                          }, sidebar)
+                                    })), tmp$2, tmp$3)
+                      })
                 }), tmp$5);
 }
 
@@ -3787,6 +3868,7 @@ export {
   namedGraphQLScalarTypeScriptType ,
   compileChain ,
   InspectedContextProvider ,
+  RequestValueCacheProvider ,
   NodeLabel ,
   OperationNodeComponent ,
   emptyGraphLevel ,
@@ -3799,6 +3881,7 @@ export {
   Diagram ,
   PopupPicker ,
   chainResultToRequestValueCache ,
+  persistChain ,
   Main ,
   make$1 as make,
   

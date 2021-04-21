@@ -18,6 +18,27 @@ external persistQuery: (
 ) => unit = "persistQuery"
 
 @module("./OneGraph.js")
+external publishNpmPackage: (
+  ~auth: OneGraphAuth.t,
+  ~variables: {
+    "npmAuth": option<string>,
+    "gitHubOAuthToken": option<string>,
+    "registry": [
+      | #NPM
+      | #GITHUB
+    ],
+    "files": array<{
+      "content": string,
+      "path": string,
+    }>,
+    "name": string,
+    "description": option<string>,
+    "version": string,
+    "dependencies": Js.Json.t,
+  },
+) => 'publishNpmPackageResults = "publishNpmPackage"
+
+@module("./OneGraph.js")
 external basicFetchOneGraphPersistedQuery: (
   ~appId: string,
   ~accessToken: option<OneGraphAuth.t>,

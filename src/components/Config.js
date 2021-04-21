@@ -3,8 +3,11 @@
 
 var Studio = {};
 
+var isDev = false;
+
 export {
   Studio ,
+  isDev ,
   
 }
 /* No side effect */

@@ -12,6 +12,10 @@ function persistQuery(prim, prim$1, prim$2, prim$3, prim$4, prim$5, prim$6) {
   
 }
 
+function publishNpmPackage(prim, prim$1) {
+  return OneGraphJs.publishNpmPackage(prim, prim$1);
+}
+
 function basicFetchOneGraphPersistedQuery(prim, prim$1, prim$2, prim$3, prim$4) {
   return OneGraphJs.basicFetchOneGraphPersistedQuery(prim, prim$1, prim$2, prim$3, prim$4);
 }
@@ -117,6 +121,7 @@ var GitHub = {
 export {
   fetchOneGraph ,
   persistQuery ,
+  publishNpmPackage ,
   basicFetchOneGraphPersistedQuery ,
   fetchOneGraphPersistedQuery ,
   GitHub ,

@@ -42,7 +42,7 @@ module Insight = {
     previousRunId: int,
   }
 
-  @module("insight-kit/lib/core/RecordStore") @new
+  @module("@insightdotjs-hackers/platform/lib/core/RecordStore") @new
   external createRecordStore: unit => recordStore = "RecordStore"
 
   @send external addRecord: (recordStore, evaluationRecord) => unit = "addRecord"

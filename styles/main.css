@@ -2246,3 +2246,15 @@ form.drag-enabled input:hover {
 form input.form-input {
   background-color: var(--color-gray-7);
 }
+
+.mocked-indicator {
+  background-color: var(--color-gray-3);
+}
+
+.error-indicator {
+  background-color: var(--color-red);
+}
+
+.data-indicator {
+  background-color: var(--color-green-1);
+}

@@ -5,3 +5,5 @@ module Studio = {
     chainAccessToken: option<string>,
   }
 }
+
+let isDev = false

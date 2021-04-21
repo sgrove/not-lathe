@@ -351,6 +351,7 @@ var chain2_blocks = [
 
 var chain2 = {
   name: "chain2",
+  description: undefined,
   id: undefined,
   script: "export function getRow(result) {\n          const event = result.SlackReactionSubscription[0].data.slack.reactionAddedEvent.event;\n          const reaction = event.reaction;\n          if (reaction !== 'eyes' && reaction !== 'white_check_mark') {\n            return null;\n          }\n          return [\n            event.item.message.permaLink, // message_permalink\n            event.item.message.text || '', // message_text\n            `=DATEOFTIMESTAMP(${event.item.message.ts} * 1000)`, // message_ts\n            event.item.message.user.id || '', // message_user_id (we don't have this yet :/)\n            event.item.message.user.name || '', // message_user_name\n            reaction === 'eyes' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', // eyes_reaction_ts\n            reaction === 'eyes' ? event.user.id : '', // eyes_reaction_user_id\n            reaction === 'eyes' ? event.user.name : '', // eyes_reaction_user_name\n            reaction === 'white_check_mark' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', //completed_reaction_ts\n            reaction === 'white_check_mark' ? event.user.id : '', // completed_reaction_user_id\n            reaction === 'white_check_mark' ? event.user.name : '', // completed_reaction_user_name\n            event.item.channel.name // channel_name\n          ]\n        }",
   scriptDependencies: chain2_scriptDependencies,
@@ -374,6 +375,7 @@ var _chain_blocks = [
 
 var _chain = {
   name: "main",
+  description: undefined,
   id: undefined,
   script: _chain_script,
   scriptDependencies: _chain_scriptDependencies,
@@ -384,6 +386,7 @@ var _chain = {
 function makeEmptyChain(name) {
   return {
           name: name,
+          description: undefined,
           id: Caml_option.some(Uuid$1.v4()),
           script: "",
           scriptDependencies: [],
@@ -402,6 +405,7 @@ var emptyChain_blocks = [];
 
 var emptyChain = {
   name: "new_chain",
+  description: undefined,
   id: undefined,
   script: emptyChain_script,
   scriptDependencies: emptyChain_scriptDependencies,
@@ -983,12 +987,21 @@ function typeScriptDefinition(schema, chain) {
               var typeScriptType = GraphQLJs.Mock.typeScriptForOperation(schema, definition, chainFragmentDefinitions);
               return "\"" + request.id + "\": " + typeScriptType;
             })).join(",").replace(new RegExp(",", "g"), ",\n\t");
+  var inputTypeName = makeInputTypeName(chain);
+  var returnTypeName = makeReturnTypeName(chain);
+  var functionName = javaScriptFunctionName(chain);
+  var description = Belt_Option.mapWithDefault(chain.description, "", (function (description) {
+          var description$1 = description.replace(new RegExp("\n", "g"), "\n*");
+          return "/**\n* " + description$1 + "\n*/";
+        }));
+  var fullExport = "type " + inputTypeName + " = {" + inputType + "};\n\ntype " + returnTypeName + " = {errors: Array<any>, " + returnType + "};\n\n" + description + "\nexport function " + functionName + "(input: " + inputTypeName + "): Promise<" + returnTypeName + "> {};";
   return {
-          functionName: javaScriptFunctionName(chain),
-          inputTypeName: makeInputTypeName(chain),
+          functionName: functionName,
+          inputTypeName: inputTypeName,
           inputType: "{" + inputType + "}",
-          returnTypeName: makeReturnTypeName(chain),
-          returnType: "Promise<{" + returnType + "}>"
+          returnTypeName: returnTypeName,
+          returnType: "Promise<" + returnType + ">",
+          fullExport: fullExport
         };
 }
 
@@ -1005,6 +1018,26 @@ function requestHasComputedVariables(request) {
                 }
               }));
 }
+
+function fetchSource(schema, appId, docId, typeScriptDefinition, chain) {
+  var compiled = compileOperationDoc(schema, "https://serve.onegraph.io/dev/null", chain);
+  var targetChain = compiled.chains[0];
+  var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+            var key = exposed.exposedName;
+            return "\"" + key + "\": params." + key;
+          })).join(", ");
+  var pluckers = Belt_Array.map(chain.requests, (function (request) {
+            return "const " + request.id + "Results = json?.data?.oneGraph?.executeChain?.results?.find(result => result?.request?.id === \"" + request.id + "\")?.result?.[0];";
+          })).join("\n\t");
+  var pluckedFields = Belt_Array.map(chain.requests, (function (request) {
+            return request.id + ": " + request.id + "Results";
+          })).join(",\n\t\t");
+  return "export async function " + typeScriptDefinition.functionName + " (params) {\n  const resp = await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\", {\n      method: \"POST\",\n      headers: {\n        \"Content-Type\": \"application/json\",\n      },\n        body: JSON.stringify({\n        \"doc_id\": \"" + docId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + freeVariables + "}\n        }\n      )\n    }\n  )\n\n  const json = await resp.json();\n  \n  " + pluckers + "\n\n const allErrors = json?.data?.oneGraph?.executeChain?.results\n    ?.map((step) => step?.result[0].errors)\n    .flat()\n    .filter(Boolean);\n\n  return {\n    errors: [...(json?.errors || []), ...(allErrors || [])],\n    " + pluckedFields + "\n  }\n}";
+}
+
+var TypeScript = {
+  fetchSource: fetchSource
+};
 
 var target = "mutation ExecuteChainMutation(\n  $webhookUrl: JSON!\n  $chain: OneGraphQueryChainInput!\n  $sheetId: JSON!\n) {\n  oneGraph {\n    executeChain(\n      input: {\n        requests: [\n          {\n            id: \"SlackReactionSubscription\"\n            operationName: \"SlackReactionSubscription\"\n            variables: [\n              { name: \"webhookUrl\", value: $webhookUrl }\n            ]\n          }\n          {\n            id: \"AddToDocMutation\"\n            operationName: \"AddToDocMutation\"\n            argumentDependencies: {\n              name: \"row\"\n              ifList: ALL\n              fromRequestIds: [\"SlackReactionSubscription\"]\n              functionFromScript: \"getRow\"\n              ifMissing: SKIP\n            }\n            variables: { name: \"sheetId\", value: $sheetId }\n          }\n        ]\n        script: \"const a = true;\"\n      }\n    ) {\n      results {\n        request {\n          id\n        }\n        result\n        argumentDependencies {\n          name\n          returnValues\n          logs {\n            level\n            body\n          }\n          name\n        }\n      }\n    }\n  }\n}\n\nmutation AddToDocMutation(\n  $sheetId: String!\n  $row: [String!]!\n) {\n  google {\n    sheets {\n      appendValues(\n        id: $sheetId\n        valueInputOption: \"USER_ENTERED\"\n        majorDimenson: \"ROWS\"\n        range: \"'Raw Data'!A1\"\n        values: [$row]\n      ) {\n        updates {\n          spreadsheetId\n          updatedRange\n          updatedCells\n          updatedData {\n            values\n          }\n        }\n      }\n    }\n  }\n}\n\nsubscription SlackReactionSubscription(\n  $webhookUrl: String!\n) {\n  slack(webhookUrl: $webhookUrl) {\n    reactionAddedEvent {\n      eventTime\n      event {\n        user {\n          id\n          name\n        }\n        eventTs\n        reaction\n        item {\n          channel {\n            name\n          }\n          message {\n            permaLink\n            user {\n              id\n              name\n            }\n            text\n            ts\n          }\n        }\n      }\n    }\n  }\n}";
 
@@ -1054,6 +1087,7 @@ export {
   makeReturnTypeName ,
   typeScriptDefinition ,
   requestHasComputedVariables ,
+  TypeScript ,
   
 }
 /* addToDocMutation Not a pure module */
