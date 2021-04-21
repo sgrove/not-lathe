@@ -16,12 +16,10 @@ import {
   isUnionType,
   isInterfaceType,
   typeFromAST,
-  printType,
 } from "graphql";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import React from "react";
-import { Fragment } from "react";
 
 export function mockInputType(schema, schemaType) {
   let scalarGenerators = {

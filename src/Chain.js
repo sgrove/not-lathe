@@ -1020,7 +1020,7 @@ function requestHasComputedVariables(request) {
 }
 
 function fetchSource(schema, appId, docId, typeScriptDefinition, chain) {
-  var compiled = compileOperationDoc(schema, "https://serve.onegraph.io/dev/null", chain);
+  var compiled = compileOperationDoc(schema, "https://serve.onegraph.com/dev/null", chain);
   var targetChain = compiled.chains[0];
   var freeVariables = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
             var key = exposed.exposedName;

@@ -1358,7 +1358,7 @@ module TypeScript = {
   let fetchSource = (~schema, ~appId, ~docId, ~typeScriptDefinition, chain: t) => {
     let compiled = compileOperationDoc(
       ~schema,
-      ~webhookUrl="https://serve.onegraph.io/dev/null",
+      ~webhookUrl="https://serve.onegraph.com/dev/null",
       chain,
     )
 
