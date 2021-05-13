@@ -2,7 +2,7 @@
   "name": "rescript-nextjs-template",
   "namespace": false,
   "reason": { "react-jsx": 3 },
-  "bs-dependencies": ["bs-fetch", "reason-react"],
+  "bs-dependencies": ["bs-fetch", "@rescript/react"],
   "ppx-flags": [],
   "sources": [
     { "dir": "src", "subdirs": true }

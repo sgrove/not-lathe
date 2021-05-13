@@ -761,7 +761,7 @@ module ConnectorLine = {
 
     <div
       className="absolute w-full h-full pointer-events-none"
-      style={ReactDOMRe.Style.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}
+      style={ReactDOMStyle.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}
       onMouseMove={event => {
         let x = event->ReactEvent.Mouse.clientX
         let y = event->ReactEvent.Mouse.clientY
@@ -770,7 +770,7 @@ module ConnectorLine = {
       <svg
         className="relative w-full h-full pointer-events-none"
         xmlns="http://www.w3.org/2000/svg"
-        style={ReactDOMRe.Style.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}>
+        style={ReactDOMStyle.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}>
         <filter id="blurMe"> <feGaussianBlur in_="SourceGraphic" stdDeviation="5" /> </filter>
         <marker
           id="connectMarker" markerHeight="4" markerWidth="2" orient="auto" refX="0.1" refY="2">
@@ -778,7 +778,7 @@ module ConnectorLine = {
         </marker>
         <line
           className="pointer-events-none"
-          style={ReactDOMRe.Style.make(~cursor="none", ())}
+          style={ReactDOMStyle.make(~cursor="none", ())}
           stroke={Comps.colors["green-6"]}
           strokeWidth="3"
           markerEnd="url(#connectMarker)"
@@ -788,7 +788,7 @@ module ConnectorLine = {
           y2={endY->string_of_int}
         />
         <line
-          style={ReactDOMRe.Style.make(~cursor="none", ())}
+          style={ReactDOMStyle.make(~cursor="none", ())}
           stroke={Comps.colors["green-3"]}
           strokeWidth="3"
           className="moving-path pointer-events-none"
@@ -1003,7 +1003,7 @@ module PopupPicker = {
     <ReactDraggable>
       <div
         className="absolute graphql-structure-container rounded-sm text-gray-200"
-        style={ReactDOMRe.Style.make(
+        style={ReactDOMStyle.make(
           ~width,
           ~top=j`${top->string_of_int}px`,
           ~left=j`${left->string_of_int}px`,
@@ -1014,7 +1014,7 @@ module PopupPicker = {
           (),
         )}>
         <div
-          style={ReactDOMRe.Style.make(
+          style={ReactDOMStyle.make(
             ~width="100%",
             ~height="15px",
             ~cursor="move",

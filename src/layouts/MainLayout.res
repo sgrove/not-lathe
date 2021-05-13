@@ -17,7 +17,7 @@
 
 @react.component
 let make = (~children) => {
-  let minWidth = ReactDOMRe.Style.make(~minWidth="20rem", ())
+  let minWidth = ReactDOMStyle.make(~minWidth="20rem", ())
   <div style=minWidth className="flex lg:justify-center">
     <div className="w-full text-gray-900 font-base">
       // <Navigation />
