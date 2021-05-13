@@ -11,14 +11,14 @@
     "module": "es6",
     "in-source": true
   },
-  "suffix": ".js",
+  "suffix": ".mjs",
   "warnings": {
+    "number": "-3",
     "error": "+101+8"
   },
   "bsc-flags": ["-bs-super-errors", "-bs-g", "-w -23"],
   "gentypeconfig": {
     "language": "untyped",
-    "shims": [],
-    "module": "es6"
+    "shims": []
   }
 }

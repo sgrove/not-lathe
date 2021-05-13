@@ -6,7 +6,7 @@ module type STUDIO_COMPONENT = {
 }
 
 @val
-external loader: @as("./components/Studio.js") _ => Js.Promise.t<module(STUDIO_COMPONENT)> =
+external loader: @as("./components/Studio.mjs") _ => Js.Promise.t<module(STUDIO_COMPONENT)> =
   "import"
 
 module Inner = {
