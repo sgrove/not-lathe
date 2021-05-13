@@ -349,6 +349,11 @@ var chain2_blocks = [
   slackSub
 ];
 
+var chain2_traceRetentionPolicy = {
+  captureTarget: /* ALL */0,
+  retentionDays: 0
+};
+
 var chain2 = {
   name: "chain2",
   description: undefined,
@@ -356,7 +361,10 @@ var chain2 = {
   script: "export function getRow(result) {\n          const event = result.SlackReactionSubscription[0].data.slack.reactionAddedEvent.event;\n          const reaction = event.reaction;\n          if (reaction !== 'eyes' && reaction !== 'white_check_mark') {\n            return null;\n          }\n          return [\n            event.item.message.permaLink, // message_permalink\n            event.item.message.text || '', // message_text\n            `=DATEOFTIMESTAMP(${event.item.message.ts} * 1000)`, // message_ts\n            event.item.message.user.id || '', // message_user_id (we don't have this yet :/)\n            event.item.message.user.name || '', // message_user_name\n            reaction === 'eyes' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', // eyes_reaction_ts\n            reaction === 'eyes' ? event.user.id : '', // eyes_reaction_user_id\n            reaction === 'eyes' ? event.user.name : '', // eyes_reaction_user_name\n            reaction === 'white_check_mark' ? `=DATEOFTIMESTAMP(${event.eventTs} * 1000)` : '', //completed_reaction_ts\n            reaction === 'white_check_mark' ? event.user.id : '', // completed_reaction_user_id\n            reaction === 'white_check_mark' ? event.user.name : '', // completed_reaction_user_name\n            event.item.channel.name // channel_name\n          ]\n        }",
   scriptDependencies: chain2_scriptDependencies,
   requests: chain2_requests,
-  blocks: chain2_blocks
+  blocks: chain2_blocks,
+  accessToken: undefined,
+  traceRetentionPolicy: chain2_traceRetentionPolicy,
+  yjsScript: undefined
 };
 
 var _chain_script = "import {\n  GitHubStatusInput,\n  GitHubStatusVariables,\n  SetSlackStatusInput,\n  SetSlackStatusVariables,\n} from 'oneGraphStudio';\n\nexport function makeVariablesForSetSlackStatus(\n  payload: SetSlackStatusInput\n): SetSlackStatusVariables {\n  let status = payload.GitHubStatus?.data?.gitHub?.user?.status?.message;\n\n  if (!status) {\n    return null;\n  }\n\n  return {\n    jsonBody: {\n      profile: {\n        status_text: status,\n      },\n    },\n  };\n}";
@@ -373,6 +381,11 @@ var _chain_blocks = [
   Card.setSlackStatus
 ];
 
+var _chain_traceRetentionPolicy = {
+  captureTarget: /* ALL */0,
+  retentionDays: 0
+};
+
 var _chain = {
   name: "main",
   description: undefined,
@@ -380,7 +393,10 @@ var _chain = {
   script: _chain_script,
   scriptDependencies: _chain_scriptDependencies,
   requests: _chain_requests,
-  blocks: _chain_blocks
+  blocks: _chain_blocks,
+  accessToken: undefined,
+  traceRetentionPolicy: _chain_traceRetentionPolicy,
+  yjsScript: undefined
 };
 
 function makeEmptyChain(name) {
@@ -391,7 +407,13 @@ function makeEmptyChain(name) {
           script: "",
           scriptDependencies: [],
           requests: [],
-          blocks: []
+          blocks: [],
+          accessToken: undefined,
+          traceRetentionPolicy: {
+            captureTarget: /* ALL */0,
+            retentionDays: 0
+          },
+          yjsScript: undefined
         };
 }
 
@@ -403,6 +425,11 @@ var emptyChain_requests = [];
 
 var emptyChain_blocks = [];
 
+var emptyChain_traceRetentionPolicy = {
+  captureTarget: /* ALL */0,
+  retentionDays: 0
+};
+
 var emptyChain = {
   name: "new_chain",
   description: undefined,
@@ -410,7 +437,10 @@ var emptyChain = {
   script: emptyChain_script,
   scriptDependencies: emptyChain_scriptDependencies,
   requests: emptyChain_requests,
-  blocks: emptyChain_blocks
+  blocks: emptyChain_blocks,
+  accessToken: undefined,
+  traceRetentionPolicy: emptyChain_traceRetentionPolicy,
+  yjsScript: undefined
 };
 
 function compileAsObj(chain) {
@@ -1039,6 +1069,115 @@ var TypeScript = {
   fetchSource: fetchSource
 };
 
+function requestScriptTypeScriptSignature(request, schema, chain) {
+  var chainFragmentsDoc = Belt_Array.keepMap(chain.blocks, (function (block) {
+              var match = block.kind;
+              if (match !== 3) {
+                return ;
+              } else {
+                return block.body;
+              }
+            })).join("\n\n").concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }");
+  var chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
+        operationDoc: chainFragmentsDoc
+      });
+  var upstreamArgDepRequestIds = Belt_Array.concatMany(Belt_Array.keepMap(request.variableDependencies, (function (varDep) {
+              var argDep = varDep.dependency;
+              switch (argDep.TAG | 0) {
+                case /* ArgumentDependency */0 :
+                    return argDep._0.fromRequestIds;
+                case /* Direct */1 :
+                case /* GraphQLProbe */2 :
+                    return ;
+                
+              }
+            })));
+  var upstreamRequestDependencyIds = request.dependencyRequestIds;
+  var upstreamRequestIds = Utils.$$String.distinctStrings(Belt_Array.concat(upstreamArgDepRequestIds, upstreamRequestDependencyIds));
+  var dependencyRequests = Belt_Array.keepMap(chain.requests, (function (request) {
+          var match = upstreamRequestIds.indexOf(request.id);
+          if (match === -1) {
+            return ;
+          }
+          var ast = Graphql.parse(request.operation.body);
+          var dependencyRequest = Belt_Array.get(ast.definitions, 0);
+          return Belt_Option.map(dependencyRequest, (function (dependencyRequest) {
+                        var tsSignature = GraphQLJs.Mock.typeScriptForOperation(schema, dependencyRequest, chainFragmentDefinitions);
+                        return [
+                                request.id,
+                                tsSignature
+                              ];
+                      }));
+        }));
+  Belt_Array.reduce(dependencyRequests, {}, (function (acc, param) {
+          acc[param[0]] = param[1];
+          return acc;
+        }));
+  var fields = Belt_Array.map(dependencyRequests, (function (param) {
+            return "\"" + param[0] + "\": " + param[1];
+          })).join(", ");
+  var inputType = "{" + fields + "}";
+  var inputType$1;
+  switch (inputType) {
+    case "" :
+    case "{}" :
+        inputType$1 = "EmptyObject";
+        break;
+    default:
+      inputType$1 = inputType;
+  }
+  var operationDef = Belt_Array.get(Graphql.parse(request.operation.body).definitions, 0);
+  var outputTypeForVariables = Belt_Option.getWithDefault(Belt_Option.map(operationDef, (function (operationDef) {
+              var signature = GraphQLJs.Mock.typeScriptSignatureForOperationVariables(Belt_Array.keepMap(request.variableDependencies, (function (varDep) {
+                          var argDep = varDep.dependency;
+                          switch (argDep.TAG | 0) {
+                            case /* ArgumentDependency */0 :
+                                return argDep._0.name;
+                            case /* Direct */1 :
+                            case /* GraphQLProbe */2 :
+                                return ;
+                            
+                          }
+                        })), schema, operationDef);
+              if (signature === "{}") {
+                return "EmptyObject";
+              } else {
+                return signature;
+              }
+            })), "// No operation definition for request");
+  var names = requestScriptNames(request);
+  var outputType = "export type " + names.returnTypeName + " = " + outputTypeForVariables;
+  var inputType$2 = "export type " + names.inputTypeName + " = " + inputType$1;
+  return {
+          functionFromScriptInputType: inputType$2,
+          functionFromScriptOutputType: outputType,
+          functionFromScriptName: names.functionName
+        };
+}
+
+function monacoTypelibForChain(schema, chain) {
+  var computedRequests = Belt_Array.keep(chain.requests, requestHasComputedVariables);
+  var types = Belt_Array.map(computedRequests, (function (request) {
+          return requestScriptTypeScriptSignature(request, schema, chain);
+        }));
+  var dDotTsDefs = Belt_Array.map(types, (function (typeSigs) {
+            return typeSigs.functionFromScriptInputType + "\n" + typeSigs.functionFromScriptOutputType + "\n";
+          })).join("\n\n");
+  var dDotTs = "type EmptyObject = Record<any, never>\n\n" + dDotTsDefs;
+  var names = Belt_Array.map(computedRequests, requestScriptNames);
+  var importedNames = Belt_Array.concatMany(Belt_Array.map(names, (function (param) {
+                return [
+                        param.inputTypeName,
+                        param.returnTypeName
+                      ];
+              }))).join(", ");
+  var importLine = names.length !== 0 ? "import { " + importedNames + " } from 'oneGraphStudio';" : "";
+  return {
+          importLine: importLine,
+          dDotTs: dDotTs
+        };
+}
+
 var target = "mutation ExecuteChainMutation(\n  $webhookUrl: JSON!\n  $chain: OneGraphQueryChainInput!\n  $sheetId: JSON!\n) {\n  oneGraph {\n    executeChain(\n      input: {\n        requests: [\n          {\n            id: \"SlackReactionSubscription\"\n            operationName: \"SlackReactionSubscription\"\n            variables: [\n              { name: \"webhookUrl\", value: $webhookUrl }\n            ]\n          }\n          {\n            id: \"AddToDocMutation\"\n            operationName: \"AddToDocMutation\"\n            argumentDependencies: {\n              name: \"row\"\n              ifList: ALL\n              fromRequestIds: [\"SlackReactionSubscription\"]\n              functionFromScript: \"getRow\"\n              ifMissing: SKIP\n            }\n            variables: { name: \"sheetId\", value: $sheetId }\n          }\n        ]\n        script: \"const a = true;\"\n      }\n    ) {\n      results {\n        request {\n          id\n        }\n        result\n        argumentDependencies {\n          name\n          returnValues\n          logs {\n            level\n            body\n          }\n          name\n        }\n      }\n    }\n  }\n}\n\nmutation AddToDocMutation(\n  $sheetId: String!\n  $row: [String!]!\n) {\n  google {\n    sheets {\n      appendValues(\n        id: $sheetId\n        valueInputOption: \"USER_ENTERED\"\n        majorDimenson: \"ROWS\"\n        range: \"'Raw Data'!A1\"\n        values: [$row]\n      ) {\n        updates {\n          spreadsheetId\n          updatedRange\n          updatedCells\n          updatedData {\n            values\n          }\n        }\n      }\n    }\n  }\n}\n\nsubscription SlackReactionSubscription(\n  $webhookUrl: String!\n) {\n  slack(webhookUrl: $webhookUrl) {\n    reactionAddedEvent {\n      eventTime\n      event {\n        user {\n          id\n          name\n        }\n        eventTs\n        reaction\n        item {\n          channel {\n            name\n          }\n          message {\n            permaLink\n            user {\n              id\n              name\n            }\n            text\n            ts\n          }\n        }\n      }\n    }\n  }\n}";
 
 var chain = emptyChain;
@@ -1088,6 +1227,8 @@ export {
   typeScriptDefinition ,
   requestHasComputedVariables ,
   TypeScript ,
+  requestScriptTypeScriptSignature ,
+  monacoTypelibForChain ,
   
 }
 /* addToDocMutation Not a pure module */

@@ -20,8 +20,11 @@ type t = {
   description: option<string>,
   version: (int, int, int),
   chains: array<Chain.t>,
-  traceRetentionPolicy: [#all | #onlyErrors | #never],
-  traceRetentionDays: int,
+}
+
+type authToken = {
+  name: string,
+  accessToken: string,
 }
 
 module Publish = {
@@ -264,6 +267,7 @@ module PackageEditor = {
     ~schema,
     ~initialPackage: t,
     ~package: t,
+    ~authTokens,
     ~onCreateChain,
     ~onInspectChain,
     ~onEditChain,
@@ -376,6 +380,7 @@ module PackageEditor = {
                 style={ReactDOMStyle.make(~color=Comps.colors["gray-3"], ())}>
                 <th className="py-3 px-6 text-left"> {j`Chain Name`->string} </th>
                 <th className="py-3 px-6 text-left"> {j`Auth Token`->string} </th>
+                <th className="py-3 px-6 text-center"> {j`Data Retention`->string} </th>
                 <th className="py-3 px-6 text-center"> {j`Team Access`->string} </th>
                 <th className="py-3 px-6 text-center"> {j`Status`->string} </th>
                 <th className="py-3 px-6 text-center"> {j`Actions`->string} </th>
@@ -394,6 +399,17 @@ module PackageEditor = {
                 let className = even
                   ? " text-gray-50 hover:bg-gray-400"
                   : " text-gray-50 hover:bg-gray-700"
+
+                let saveChain = (newChain: Chain.t) => {
+                  let newPackage = {
+                    ...package,
+                    chains: package.chains->Belt.Array.map(chain => {
+                      chain.id == newChain.id ? newChain : chain
+                    }),
+                  }
+                  Js.log2("onEditPackage: ", newPackage)
+                  onEditPackage(newPackage)
+                }
                 <tr
                   key={chain.id->Belt.Option.mapWithDefault("no-id", Uuid.toString)}
                   style
@@ -438,7 +454,99 @@ module PackageEditor = {
                     </div>
                   </td>
                   <td className="py-3 px-6 ">
-                    {"OFGM***************************************"->string}
+                    <Comps.Select
+                      className="inline-block comp-select"
+                      value={chain.accessToken->Belt.Option.getWithDefault("")}
+                      onChange={event => {
+                        let value = ReactEvent.Form.target(event)["value"]
+                        let accessToken = switch value {
+                        | "" => None
+                        | other => Some(other)
+                        }
+
+                        let newChain = {
+                          ...chain,
+                          accessToken: accessToken,
+                        }
+                        saveChain(newChain)
+                      }}>
+                      <option value=""> {"None"->string} </option>
+                      {authTokens
+                      ->Belt.Array.map(authToken => {
+                        let lead4 = authToken.accessToken->Js.String2.substring(~from=0, ~to_=4)
+                        <option key={authToken.accessToken} value={authToken.accessToken}>
+                          {j`${authToken.name} (${lead4}****....)`->string}
+                        </option>
+                      })
+                      ->array}
+                    </Comps.Select>
+                  </td>
+                  <td>
+                    <Comps.Select
+                      className="inline-block comp-select"
+                      value={switch chain.traceRetentionPolicy.captureTarget {
+                      | Chain.ALL => "ALL"
+                      | ERRORS => "ERRORS"
+                      | NEVER => "NEVER"
+                      }}
+                      onChange={event => {
+                        let value = ReactEvent.Form.target(event)["value"]
+                        let policy = switch value {
+                        | "ALL" => Some(Chain.ALL)
+                        | "ERRORS" => Some(ERRORS)
+                        | "NEVER" => Some(NEVER)
+                        | _ => None
+                        }
+
+                        policy->Belt.Option.forEach(policy => {
+                          let newChain = {
+                            ...chain,
+                            traceRetentionPolicy: {
+                              ...chain.traceRetentionPolicy,
+                              captureTarget: policy,
+                            },
+                          }
+                          saveChain(newChain)
+                        })
+                      }}>
+                      <option value="ALL"> {"Keep trace for every invocation"->string} </option>
+                      <option value="ERRORS">
+                        {"Only keep trace for invocations with errors"->string}
+                      </option>
+                      <option value="NEVER"> {"Never retain any trace data"->string} </option>
+                    </Comps.Select>
+                    <br />
+                    {switch chain.traceRetentionPolicy.captureTarget {
+                    | Chain.NEVER => null
+                    | _ => <>
+                        {" for "->string}
+                        <input
+                          disabled={chain.traceRetentionPolicy.captureTarget == Chain.NEVER}
+                          className="bg-transparent border-none px-2 leading-tight outline-none text-white inline"
+                          type_="number"
+                          value={chain.traceRetentionPolicy.retentionDays->string_of_int}
+                          placeholder="days"
+                          style={ReactDOMStyle.make(~width="10ch", ())}
+                          onChange={event => {
+                            let value = ReactEvent.Form.target(event)["value"]
+                            try {
+                              let number = value->int_of_string
+                              let newChain = {
+                                ...chain,
+                                traceRetentionPolicy: {
+                                  ...chain.traceRetentionPolicy,
+                                  retentionDays: number,
+                                },
+                              }
+                              saveChain(newChain)
+                            } catch {
+                            | _ => ()
+                            }
+                          }}
+                        />
+                        {" days"->string}
+                      </>
+                    }}
                   </td>
                   <td className="py-3 px-6 text-center">
                     <div className="flex items-center justify-center">
@@ -640,91 +748,6 @@ module PackageEditor = {
                       </div>
                     </td>
                   </tr>
-                  <tr
-                    style={
-                      let style = ReactDOMStyle.make(
-                        ~backgroundColor=Comps.colors["gray-15"],
-                        ~marginTop="5px",
-                        ~color=Comps.colors["gray-6"],
-                        (),
-                      )
-                      style
-                    }
-                    className={"rounded-md border-4 border-gray-900 "}>
-                    <td className="py-3 px-6 text-left whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className="font-medium cursor-pointer mr-2">
-                          {"Trace Retention Policy: "->string}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-6 ">
-                      <Comps.Select
-                        value={switch package.traceRetentionPolicy {
-                        | #all => "all"
-                        | #onlyErrors => "onlyErrors"
-                        | #never => "never"
-                        }}
-                        onChange={event => {
-                          let value = ReactEvent.Form.target(event)["value"]
-                          let policy = switch value {
-                          | "all" => Some(#all)
-                          | "onlyErrors" => Some(#onlyErrors)
-                          | "never" => Some(#never)
-                          | _ => None
-                          }
-
-                          policy->Belt.Option.forEach(policy => {
-                            let newPackage = {...package, traceRetentionPolicy: policy}
-                            onEditPackage(newPackage)
-                          })
-                        }}>
-                        <option value="all"> {"Keep trace for every invocation"->string} </option>
-                        <option value="onlyErrors">
-                          {"Only keep trace for invocations with errors"->string}
-                        </option>
-                        <option value="never"> {"Never retain any trace data"->string} </option>
-                      </Comps.Select>
-                    </td>
-                  </tr>
-                  <tr
-                    style={
-                      let style = ReactDOMStyle.make(
-                        ~backgroundColor=Comps.colors["gray-15"],
-                        ~marginTop="5px",
-                        ~color=Comps.colors["gray-6"],
-                        (),
-                      )
-                      style
-                    }
-                    className={"rounded-md border-4 border-gray-900 "}>
-                    <td className="py-3 px-6 text-left whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className="font-medium cursor-pointer mr-2">
-                          {"Days to retain trace data: "->string}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-6 ">
-                      <input
-                        disabled={package.traceRetentionPolicy == #never}
-                        className="bg-transparent border-none px-2 leading-tight outline-none text-white"
-                        type_="number"
-                        value={package.traceRetentionDays->string_of_int}
-                        placeholder="days"
-                        onChange={event => {
-                          let value = ReactEvent.Form.target(event)["value"]
-                          try {
-                            let number = value->int_of_string
-                            let newPackage = {...package, traceRetentionDays: number}
-                            onEditPackage(newPackage)
-                          } catch {
-                          | _ => ()
-                          }
-                        }}
-                      />
-                    </td>
-                  </tr>
                 </tbody>
               </table>
             </div>
@@ -769,6 +792,7 @@ module PackageEditor = {
                   ->Belt.Array.map(chain => {
                     let typeDef = Chain.typeScriptDefinition(~schema, chain)
                     <tr
+                      key={chain.name}
                       className={"rounded-md border-4 border-gray-900 text-gray-50 hover:bg-gray-400"}>
                       <td> {typeDef.functionName->string} </td>
                       <td> <Comps.Pre> {typeDef.inputType->string} </Comps.Pre> </td>
@@ -1118,6 +1142,7 @@ module ChainLogs = {
                     let metrics = metrics->Obj.magic
                     <tr
                       className="rounded-sm"
+                      key=host
                       style={ReactDOMStyle.make(
                         ~color=Comps.colors["gray-6"],
                         ~backgroundColor=Comps.colors["gray-15"],
@@ -1481,8 +1506,6 @@ let make = (~schema, ~config) => {
       description: None,
       version: (1, 0, 1),
       chains: initialChains,
-      traceRetentionDays: 5,
-      traceRetentionPolicy: #all,
     }
 
     {
@@ -1583,6 +1606,16 @@ let make = (~schema, ~config) => {
   | Package =>
     <PackageEditor
       schema
+      authTokens=[
+        {
+          name: "studio-test",
+          accessToken: "9mKUXvNQBsGu-dMIK1iAiPjB1qzM3NqAW8a0iqWFTu4",
+        },
+        {
+          name: "Persist query token",
+          accessToken: "Mie9GEmMA2wCO5x39tGsxLZ-yy5Wr3JNBZhPYdj5h4Y",
+        },
+      ]
       onPublishPackageToNpm={(~npmAuth) => {
         let persistedChainPromises = state.package.chains->Belt.Array.map(chain => {
           let promise = Js.Promise.make((~resolve, ~reject as _) => {
@@ -1592,7 +1625,6 @@ let make = (~schema, ~config) => {
               ~authToken=config.chainAccessToken,
               ~chain,
               ~onComplete=docId => {
-                Js.log3("Persisted chain", chain.name, docId)
                 resolve(. (docId, chain))
               },
             )

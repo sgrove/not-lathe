@@ -74,8 +74,9 @@ module Pre = {
   let defaultStyle = ReactDOMStyle.make(~backgroundColor=colors["gray-8"], ~maxHeight="150px", ())
 
   @react.component
-  let make = (~children, ~className="", ~style=defaultStyle, ~selectAll=false) => {
+  let make = (~children, ~className="", ~onChange=?, ~style=defaultStyle, ~selectAll=false) => {
     <pre
+      ?onChange
       className={className ++
       " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll " ++ (selectAll ? "select-all" : "")}
       style={style}>
@@ -124,5 +125,53 @@ module Modal = {
         </div>
       </div>
     </div>
+  }
+}
+
+module Tab = {
+  @react.component
+  let make = (~onClick, ~id, ~title, ~activeTab) => {
+    <button
+      onClick={_ => {
+        onClick(id)
+      }}
+      className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " ++ {
+        activeTab == id ? " inspector-tab-active" : " inspector-tab-inactive"
+      }}>
+      <Icons.List
+        width="24px" height="24px" color={activeTab == id ? colors["blue-1"] : colors["gray-6"]}
+      />
+      <span className="mx-2"> {title->React.string} </span>
+    </button>
+  }
+}
+
+module Tabs = {
+  @react.component
+  let make = (~tabs, ~activeTab, ~onSelect) => {
+    let tabEls =
+      tabs
+      ->Belt.Array.map(((id, title)) => <Tab onClick=onSelect id title activeTab />)
+      ->React.array
+
+    <div
+      className="w-full flex ml-2 border-b justify-around"
+      style={ReactDOMStyle.make(~borderColor=colors["gray-1"], ())}>
+      {tabEls}
+    </div>
+  }
+}
+
+module Textarea = {
+  let defaultStyle = ReactDOMStyle.make(~backgroundColor=colors["gray-8"], ~maxHeight="150px", ())
+
+  @react.component
+  let make = (~className="", ~onChange=?, ~style=defaultStyle, ~selectAll=false) => {
+    <textarea
+      ?onChange
+      className={className ++
+      " my-2 mx-4 p-2 rounded-sm text-gray-200 overflow-scroll " ++ (selectAll ? "select-all" : "")}
+      style={style}
+    />
   }
 }

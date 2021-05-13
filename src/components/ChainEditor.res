@@ -1,3 +1,22 @@
+let httpRequest = `
+type IncomingHttpRequest {
+  uri: String!
+  query: JSON!
+  jsonBody: JSON
+  body: String!
+  method: String!
+  headers: [[String!]!]!
+  chainId: String!
+  metadata: JSON!
+}`
+
+let httpRequest = `
+type OutgoingHttpResponse {
+  body: String
+  headers: [[String!]!]
+  status: Int!
+}`
+
 module SimpleTooltip = {
   @react.component @module("react-simple-tooltip")
   external make: (
@@ -44,6 +63,8 @@ type debuggable =
   | CompiledChain
 
 type state = {
+  audioLevel: int,
+  audioStream: AudioStreamContext.state,
   diagram: option<diagram>,
   card: option<Card.block>,
   schema: GraphQLJs.schema,
@@ -680,476 +701,6 @@ let backgroundStyle = ReactDOMStyle.make(
   (),
 )
 
-type requestScriptTypeScriptSignature = {
-  functionFromScriptInputType: string,
-  functionFromScriptOutputType: string,
-  functionFromScriptName: string,
-}
-
-let requestScriptTypeScriptSignature = (
-  request: Chain.request,
-  schema: GraphQLJs.schema,
-  chain: Chain.t,
-): requestScriptTypeScriptSignature => {
-  let chainFragmentsDoc =
-    chain.blocks
-    ->Belt.Array.keepMap(block => {
-      switch block.kind {
-      | Fragment => Some(block.body)
-      | _ => None
-      }
-    })
-    ->Js.Array2.joinWith("\n\n")
-    ->Js.String2.concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }")
-
-  let chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
-    "operationDoc": chainFragmentsDoc,
-  })
-
-  let upstreamArgDepRequestIds =
-    request.variableDependencies
-    ->Belt.Array.keepMap(varDep => {
-      switch varDep.dependency {
-      | ArgumentDependency(argDep) => Some(argDep.fromRequestIds)
-      | _ => None
-      }
-    })
-    ->Belt.Array.concatMany
-
-  let upstreamRequestDependencyIds = request.dependencyRequestIds
-
-  let upstreamRequestIds =
-    Belt.Array.concat(
-      upstreamArgDepRequestIds,
-      upstreamRequestDependencyIds,
-    )->Utils.String.distinctStrings
-
-  let inputType = {
-    let dependencyRequests = chain.requests->Belt.Array.keepMap(request => {
-      switch upstreamRequestIds->Js.Array2.indexOf(request.id) {
-      | -1 => None
-      | _ =>
-        let ast = request.operation.body->GraphQLJs.parse
-        let dependencyRequest = ast.definitions->Belt.Array.get(0)
-
-        dependencyRequest->Belt.Option.map(dependencyRequest => {
-          let tsSignature = GraphQLJs.Mock.typeScriptForOperation(
-            schema,
-            dependencyRequest,
-            ~fragmentDefinitions=chainFragmentDefinitions,
-          )
-          (request.id, tsSignature)
-        })
-      }
-    })
-
-    dependencyRequests
-    ->Belt.Array.reduce(Js.Dict.empty(), (acc, (name, tsType)) => {
-      acc->Js.Dict.set(name, tsType)
-      acc
-    })
-    ->ignore
-
-    let fields =
-      dependencyRequests
-      ->Belt.Array.map(((name, tsType)) => {
-        j`"${name}": ${tsType}`
-      })
-      ->Js.Array2.joinWith(", ")
-
-    j`{${fields}}`
-  }
-
-  let inputType = inputType->Obj.magic
-
-  let inputType = switch inputType {
-  | ""
-  | "{}" => "EmptyObject"
-  | other => other
-  }
-
-  let operationDef = (request.operation.body->GraphQLJs.parse).definitions->Belt.Array.get(0)
-
-  let outputTypeForVariables =
-    operationDef
-    ->Belt.Option.map(operationDef => {
-      let signature =
-        request.variableDependencies
-        ->Belt.Array.keepMap(varDep => {
-          switch varDep.dependency {
-          | ArgumentDependency(argDep) => Some(argDep.name)
-          | _ => None
-          }
-        })
-        ->GraphQLJs.Mock.typeScriptSignatureForOperationVariables(schema, operationDef)
-
-      switch signature {
-      | "{}" => "EmptyObject"
-      | other => other
-      }
-    })
-    ->Belt.Option.getWithDefault("// No operation definition for request")
-
-  let names = request->Chain.requestScriptNames
-
-  let outputType = j`export type ${names.returnTypeName} = ${outputTypeForVariables}`
-  let inputType = j`export type ${names.inputTypeName} = ${inputType}`
-
-  {
-    functionFromScriptInputType: inputType,
-    functionFromScriptOutputType: outputType,
-    functionFromScriptName: names.functionName,
-  }
-}
-
-type monacoTypelib = {
-  importLine: string,
-  dDotTs: string,
-}
-
-let monacoTypelibForChain = (schema, chain: Chain.t) => {
-  let computedRequests =
-    chain.requests->Belt.Array.keep(request => Chain.requestHasComputedVariables(request))
-
-  let types =
-    computedRequests->Belt.Array.map(request =>
-      request->requestScriptTypeScriptSignature(schema, chain)
-    )
-
-  let dDotTsDefs =
-    types
-    ->Belt.Array.map(typeSigs => {
-      j`${typeSigs.functionFromScriptInputType}
-${typeSigs.functionFromScriptOutputType}
-`
-    })
-    ->Js.Array2.joinWith("\n\n")
-
-  let dDotTs = j`type EmptyObject = Record<any, never>
-
-${dDotTsDefs}`
-
-  let names = computedRequests->Belt.Array.map(Chain.requestScriptNames)
-
-  let importedNames =
-    names
-    ->Belt.Array.map(({inputTypeName, returnTypeName}) => {
-      [inputTypeName, returnTypeName]
-    })
-    ->Belt.Array.concatMany
-    ->Js.Array2.joinWith(", ")
-
-  let importLine = switch names {
-  | [] => ""
-  | _ => j`import { ${importedNames} } from 'oneGraphStudio';`
-  }
-
-  {dDotTs: dDotTs, importLine: importLine}
-}
-
-module Script = {
-  @react.component
-  let make = (
-    ~schema,
-    ~chain: Chain.t,
-    ~functionName as _=?,
-    ~onChange,
-    ~className=?,
-    ~onMount,
-    ~onPotentialScriptSourceConnect,
-    ~onSaveChain,
-    ~insight: result<Babel.Insight.insight, 'a>,
-  ) => {
-    let (localContent, setLocalContent) = React.useState(() => chain.script)
-    let (_highlights, setHighlights) = React.useState(() => [])
-    let (contentWidgets, setContentWidgets) = React.useState(() => [])
-    let content = chain.script
-
-    let editor = React.useRef(None)
-    let monaco = React.useRef(None)
-
-    let {dDotTs: types} = monacoTypelibForChain(schema, chain)
-
-    let connectionDrag = React.useContext(ConnectionContext.context)
-    let connectionDragRef = React.useRef(connectionDrag)
-
-    React.useEffect4(() => {
-      switch (insight, editor.current, monaco.current) {
-      | (_, None, _)
-      | (_, _, None)
-      | (Error(_), _, _) => ()
-      | (Ok({store, latestRunId}), Some(editor), Some(monaco)) =>
-        let lines = content->Js.String2.split("\n")
-        Debug.assignToWindowForDeveloperDebug(~name="MyRecordStore", store)
-        let records =
-          store->Babel.Insight.getGroupedLineDecorations(
-            ~runId=latestRunId,
-            ~filePath="/index.js",
-            ~maxRecordLen=Some(1000),
-            ~beforePosition=None,
-          )
-
-        let newContentWidgets = records->Belt.Array.map(result => {
-          let adjustedLineNumber = result.lineNum - 1
-          let horizontalOffset = switch lines
-          ->Belt.Array.get(adjustedLineNumber)
-          ->Belt.Option.mapWithDefault(0, Js.String2.length) {
-          | 0 => 0
-          | other => other + 2
-          }
-
-          BsReactMonaco.createWidget(
-            ~monaco,
-            ~lineNum=result.lineNum,
-            ~hasError=result.hasError,
-            ~horizontalOffset,
-            ~content=result.content,
-          )
-        })
-
-        contentWidgets->Belt.Array.forEach(contentWidget =>
-          editor->BsReactMonaco.removeContentWidget(contentWidget)
-        )
-
-        newContentWidgets->Belt.Array.forEach(contentWidget =>
-          editor->BsReactMonaco.addContentWidget(contentWidget)
-        )
-
-        setContentWidgets(_ => newContentWidgets)
-      }
-
-      None
-    }, (insight, content, editor.current, monaco.current))
-
-    React.useEffect1(() => {
-      connectionDragRef.current = connectionDrag
-      switch (editor.current, monaco.current, connectionDrag) {
-      | (Some(editor), Some(monaco), StartedSource(_)) =>
-        TypeScript.VirtualFileSystem.makeWithFileSystem(~onCreateFileSystem=fsMap => {
-          fsMap->TypeScript.Map.set("main.ts", chain.script)
-        })
-        ->Js.Promise.then_(
-          ((_env, program, _typeChecker, _fsMap, _system)) => {
-            let parsed = program["getSourceFile"]("main.ts")
-
-            parsed
-            ->Belt.Option.forEach(parsed => {
-              let variableDeclarations = parsed->TypeScript.findAllVariableDeclarationsInFunctions
-
-              let decorations = variableDeclarations->Belt.Array.map(node => {
-                open TypeScript
-                let start = parsed->getLineAndCharacterOfPosition(Obj.magic(node)["pos"])
-                let end = parsed->getLineAndCharacterOfPosition(Obj.magic(node)["end"])
-
-                open BsReactMonaco
-                {
-                  options: {
-                    deltaDecorationOptions(
-                      ~className="script-drop drag-target",
-                      ~inlineClassName="script-drop drag-target",
-                      (),
-                    )
-                  },
-                  range: monaco->makeRange(
-                    start.line + 1,
-                    start.character + 1,
-                    end.line + 1,
-                    end.character + 1,
-                  ),
-                }
-              })
-
-              Debug.assignToWindowForDeveloperDebug(~name="OtherEditor", editor)
-              Debug.assignToWindowForDeveloperDebug(~name="OtherMonaco", monaco)
-              Debug.assignToWindowForDeveloperDebug(~name="OtherDecorations", decorations)
-
-              let deltas = editor->BsReactMonaco.deltaDecorations([], decorations)
-
-              setHighlights(_oldHighlights => deltas)
-            })
-            ->Js.Promise.resolve
-          },
-          /* * TODO extract type at point
-            let position =
-              parsed->TypeScript.getPositionOfLineAndCharacter(
-                scriptPosition.lineNumber - 1,
-                scriptPosition.column - 1,
-              )
-
-            TypeScript.findTypeOfVariableDeclarationAtPosition(
-              ~env,
-              ~fileName="main.ts",
-              ~position,
-            )->Belt.Option.forEach(((node, typeNode)) => {
-              let printedType = TypeScript.printType(~typeChecker, ~typeNode, ~node, ())
-
-              Js.log4("Type at position: ", typeNode, position, printedType)
-            })
-          })
- */
-
-          _,
-        )
-        ->ignore
-      | (Some(editor), _, _) =>
-        setHighlights(oldHighlights => {
-          let _ = editor->BsReactMonaco.deltaDecorations(oldHighlights, [])
-          []
-        })
-      | _ => ()
-      }
-
-      None
-    }, [connectionDrag->ConnectionContext.toSimpleString])
-
-    React.useEffect1(() => {
-      content == localContent
-        ? ()
-        : editor.current->Belt.Option.forEach(editor => {
-            let position = editor->BsReactMonaco.getPosition
-
-            let model = editor->BsReactMonaco.getModel("file:///main.tsx")
-            let fullRange = model->BsReactMonaco.Model.getFullModelRange
-            let edit = BsReactMonaco.editOperation(~range=fullRange, ~text=content, ())
-            editor->BsReactMonaco.executeEdits(
-              Js.Nullable.return("externalContentChange"),
-              ~edits=[edit],
-            )
-            editor->BsReactMonaco.setPosition(position)
-          })
-
-      None
-    }, [content])
-
-    React.useEffect1(() => {
-      monaco.current->Belt.Option.forEach(monaco => {
-        let {dDotTs: newTypes, importLine} = monacoTypelibForChain(schema, chain)
-        let () = BsReactMonaco.TypeScript.addLib(. monaco, newTypes, content)
-
-        let newImports = importLine
-
-        let hasImport =
-          chain.script
-          ->Js.String2.match_(Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"))
-          ->Belt.Option.isSome
-
-        let newScript = hasImport
-          ? chain.script->Js.String2.replaceByRe(
-              Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
-              newImports,
-            )
-          : `${newImports}
-
-${chain.script}`
-
-        onChange(newScript->Js.String2.trim)
-      })
-
-      None
-    }, [types])
-
-    React.useEffect3(() => {
-      open BsReactMonaco
-      monaco.current->Belt.Option.forEach(monaco => {
-        editor.current->Belt.Option.forEach(editor => {
-          let keyCode = {
-            Key.combine([monaco->Key.mod->Key.ctrlCmd, monaco->Key.code->Key.keyS])
-          }
-
-          let _commandId = editor->addCommand(keyCode, () => {
-            onSaveChain(chain)
-          })
-        })
-      })
-
-      None
-    }, (editor.current, monaco.current, chain))
-
-    let filename = "file:///main.tsx"
-
-    <div
-      style={ReactDOMStyle.make(
-        ~height="calc(100vh - 40px - 384px - 56px)",
-        /* TODO: Figure this out: if overflowY is hidden, the page won't scroll, but the tooltips are cut off */
-        // ~overflowY="hidden",
-        (),
-      )}>
-      <BsReactMonaco.Editor
-        ?className
-        theme="vs-dark"
-        language="typescript"
-        defaultValue={content}
-        options={
-          "minimap": {"enabled": false},
-          // "automaticLayout": true,
-          // "fixedOverflowWidgets": true,
-          "contextmenu": false,
-          "contextMenu": false,
-        }
-        height="100%"
-        path=filename
-        onChange={(newScript, _) => {
-          setLocalContent(_ => newScript)
-          onChange(newScript)
-        }}
-        onMount={(editorHandle, monacoInstance) => {
-          Debug.assignToWindowForDeveloperDebug(~name="myEditor", editorHandle)
-          Debug.assignToWindowForDeveloperDebug(~name="myMonaco", monacoInstance)
-          Debug.assignToWindowForDeveloperDebug(
-            ~name="myQuickJSGlobalTest2",
-            QuickJsEmscripten.main,
-          )
-
-          Debug.assignToWindowForDeveloperDebug(~name="ts", TypeScript.ts)
-
-          let _disposable = editorHandle->BsReactMonaco.onMouseUp(mouseEvent => {
-            Debug.assignToWindowForDeveloperDebug(~name="editorMouseEvent", mouseEvent)
-
-            open ConnectionContext
-
-            switch connectionDragRef.current {
-            | Empty
-            | Completed(_)
-            | CompletedPendingVariable(_)
-            | CompletedWithTypeMismatch(_)
-            | StartedTarget(_) => ()
-            | StartedSource({sourceRequest, sourceDom}) =>
-              let position = mouseEvent["target"]["position"]
-              let lineNumber = position["lineNumber"]
-              let column = position["column"]
-
-              let event = mouseEvent["event"]
-              let mousePositionX = event["posx"]
-              let mousePositionY = event["posy"]
-              let mousePosition = (mousePositionX, mousePositionY)
-
-              onPotentialScriptSourceConnect(
-                ~sourceRequest,
-                ~sourceDom,
-                ~scriptPosition={lineNumber: lineNumber, column: column},
-                ~mousePosition,
-              )
-            }
-          })
-
-          let () = BsReactMonaco.TypeScript.addLib(. monacoInstance, types, content)
-          let () = BsReactMonaco.registerPrettier(monacoInstance)
-          let modelOptions = BsReactMonaco.Model.modelOptions(~tabSize=2, ())
-
-          editor.current = Some(editorHandle)
-          monaco.current = Some(monacoInstance)
-
-          editorHandle
-          ->BsReactMonaco.getModel(filename)
-          ->BsReactMonaco.Model.updateOptions(modelOptions)
-
-          onMount(~editor=editorHandle, ~monaco=monacoInstance)
-        }}
-      />
-    </div>
-  }
-}
-
 module ConnectorLine = {
   type state = {mousePosition: (int, int)}
 
@@ -1574,6 +1125,8 @@ module Main = {
       // Block(Card.blocks[0])
 
       {
+        audioLevel: 0,
+        audioStream: Empty,
         diagram: None,
         blockSearchOpen: true,
         chain: initialChain,
@@ -1992,6 +1545,7 @@ export function ${names.functionName} (payload : ${names.inputTypeName}) : ${nam
           }
 
           let newChain: Chain.t = {
+            ...newChain,
             name: newChain.name,
             description: newChain.description,
             id: newChain.id,
@@ -2001,7 +1555,7 @@ export function ${names.functionName} (payload : ${names.inputTypeName}) : ${nam
             script: newScript,
           }
 
-          let {dDotTs: _newTypes, importLine} = monacoTypelibForChain(schema, newChain)
+          let {dDotTs: _newTypes, importLine} = Chain.monacoTypelibForChain(schema, newChain)
 
           let newImports = importLine
 
@@ -2145,6 +1699,18 @@ ${newScript}`
 
     let sidebar = {
       <Inspector
+        onStartAudio={_ => {
+          Js.log("Should start audio now")
+          Navigator.MediaDevices.getUserAudio()->Belt.Option.forEach(promise =>
+            promise->Js.Promise.then_(stream => {
+              setState(oldState => {...oldState, audioStream: Loaded(stream)})
+              Js.log2("Got stream: ", stream)->Js.Promise.resolve
+            }, _)->Js.Promise.catch(err => {
+              Js.Console.warn2("Unable to get audio stream: ", err)->Js.Promise.resolve
+            }, _)->ignore
+          )
+        }}
+        audioLevel=state.audioLevel
         authTokens={[
           config.chainAccessToken->Belt.Option.map(token => {
             let fullLength = token->Js.String2.length
@@ -2370,802 +1936,670 @@ ${newScript}`
     <div style={ReactDOMStyle.make(~height="calc(100vh - 56px)", ())}>
       <RequestValueCacheProvider value={definitionResultData}>
         <InspectedContextProvider value={Some(state.inspected)}>
-          <ConnectionContext.Provider value={state.connectionDrag}>
-            <div className="flex flex-row flex-nowrap">
-              {state.blockSearchOpen
-                ? <ReactResizePanel
-                    direction=#e
-                    style={ReactDOMStyle.make(~width="400px", ())}
-                    handleClass="ResizeHandleHorizontal">
-                    <div
-                      className="w-full"
-                      style={ReactDOMStyle.make(
-                        ~backgroundColor=Comps.colors["gray-9"],
-                        ~height="calc(100vh - 56px)",
-                        (),
-                      )}>
-                      {blockSearch}
-                    </div>
-                  </ReactResizePanel>
-                : <div
-                    className="cursor-pointer"
-                    style={ReactDOMStyle.make(~width="25px", ~color="white", ())}
-                    onClick={_ =>
-                      setState(oldState => {
-                        ...oldState,
-                        blockSearchOpen: true,
-                      })}>
-                    {j`▹`->string}
-                  </div>}
-              <div className="flex-1 overflow-x-hidden">
-                <div
-                  style={ReactDOMStyle.make(~height="calc(50vh - 28px)", ())}
-                  onDragEnter={event => {
-                    event->ReactEvent.Mouse.stopPropagation
-                    event->ReactEvent.Mouse.preventDefault
-
-                    let dataTransfer = Obj.magic(event)["dataTransfer"]
-                    dataTransfer["dropEffect"] = "copy"
-                  }}
-                  onDragOver={event => {
-                    event->ReactEvent.Mouse.stopPropagation
-                    event->ReactEvent.Mouse.preventDefault
-                    let dataTransfer = Obj.magic(event)["dataTransfer"]
-                    dataTransfer["dropEffect"] = "copy"
-                  }}
-                  onDrop={event => {
-                    event->ReactEvent.Mouse.stopPropagation
-                    let dataTransfer = Obj.magic(event)["dataTransfer"]
-                    dataTransfer["dropEffect"] = "copy"
-                    let blockId: string = dataTransfer["getData"]("text")
-
-                    state.blocks
-                    ->Belt.Array.getBy(block => block.id->Uuid.toString == blockId)
-                    ->Belt.Option.forEach(block => {
-                      addBlock(block)
-                    })
-                  }}>
-                  {state.diagram->Belt.Option.mapWithDefault(null, diagram =>
-                    <Diagram
-                      setState
-                      diagram
-                      chain=state.chain
-                      removeEdge
-                      removeRequest
-                      diagramFromChain
-                      trace=state.trace
-                    />
-                  )}
-                </div>
-                <div style={ReactDOMStyle.make(~height="calc(50vh - 67px)", ())}>
+          <AudioStreamContext.Provider value={state.audioStream}>
+            <ConnectionContext.Provider value={state.connectionDrag}>
+              <div className="flex flex-row flex-nowrap">
+                {state.blockSearchOpen
+                  ? <ReactResizePanel
+                      direction=#e
+                      style={ReactDOMStyle.make(~width="400px", ())}
+                      handleClass="ResizeHandleHorizontal">
+                      <div
+                        className="w-full"
+                        style={ReactDOMStyle.make(
+                          ~backgroundColor=Comps.colors["gray-9"],
+                          ~height="calc(100vh - 56px)",
+                          (),
+                        )}>
+                        {blockSearch}
+                      </div>
+                    </ReactResizePanel>
+                  : <div
+                      className="cursor-pointer"
+                      style={ReactDOMStyle.make(~width="25px", ~color="white", ())}
+                      onClick={_ =>
+                        setState(oldState => {
+                          ...oldState,
+                          blockSearchOpen: true,
+                        })}>
+                      {j`▹`->string}
+                    </div>}
+                <div className="flex-1 overflow-x-hidden">
                   <div
-                    className=""
-                    onClick={_ => {
-                      setState(oldState => {
-                        ...oldState,
-                        scriptEditor: {
-                          ...oldState.scriptEditor,
-                          isOpen: !oldState.scriptEditor.isOpen,
-                        },
+                    style={ReactDOMStyle.make(~height="calc(50vh - 28px)", ())}
+                    onDragEnter={event => {
+                      event->ReactEvent.Mouse.stopPropagation
+                      event->ReactEvent.Mouse.preventDefault
+
+                      let dataTransfer = Obj.magic(event)["dataTransfer"]
+                      dataTransfer["dropEffect"] = "copy"
+                    }}
+                    onDragOver={event => {
+                      event->ReactEvent.Mouse.stopPropagation
+                      event->ReactEvent.Mouse.preventDefault
+                      let dataTransfer = Obj.magic(event)["dataTransfer"]
+                      dataTransfer["dropEffect"] = "copy"
+                    }}
+                    onDrop={event => {
+                      event->ReactEvent.Mouse.stopPropagation
+                      let dataTransfer = Obj.magic(event)["dataTransfer"]
+                      dataTransfer["dropEffect"] = "copy"
+                      let blockId: string = dataTransfer["getData"]("text")
+
+                      state.blocks
+                      ->Belt.Array.getBy(block => block.id->Uuid.toString == blockId)
+                      ->Belt.Option.forEach(block => {
+                        addBlock(block)
                       })
                     }}>
-                    <Comps.Header
-                      style={ReactDOMStyle.make(
-                        ~backgroundColor=Comps.colors["gray-9"],
-                        ~marginLeft="0px",
-                        ~marginRight="0px",
-                        ~display="flex",
-                        (),
-                      )}>
-                      <div className="flex-grow"> {"Chain JavaScript"->string} </div>
-                      <div>
-                        <button
-                          onClick={_ => {
-                            state.scriptEditor.editor->Belt.Option.forEach(editor => {
-                              let script = editor->BsReactMonaco.getValue
-                              let newScript = script->Prettier.format({
-                                "parser": "babel",
-                                "plugins": [Prettier.babel],
-                                "singleQuote": true,
+                    {state.diagram->Belt.Option.mapWithDefault(null, diagram =>
+                      <Diagram
+                        setState
+                        diagram
+                        chain=state.chain
+                        removeEdge
+                        removeRequest
+                        diagramFromChain
+                        trace=state.trace
+                      />
+                    )}
+                  </div>
+                  <div style={ReactDOMStyle.make(~height="calc(50vh - 67px)", ())}>
+                    <div
+                      className=""
+                      onClick={_ => {
+                        setState(oldState => {
+                          ...oldState,
+                          scriptEditor: {
+                            ...oldState.scriptEditor,
+                            isOpen: !oldState.scriptEditor.isOpen,
+                          },
+                        })
+                      }}>
+                      <Comps.Header
+                        style={ReactDOMStyle.make(
+                          ~backgroundColor=Comps.colors["gray-9"],
+                          ~marginLeft="0px",
+                          ~marginRight="0px",
+                          ~display="flex",
+                          (),
+                        )}>
+                        <div className="flex-grow"> {"Chain JavaScript"->string} </div>
+                        <div>
+                          <button
+                            onClick={_ => {
+                              state.scriptEditor.editor->Belt.Option.forEach(editor => {
+                                let script = editor->BsReactMonaco.getValue
+                                let newScript = script->Prettier.format({
+                                  "parser": "babel",
+                                  "plugins": [Prettier.babel],
+                                  "singleQuote": true,
+                                })
+
+                                setState(oldState => {
+                                  ...oldState,
+                                  chain: {...oldState.chain, script: newScript},
+                                })
+                              })
+                            }}
+                            title="Format code">
+                            <Icons.Prettier.Dark height="16px" width="16px" />
+                          </button>
+                        </div>
+                      </Comps.Header>
+                    </div>
+                    {false
+                      ? null
+                      : <ScriptEditor
+                          schema={state.schema}
+                          chain={state.chain}
+                          onSaveChain
+                          insight={Ok(state.insight)}
+                          className=?{switch state.scriptEditor.isOpen {
+                          | false => Some("none")
+                          | true => None
+                          }}
+                          onPotentialScriptSourceConnect={(
+                            ~sourceRequest,
+                            ~sourceDom,
+                            ~scriptPosition: ConnectionContext.scriptPosition,
+                            ~mousePosition as (x, y): (int, int),
+                          ) => {
+                            setState(oldState => {
+                              let connectionDrag = ConnectionContext.Completed({
+                                sourceRequest: sourceRequest,
+                                target: Script({scriptPosition: scriptPosition}),
+                                windowPosition: (x, y),
+                                sourceDom: sourceDom,
                               })
 
-                              setState(oldState => {
+                              {
                                 ...oldState,
-                                chain: {...oldState.chain, script: newScript},
-                              })
+                                connectionDrag: connectionDrag,
+                              }
                             })
                           }}
-                          title="Format code">
-                          <Icons.Prettier.Dark height="16px" width="16px" />
-                        </button>
-                      </div>
-                    </Comps.Header>
-                  </div>
-                  {false
-                    ? null
-                    : <Script
-                        schema={state.schema}
-                        chain={state.chain}
-                        onSaveChain
-                        insight={Ok(state.insight)}
-                        className=?{switch state.scriptEditor.isOpen {
-                        | false => Some("none")
-                        | true => None
-                        }}
-                        onPotentialScriptSourceConnect={(
-                          ~sourceRequest,
-                          ~sourceDom,
-                          ~scriptPosition: ConnectionContext.scriptPosition,
-                          ~mousePosition as (x, y): (int, int),
-                        ) => {
-                          setState(oldState => {
-                            let connectionDrag = ConnectionContext.Completed({
-                              sourceRequest: sourceRequest,
-                              target: Script({scriptPosition: scriptPosition}),
-                              windowPosition: (x, y),
-                              sourceDom: sourceDom,
-                            })
-
-                            {
+                          onMount={(~editor, ~monaco) => {
+                            setState(oldState => {
                               ...oldState,
-                              connectionDrag: connectionDrag,
+                              scriptEditor: {
+                                ...oldState.scriptEditor,
+                                editor: Some(editor),
+                                monaco: Some(monaco),
+                              },
+                            })
+                          }}
+                          onChange={newScript => {
+                            try {
+                              let newChain = {
+                                ...state.chain,
+                                script: newScript,
+                              }
+
+                              // let parsedScript = Acorn.parse(
+                              //   newChain.script,
+                              //   Acorn.parseOptions(~ecmaVersion=2020, ~sourceType=#"module", ()),
+                              // )
+
+                              let functionNames = []
+
+                              let inspected: Inspector.inspectable = switch state.inspected {
+                              | Nothing(_) => Nothing({chain: newChain, trace: state.trace})
+                              | Block(block) => Block(block)
+                              | Request(v) =>
+                                let request =
+                                  newChain.requests
+                                  ->Belt.Array.getBy(existingRequest =>
+                                    existingRequest.id == v.request.id
+                                  )
+                                  ->Belt.Option.getWithDefault(v.request)
+                                Request({request: request, chain: newChain})
+                              | RequestArgument({request, variableName}) =>
+                                let request =
+                                  newChain.requests
+                                  ->Belt.Array.getBy(existingRequest =>
+                                    existingRequest.id == request.id
+                                  )
+                                  ->Belt.Option.getWithDefault(request)
+                                RequestArgument({
+                                  variableName: variableName,
+                                  chain: newChain,
+                                  request: request,
+                                })
+                              }
+
+                              setState(oldState => {
+                                {
+                                  ...oldState,
+                                  scriptFunctions: functionNames,
+                                  chain: newChain,
+                                  inspected: inspected,
+                                }
+                              })
+                            } catch {
+                            | err => Js.Console.error2("Error updating script from editor: ", err)
+                            }
+                          }}
+                        />}
+                  </div>
+                </div>
+                <ReactResizePanel
+                  direction=#w
+                  style={ReactDOMStyle.make(~width="400px", ())}
+                  handleClass="ResizeHandleHorizontal">
+                  <div
+                    className="w-full"
+                    style={ReactDOMStyle.make(
+                      ~backgroundColor=Comps.colors["gray-9"],
+                      ~height="calc(100vh - 56px)",
+                      (),
+                    )}>
+                    {sidebar}
+                  </div>
+                </ReactResizePanel>
+              </div>
+              {switch state.blockEdit {
+              | Nothing => null
+              | Create(block) as action | Edit(block) as action =>
+                let isCreateAction = switch action {
+                | Create(_) => true
+                | _ => false
+                }
+
+                let editor =
+                  <BlockEditor
+                    schema={state.schema}
+                    block
+                    availableFragments
+                    onClose={() => {
+                      setState(oldState => {...oldState, blockEdit: Nothing})
+                    }}
+                    onSave={(~initial: Card.block, ~modified as superBlock: Card.block) => {
+                      let ast = superBlock.body->GraphQLJs.parse
+                      let initialAst = (initial.body->GraphQLJs.parse).definitions[0]
+
+                      let newOperationDefinitionCount =
+                        ast.definitions
+                        ->Belt.Array.keep(definition => {
+                          switch Obj.magic(definition)["kind"] {
+                          | "FragmentDefinition"
+                          | "ObjectTypeDefinition" => false
+                          | _ => true
+                          }
+                        })
+                        ->Belt.Array.length
+
+                      let guessedInitialBlock = ref(None)
+
+                      let blocks = ast.definitions->Belt.Array.mapWithIndex((_idx, definition) => {
+                        let kind = switch Obj.magic(definition)["kind"] {
+                        | "FragmentDefinition" => #fragment
+                        | "ObjectTypeDefinition" => #objectType
+                        | _ => definition.operation
+                        }
+
+                        let definition = switch kind {
+                        | #objectType =>
+                          let compiled = definition->GraphQLJs.Mock.compileComputeToIdentityQuery
+                          Debug.assignToWindowForDeveloperDebug(
+                            ~name="computedCompiled",
+                            [definition->Obj.magic, compiled],
+                          )
+                          compiled
+                        | _ => definition
+                        }
+
+                        let sameNameAsInitial = initialAst.name.value == definition.name.value
+                        let sameOperationKindChanged = switch (
+                          newOperationDefinitionCount,
+                          initial.kind,
+                          kind,
+                        ) {
+                        | (0, Fragment, #fragment) => true
+                        | (1, _, #fragment) => false
+                        | (1, _, _) => true
+                        | _ => false
+                        }
+
+                        let sameOperationAsInitial = switch (
+                          sameNameAsInitial,
+                          sameOperationKindChanged,
+                        ) {
+                        | (false, false) => false
+                        | (true, _)
+                        | (_, true) => true
+                        }
+
+                        let services =
+                          definition
+                          ->Obj.magic
+                          ->GraphQLUtils.gatherAllReferencedServices(~schema)
+                          ->Belt.Array.map(service => service.slug)
+
+                        let blank = makeBlankBlock(#query)
+
+                        let title =
+                          definition.name.value->Obj.magic->Belt.Option.getWithDefault("Untitled")
+
+                        let block = {
+                          ...blank,
+                          id: sameOperationAsInitial ? initial.id : Uuid.v4(),
+                          title: title,
+                          services: services,
+                          body: GraphQLJs.printAst(definition->Obj.magic),
+                          kind: switch kind {
+                          | #fragment => Fragment
+                          | #query => Query
+                          | #mutation => Mutation
+                          | #subscription => Subscription
+                          | #objectType => Compute
+                          },
+                        }
+
+                        switch (sameNameAsInitial, sameOperationKindChanged) {
+                        | (true, _) | (_, true) => guessedInitialBlock := Some(block)
+                        | _ => ()
+                        }
+
+                        block
+                      })
+
+                      try {
+                        setState(oldState => {
+                          let newChain = blocks->Belt.Array.reduce(oldState.chain, (
+                            newChain,
+                            block,
+                          ) => {
+                            switch block.kind {
+                            | Fragment => {
+                                ...newChain,
+                                blocks: newChain.blocks
+                                ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
+                                ->Belt.Array.concat([block]),
+                              }
+                            | _ =>
+                              let isLikelyInitialBlock = Some(block) == guessedInitialBlock.contents
+
+                              let initialReq = isLikelyInitialBlock
+                                ? newChain.requests->Belt.Array.getBy(request => {
+                                    request.operation.id == initial.id
+                                  })
+                                : None
+
+                              let doc = block.body->GraphQLJs.parse
+                              let definition = doc.definitions[0]
+                              let variableNames = definition->GraphQLUtils.getOperationVariables
+
+                              let variableDependencies = variableNames->Belt.Array.map(((
+                                variableName,
+                                _variableType,
+                              )) => {
+                                let existingVarDep = initialReq->Belt.Option.flatMap(request =>
+                                  request.variableDependencies->Belt.Array.getBy(
+                                    existingVariableDependency => {
+                                      existingVariableDependency.name == variableName
+                                    },
+                                  )
+                                )
+
+                                let variableDep: Chain.variableDependencyKind = Direct({
+                                  {name: variableName, value: Variable(variableName)}
+                                })
+
+                                let varDep: Chain.variableDependency =
+                                  existingVarDep->Belt.Option.getWithDefault({
+                                    name: variableName,
+                                    dependency: variableDep,
+                                  })
+
+                                varDep
+                              })
+
+                              let newReq: Chain.request = {
+                                id: block.title,
+                                operation: block,
+                                variableDependencies: variableDependencies,
+                                dependencyRequestIds: initialReq->Belt.Option.mapWithDefault(
+                                  [],
+                                  req => req.dependencyRequestIds,
+                                ),
+                              }
+
+                              let returnProperties =
+                                newReq.variableDependencies->Belt.Array.keepMap(varDep => {
+                                  switch varDep.dependency {
+                                  | ArgumentDependency(_) => Some((varDep.name, varDep.name))
+                                  | _ => None
+                                  }
+                                })
+
+                              let newScript: string = Inspector.ensureRequestFunctionExists(
+                                ~returnProperties,
+                                ~script=newChain.script,
+                                ~request=newReq,
+                                (),
+                              )
+
+                              let newChain: Chain.t = {
+                                ...newChain,
+                                name: newChain.name,
+                                id: newChain.id,
+                                description: newChain.description,
+                                scriptDependencies: newChain.scriptDependencies,
+                                blocks: newChain.blocks
+                                ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
+                                ->Belt.Array.concat([block]),
+                                requests: newChain.requests
+                                ->Belt.Array.keep(existingRequest =>
+                                  initialReq->Belt.Option.mapWithDefault(true, initialReq =>
+                                    existingRequest.id != initialReq.id
+                                  )
+                                )
+                                ->Belt.Array.concat([newReq]),
+                                script: newScript,
+                              }
+
+                              let newScript = {
+                                let {dDotTs: _newTypes, importLine} = Chain.monacoTypelibForChain(
+                                  schema,
+                                  newChain,
+                                )
+
+                                let newImports = importLine
+
+                                let hasImport =
+                                  newScript
+                                  ->Js.String2.match_(
+                                    Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
+                                  )
+                                  ->Belt.Option.isSome
+
+                                switch hasImport {
+                                | false =>
+                                  `${newImports}
+
+${newScript}`
+                                | true =>
+                                  newScript->Js.String2.replaceByRe(
+                                    Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
+                                    newImports,
+                                  )
+                                }
+                              }
+
+                              let newChain: Chain.t = {
+                                ...newChain,
+                                script: newScript,
+                              }
+
+                              newChain
                             }
                           })
-                        }}
-                        onMount={(~editor, ~monaco) => {
-                          setState(oldState => {
-                            ...oldState,
-                            scriptEditor: {
-                              ...oldState.scriptEditor,
-                              editor: Some(editor),
-                              monaco: Some(monaco),
-                            },
-                          })
-                        }}
-                        onChange={newScript => {
-                          try {
-                            let newChain = {
-                              ...state.chain,
-                              script: newScript,
-                            }
 
-                            // let parsedScript = Acorn.parse(
-                            //   newChain.script,
-                            //   Acorn.parseOptions(~ecmaVersion=2020, ~sourceType=#"module", ()),
-                            // )
+                          let newInitialBlock =
+                            newChain.blocks
+                            ->Belt.Array.getBy(block => block.id == initial.id)
+                            ->Belt.Option.getWithDefault(blocks[0])
 
-                            let functionNames = []
+                          let inspected: Inspector.inspectable = switch isCreateAction {
+                          | true =>
+                            let request =
+                              newChain.requests->Belt.Array.getBy(req =>
+                                req.operation.id == newInitialBlock.id
+                              )
 
-                            let inspected: Inspector.inspectable = switch state.inspected {
+                            request->Belt.Option.mapWithDefault(
+                              Inspector.Nothing({chain: newChain, trace: state.trace}),
+                              request => {
+                                let newRequest = {...request, operation: newInitialBlock}
+                                Request({request: newRequest, chain: newChain})
+                              },
+                            )
+                          | false =>
+                            switch oldState.inspected {
+                            | Block(_) => Block(newInitialBlock)
                             | Nothing(_) => Nothing({chain: newChain, trace: state.trace})
-                            | Block(block) => Block(block)
-                            | Request(v) =>
-                              let request =
-                                newChain.requests
-                                ->Belt.Array.getBy(existingRequest =>
-                                  existingRequest.id == v.request.id
-                                )
-                                ->Belt.Option.getWithDefault(v.request)
-                              Request({request: request, chain: newChain})
+                            | Request({request}) =>
+                              let newRequest = {...request, operation: newInitialBlock}
+                              Request({request: newRequest, chain: newChain})
                             | RequestArgument({request, variableName}) =>
-                              let request =
-                                newChain.requests
-                                ->Belt.Array.getBy(existingRequest =>
-                                  existingRequest.id == request.id
-                                )
-                                ->Belt.Option.getWithDefault(request)
+                              let newRequest = {...request, operation: newInitialBlock}
                               RequestArgument({
                                 variableName: variableName,
                                 chain: newChain,
-                                request: request,
+                                request: newRequest,
                               })
                             }
-
-                            setState(oldState => {
-                              {
-                                ...oldState,
-                                scriptFunctions: functionNames,
-                                chain: newChain,
-                                inspected: inspected,
-                              }
-                            })
-                          } catch {
-                          | err => Js.Console.error2("Error updating script from editor: ", err)
                           }
-                        }}
-                      />}
-                </div>
-              </div>
-              <ReactResizePanel
-                direction=#w
-                style={ReactDOMStyle.make(~width="400px", ())}
-                handleClass="ResizeHandleHorizontal">
-                <div
-                  className="w-full"
-                  style={ReactDOMStyle.make(
-                    ~backgroundColor=Comps.colors["gray-9"],
-                    ~height="calc(100vh - 56px)",
-                    (),
-                  )}>
-                  {sidebar}
-                </div>
-              </ReactResizePanel>
-            </div>
-            {switch state.blockEdit {
-            | Nothing => null
-            | Create(block) as action | Edit(block) as action =>
-              let isCreateAction = switch action {
-              | Create(_) => true
-              | _ => false
-              }
 
-              let editor =
-                <BlockEditor
-                  schema={state.schema}
-                  block
-                  availableFragments
-                  onClose={() => {
-                    setState(oldState => {...oldState, blockEdit: Nothing})
-                  }}
-                  onSave={(~initial: Card.block, ~modified as superBlock: Card.block) => {
-                    let ast = superBlock.body->GraphQLJs.parse
-                    let initialAst = (initial.body->GraphQLJs.parse).definitions[0]
+                          let newBlocks = blocks
 
-                    let newOperationDefinitionCount =
-                      ast.definitions
-                      ->Belt.Array.keep(definition => {
-                        switch Obj.magic(definition)["kind"] {
-                        | "FragmentDefinition"
-                        | "ObjectTypeDefinition" => false
-                        | _ => true
-                        }
-                      })
-                      ->Belt.Array.length
+                          let allBlocks = switch oldState.blockEdit {
+                          | _ => oldState.blocks->Belt.Array.concat(newBlocks)
+                          // | _ =>
+                          //   oldState.blocks->Belt.Array.keepMap(existingBlock => {
+                          //     Some(existingBlock.id == newBlock.id ? newBlock : existingBlock)
+                          //   })
+                          }
 
-                    let guessedInitialBlock = ref(None)
+                          let diagram = diagramFromChain(newChain)
 
-                    let blocks = ast.definitions->Belt.Array.mapWithIndex((_idx, definition) => {
-                      let kind = switch Obj.magic(definition)["kind"] {
-                      | "FragmentDefinition" => #fragment
-                      | "ObjectTypeDefinition" => #objectType
-                      | _ => definition.operation
-                      }
-
-                      let definition = switch kind {
-                      | #objectType =>
-                        let compiled = definition->GraphQLJs.Mock.compileComputeToIdentityQuery
-                        Debug.assignToWindowForDeveloperDebug(
-                          ~name="computedCompiled",
-                          [definition->Obj.magic, compiled],
-                        )
-                        compiled
-                      | _ => definition
-                      }
-
-                      let sameNameAsInitial = initialAst.name.value == definition.name.value
-                      let sameOperationKindChanged = switch (
-                        newOperationDefinitionCount,
-                        initial.kind,
-                        kind,
-                      ) {
-                      | (0, Fragment, #fragment) => true
-                      | (1, _, #fragment) => false
-                      | (1, _, _) => true
-                      | _ => false
-                      }
-
-                      let sameOperationAsInitial = switch (
-                        sameNameAsInitial,
-                        sameOperationKindChanged,
-                      ) {
-                      | (false, false) => false
-                      | (true, _)
-                      | (_, true) => true
-                      }
-
-                      let services =
-                        definition
-                        ->Obj.magic
-                        ->GraphQLUtils.gatherAllReferencedServices(~schema)
-                        ->Belt.Array.map(service => service.slug)
-
-                      let blank = makeBlankBlock(#query)
-
-                      let title =
-                        definition.name.value->Obj.magic->Belt.Option.getWithDefault("Untitled")
-
-                      let block = {
-                        ...blank,
-                        id: sameOperationAsInitial ? initial.id : Uuid.v4(),
-                        title: title,
-                        services: services,
-                        body: GraphQLJs.printAst(definition->Obj.magic),
-                        kind: switch kind {
-                        | #fragment => Fragment
-                        | #query => Query
-                        | #mutation => Mutation
-                        | #subscription => Subscription
-                        | #objectType => Compute
-                        },
-                      }
-
-                      switch (sameNameAsInitial, sameOperationKindChanged) {
-                      | (true, _) | (_, true) => guessedInitialBlock := Some(block)
+                          {
+                            ...oldState,
+                            chain: newChain,
+                            blockEdit: Nothing,
+                            inspected: inspected,
+                            diagram: diagram,
+                            blocks: allBlocks,
+                          }
+                        })
+                      } catch {
                       | _ => ()
                       }
+                    }}
+                  />
 
-                      block
+                <Comps.Modal> {editor} </Comps.Modal>
+              }}
+              {switch state.connectionDrag {
+              | Empty => null
+              | CompletedPendingVariable({targetRequest, windowPosition: (x, y)} as dragInfo) =>
+                let variableDependencies =
+                  targetRequest.variableDependencies->Belt.SortArray.stableSortBy((a, b) => {
+                    String.compare(a.name, b.name)
+                  })
+
+                let onClick = variableDependency => {
+                  let connectionDrag = switch variableDependency {
+                  | None => ConnectionContext.Empty
+                  | Some(variableDependency) =>
+                    let variableTarget: ConnectionContext.variableTarget = {
+                      targetRequest: targetRequest,
+                      variableDependency: variableDependency,
+                    }
+
+                    ConnectionContext.Completed({
+                      sourceRequest: dragInfo.sourceRequest,
+                      sourceDom: dragInfo.sourceDom,
+                      windowPosition: (x, y),
+                      target: Variable(variableTarget),
                     })
+                  }
 
-                    try {
-                      setState(oldState => {
-                        let newChain = blocks->Belt.Array.reduce(oldState.chain, (
-                          newChain,
-                          block,
-                        ) => {
-                          switch block.kind {
-                          | Fragment => {
-                              ...newChain,
-                              blocks: newChain.blocks
-                              ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
-                              ->Belt.Array.concat([block]),
-                            }
-                          | _ =>
-                            let isLikelyInitialBlock = Some(block) == guessedInitialBlock.contents
+                  setState(oldState => {...oldState, connectionDrag: connectionDrag})
+                }
+                <PopupPicker
+                  top=y
+                  left=x
+                  onClose={() => {
+                    onClick(None)
+                  }}>
+                  <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
+                    {"Choose destination variable: "->string}
+                  </span>
+                  <ul>
+                    {variableDependencies
+                    ->Belt.Array.map(variableDependency => {
+                      <li
+                        className="cursor-pointer graphql-structure-preview-entry"
+                        onClick={_ => onClick(Some(variableDependency))}
+                        key=variableDependency.name>
+                        {("$" ++ variableDependency.name)->string}
+                      </li>
+                    })
+                    ->array}
+                  </ul>
+                </PopupPicker>
+              | CompletedWithTypeMismatch({
+                  sourceRequest,
+                  variableTarget,
+                  windowPosition: (x, y),
+                  potentialFunctionMatches,
+                  dataPath,
+                  path,
+                  targetVariableType,
+                  sourceType,
+                }) =>
+                let onClick: option<string> => unit = name => {
+                  setState(oldState => {
+                    let targetVariableDependency = variableTarget.variableDependency
 
-                            let initialReq = isLikelyInitialBlock
-                              ? newChain.requests->Belt.Array.getBy(request => {
-                                  request.operation.id == initial.id
-                                })
-                              : None
-
-                            let doc = block.body->GraphQLJs.parse
-                            let definition = doc.definitions[0]
-                            let variableNames = definition->GraphQLUtils.getOperationVariables
-
-                            let variableDependencies = variableNames->Belt.Array.map(((
-                              variableName,
-                              _variableType,
-                            )) => {
-                              let existingVarDep = initialReq->Belt.Option.flatMap(request =>
-                                request.variableDependencies->Belt.Array.getBy(
-                                  existingVariableDependency => {
-                                    existingVariableDependency.name == variableName
-                                  },
-                                )
-                              )
-
-                              let variableDep: Chain.variableDependencyKind = Direct({
-                                {name: variableName, value: Variable(variableName)}
-                              })
-
-                              let varDep: Chain.variableDependency =
-                                existingVarDep->Belt.Option.getWithDefault({
-                                  name: variableName,
-                                  dependency: variableDep,
-                                })
-
-                              varDep
+                    let newRequests = oldState.chain.requests->Belt.Array.map(request => {
+                      switch variableTarget.targetRequest.id == request.id {
+                      | false => request
+                      | true =>
+                        let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+                          switch varDep.name == targetVariableDependency.name {
+                          | true =>
+                            let dependency = Chain.ArgumentDependency({
+                              name: targetVariableDependency.name,
+                              ifMissing: #SKIP,
+                              ifList: #FIRST,
+                              fromRequestIds: request.dependencyRequestIds,
+                              functionFromScript: "TBD",
+                              maxRecur: None,
                             })
 
-                            let newReq: Chain.request = {
-                              id: block.title,
-                              operation: block,
-                              variableDependencies: variableDependencies,
-                              dependencyRequestIds: initialReq->Belt.Option.mapWithDefault(
-                                [],
-                                req => req.dependencyRequestIds,
-                              ),
-                            }
+                            {...varDep, dependency: dependency}
 
-                            let returnProperties =
-                              newReq.variableDependencies->Belt.Array.keepMap(varDep => {
-                                switch varDep.dependency {
-                                | ArgumentDependency(_) => Some((varDep.name, varDep.name))
-                                | _ => None
-                                }
-                              })
-
-                            let newScript: string = Inspector.ensureRequestFunctionExists(
-                              ~returnProperties,
-                              ~script=newChain.script,
-                              ~request=newReq,
-                              (),
-                            )
-
-                            let newChain: Chain.t = {
-                              name: newChain.name,
-                              id: newChain.id,
-                              description: newChain.description,
-                              scriptDependencies: newChain.scriptDependencies,
-                              blocks: newChain.blocks
-                              ->Belt.Array.keep(existingBlock => existingBlock.id != block.id)
-                              ->Belt.Array.concat([block]),
-                              requests: newChain.requests
-                              ->Belt.Array.keep(existingRequest =>
-                                initialReq->Belt.Option.mapWithDefault(true, initialReq =>
-                                  existingRequest.id != initialReq.id
-                                )
-                              )
-                              ->Belt.Array.concat([newReq]),
-                              script: newScript,
-                            }
-
-                            let newScript = {
-                              let {dDotTs: _newTypes, importLine} = monacoTypelibForChain(
-                                schema,
-                                newChain,
-                              )
-
-                              let newImports = importLine
-
-                              let hasImport =
-                                newScript
-                                ->Js.String2.match_(
-                                  Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
-                                )
-                                ->Belt.Option.isSome
-
-                              switch hasImport {
-                              | false =>
-                                `${newImports}
-
-${newScript}`
-                              | true =>
-                                newScript->Js.String2.replaceByRe(
-                                  Js.Re.fromString("import[\s\S.]+from[\s\S]+'oneGraphStudio';"),
-                                  newImports,
-                                )
+                          | false =>
+                            let dependency = switch varDep.dependency {
+                            | ArgumentDependency(argDep) =>
+                              let newArgDep = {
+                                ...argDep,
+                                fromRequestIds: argDep.fromRequestIds
+                                ->Belt.Array.concat([sourceRequest.id])
+                                ->Utils.String.distinctStrings,
                               }
-                            }
 
-                            let newChain: Chain.t = {
-                              ...newChain,
-                              script: newScript,
+                              Chain.ArgumentDependency(newArgDep)
+                            | other => other
                             }
+                            let varDep = {...varDep, dependency: dependency}
 
-                            newChain
+                            varDep
                           }
                         })
-
-                        let newInitialBlock =
-                          newChain.blocks
-                          ->Belt.Array.getBy(block => block.id == initial.id)
-                          ->Belt.Option.getWithDefault(blocks[0])
-
-                        let inspected: Inspector.inspectable = switch isCreateAction {
-                        | true =>
-                          let request =
-                            newChain.requests->Belt.Array.getBy(req =>
-                              req.operation.id == newInitialBlock.id
-                            )
-
-                          request->Belt.Option.mapWithDefault(
-                            Inspector.Nothing({chain: newChain, trace: state.trace}),
-                            request => {
-                              let newRequest = {...request, operation: newInitialBlock}
-                              Request({request: newRequest, chain: newChain})
-                            },
-                          )
-                        | false =>
-                          switch oldState.inspected {
-                          | Block(_) => Block(newInitialBlock)
-                          | Nothing(_) => Nothing({chain: newChain, trace: state.trace})
-                          | Request({request}) =>
-                            let newRequest = {...request, operation: newInitialBlock}
-                            Request({request: newRequest, chain: newChain})
-                          | RequestArgument({request, variableName}) =>
-                            let newRequest = {...request, operation: newInitialBlock}
-                            RequestArgument({
-                              variableName: variableName,
-                              chain: newChain,
-                              request: newRequest,
-                            })
-                          }
-                        }
-
-                        let newBlocks = blocks
-
-                        let allBlocks = switch oldState.blockEdit {
-                        | _ => oldState.blocks->Belt.Array.concat(newBlocks)
-                        // | _ =>
-                        //   oldState.blocks->Belt.Array.keepMap(existingBlock => {
-                        //     Some(existingBlock.id == newBlock.id ? newBlock : existingBlock)
-                        //   })
-                        }
-
-                        let diagram = diagramFromChain(newChain)
 
                         {
-                          ...oldState,
-                          chain: newChain,
-                          blockEdit: Nothing,
-                          inspected: inspected,
-                          diagram: diagram,
-                          blocks: allBlocks,
+                          ...request,
+                          variableDependencies: varDeps,
+                          dependencyRequestIds: request.dependencyRequestIds
+                          ->Belt.Array.concat([sourceRequest.id])
+                          ->Utils.String.distinctStrings,
                         }
-                      })
-                    } catch {
-                    | _ => ()
-                    }
-                  }}
-                />
+                      }
+                    })
 
-              <Comps.Modal> {editor} </Comps.Modal>
-            }}
-            {switch state.connectionDrag {
-            | Empty => null
-            | CompletedPendingVariable({targetRequest, windowPosition: (x, y)} as dragInfo) =>
-              let variableDependencies =
-                targetRequest.variableDependencies->Belt.SortArray.stableSortBy((a, b) => {
-                  String.compare(a.name, b.name)
-                })
+                    let request = newRequests->Belt.Array.getBy(request => {
+                      variableTarget.targetRequest.id == request.id
+                    })
 
-              let onClick = variableDependency => {
-                let connectionDrag = switch variableDependency {
-                | None => ConnectionContext.Empty
-                | Some(variableDependency) =>
-                  let variableTarget: ConnectionContext.variableTarget = {
-                    targetRequest: targetRequest,
-                    variableDependency: variableDependency,
-                  }
-
-                  ConnectionContext.Completed({
-                    sourceRequest: dragInfo.sourceRequest,
-                    sourceDom: dragInfo.sourceDom,
-                    windowPosition: (x, y),
-                    target: Variable(variableTarget),
-                  })
-                }
-
-                setState(oldState => {...oldState, connectionDrag: connectionDrag})
-              }
-              <PopupPicker
-                top=y
-                left=x
-                onClose={() => {
-                  onClick(None)
-                }}>
-                <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
-                  {"Choose destination variable: "->string}
-                </span>
-                <ul>
-                  {variableDependencies
-                  ->Belt.Array.map(variableDependency => {
-                    <li
-                      className="cursor-pointer graphql-structure-preview-entry"
-                      onClick={_ => onClick(Some(variableDependency))}
-                      key=variableDependency.name>
-                      {("$" ++ variableDependency.name)->string}
-                    </li>
-                  })
-                  ->array}
-                </ul>
-              </PopupPicker>
-            | CompletedWithTypeMismatch({
-                sourceRequest,
-                variableTarget,
-                windowPosition: (x, y),
-                potentialFunctionMatches,
-                dataPath,
-                path,
-                targetVariableType,
-                sourceType,
-              }) =>
-              let onClick: option<string> => unit = name => {
-                setState(oldState => {
-                  let targetVariableDependency = variableTarget.variableDependency
-
-                  let newRequests = oldState.chain.requests->Belt.Array.map(request => {
-                    switch variableTarget.targetRequest.id == request.id {
-                    | false => request
-                    | true =>
-                      let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
-                        switch varDep.name == targetVariableDependency.name {
-                        | true =>
-                          let dependency = Chain.ArgumentDependency({
-                            name: targetVariableDependency.name,
-                            ifMissing: #SKIP,
-                            ifList: #FIRST,
-                            fromRequestIds: request.dependencyRequestIds,
-                            functionFromScript: "TBD",
-                            maxRecur: None,
+                    let script = request->Belt.Option.mapWithDefault(
+                      oldState.chain.script,
+                      request => {
+                        let returnProperties =
+                          request.variableDependencies->Belt.Array.keepMap(varDep => {
+                            switch varDep.dependency {
+                            | ArgumentDependency(_) => Some((varDep.name, varDep.name))
+                            | _ => None
+                            }
                           })
 
-                          {...varDep, dependency: dependency}
-
-                        | false =>
-                          let dependency = switch varDep.dependency {
-                          | ArgumentDependency(argDep) =>
-                            let newArgDep = {
-                              ...argDep,
-                              fromRequestIds: argDep.fromRequestIds
-                              ->Belt.Array.concat([sourceRequest.id])
-                              ->Utils.String.distinctStrings,
-                            }
-
-                            Chain.ArgumentDependency(newArgDep)
-                          | other => other
-                          }
-                          let varDep = {...varDep, dependency: dependency}
-
-                          varDep
-                        }
-                      })
-
-                      {
-                        ...request,
-                        variableDependencies: varDeps,
-                        dependencyRequestIds: request.dependencyRequestIds
-                        ->Belt.Array.concat([sourceRequest.id])
-                        ->Utils.String.distinctStrings,
-                      }
-                    }
-                  })
-
-                  let request = newRequests->Belt.Array.getBy(request => {
-                    variableTarget.targetRequest.id == request.id
-                  })
-
-                  let script = request->Belt.Option.mapWithDefault(
-                    oldState.chain.script,
-                    request => {
-                      let returnProperties =
-                        request.variableDependencies->Belt.Array.keepMap(varDep => {
-                          switch varDep.dependency {
-                          | ArgumentDependency(_) => Some((varDep.name, varDep.name))
-                          | _ => None
-                          }
-                        })
-
-                      Inspector.ensureRequestFunctionExists(
-                        ~returnProperties,
-                        ~script=oldState.chain.script,
-                        ~request,
-                        (),
-                      )
-                    },
-                  )
-
-                  let parsed = try {
-                    Some(
-                      TypeScript.createSourceFile(
-                        ~name="main.ts",
-                        ~source=script,
-                        ~target=99,
-                        true,
-                      ),
-                    )
-                  } catch {
-                  | _ => None
-                  }
-
-                  let lineNumbers = request->Belt.Option.flatMap(request => {
-                    let names = request->Chain.requestScriptNames
-
-                    let target = parsed->Belt.Option.flatMap(parsed =>
-                      parsed
-                      ->TypeScript.findFnPos(names.functionName)
-                      ->Belt.Option.map(({start, firstStatementStart}) => {
-                        let {line} = parsed->TypeScript.getLineAndCharacterOfPosition(start)
-                        let firstStatementLine =
-                          firstStatementStart->Belt.Option.mapWithDefault(
-                            line,
-                            firstStatementStart => {
-                              let {line} =
-                                parsed->TypeScript.getLineAndCharacterOfPosition(
-                                  firstStatementStart,
-                                )
-                              line
-                            },
-                          )
-
-                        (line, firstStatementLine)
-                      })
-                    )
-                    target
-                  })
-
-                  let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
-                  let inputName =
-                    dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
-
-                  let binding = // Should we use the last item, or the targetVariable name?
-                  // dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
-                  targetVariableDependency.name
-
-                  let nullableTargetVariableType =
-                    targetVariableType->Belt.Option.map(typ =>
-                      typ
-                      ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
-                      ->namedGraphQLScalarTypeScriptType
-                    )
-
-                  let nullablePrintedType =
-                    sourceType->Js.String2.replaceByRe(
-                      Js.Re.fromStringWithFlags("!", ~flags="g"),
-                      "",
-                    )
-
-                  let defaultCoercerName = j`${nullablePrintedType}To${nullableTargetVariableType
-                    ->Belt.Option.getWithDefault("Unknown")
-                    ->Utils.String.capitalizeFirstLetter}`
-
-                  let coercerName = switch name {
-                  | None =>
-                    Utils.prompt(
-                      "Coercer function name: ",
-                      ~default=Some(defaultCoercerName->Utils.String.safeCamelize),
-                    )
-                    ->Js.Nullable.toOption
-                    ->Belt.Option.getWithDefault(defaultCoercerName)
-                  | Some(name) => name
-                  }->Utils.String.safeCamelize
-
-                  let coercerExists = switch name {
-                  | Some("INTERNAL_PASSTHROUGH") => true
-                  | _ =>
-                    parsed
-                    ->Belt.Option.flatMap(parsed => parsed->TypeScript.findFnPos(coercerName))
-                    ->Belt.Option.isSome
-                  }
-
-                  let newScript = lineNumbers->Belt.Option.map(((
-                    _fnLineNumber,
-                    fnBodyLineNumber,
-                  )) => {
-                    let newBinding = switch name {
-                    | Some("INTERNAL_PASSTHROUGH") =>
-                      j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith("?.")}`
-                    | _ =>
-                      j`\tlet ${binding} = ${coercerName}(${dataPath->Js.Array2.joinWith("?.")})`
-                    }
-
-                    let temp = script->Js.String2.split("\n")
-
-                    let _ =
-                      temp->Js.Array2.spliceInPlace(
-                        ~pos=fnBodyLineNumber + 1,
-                        ~remove=0,
-                        ~add=[newBinding],
-                      )
-
-                    let inputType = request->Belt.Option.mapWithDefault(
-                      nullablePrintedType,
-                      request => {
-                        let names = request->Chain.requestScriptNames
-                        let typePath = path->Belt.Array.joinWith("", step => {
-                          step->Js.String2.endsWith("[0]")
-                            ? {
-                                let step = step->Js.String2.replace("[0]", "")
-                                j`["${step}"][0]`
-                              }
-                            : j`["${step}"]`
-                        })
-                        let typ = `${names.inputTypeName}${typePath}`
-                        typ
+                        Inspector.ensureRequestFunctionExists(
+                          ~returnProperties,
+                          ~script=oldState.chain.script,
+                          ~request,
+                          (),
+                        )
                       },
                     )
 
-                    let signatureReturnType =
-                      nullableTargetVariableType->Belt.Option.mapWithDefault("", t => j`: ${t}`)
-
-                    let newFunctionDefinition = j`function ${coercerName}(${inputName} : ${inputType}) ${signatureReturnType} {
-  /* TODO: Convert ${inputName} => ${binding} */
-  return ${inputName}
-}`
-
-                    coercerExists
-                      ? temp->Js.Array2.joinWith("\n")
-                      : temp->Js.Array2.joinWith("\n") ++ "\n\n" ++ newFunctionDefinition
-                  })
-
-                  let parsed = newScript->Belt.Option.flatMap(newScript =>
-                    try {
+                    let parsed = try {
                       Some(
                         TypeScript.createSourceFile(
                           ~name="main.ts",
-                          ~source=newScript,
+                          ~source=script,
                           ~target=99,
                           true,
                         ),
@@ -3173,151 +2607,133 @@ ${newScript}`
                     } catch {
                     | _ => None
                     }
-                  )
 
-                  let functionObjectLiteralReturn = request->Belt.Option.flatMap(request => {
-                    let names = request->Chain.requestScriptNames
+                    let lineNumbers = request->Belt.Option.flatMap(request => {
+                      let names = request->Chain.requestScriptNames
 
-                    parsed->Belt.Option.flatMap(parsed =>
-                      parsed->TypeScript.findLastReturnObjectPos(
-                        ~functionName=names.functionName,
-                        ~properyName=binding,
+                      let target = parsed->Belt.Option.flatMap(parsed =>
+                        parsed
+                        ->TypeScript.findFnPos(names.functionName)
+                        ->Belt.Option.map(({start, firstStatementStart}) => {
+                          let {line} = parsed->TypeScript.getLineAndCharacterOfPosition(start)
+                          let firstStatementLine =
+                            firstStatementStart->Belt.Option.mapWithDefault(
+                              line,
+                              firstStatementStart => {
+                                let {line} =
+                                  parsed->TypeScript.getLineAndCharacterOfPosition(
+                                    firstStatementStart,
+                                  )
+                                line
+                              },
+                            )
+
+                          (line, firstStatementLine)
+                        })
                       )
-                    )
-                  })
+                      target
+                    })
 
-                  let shouldInsertPropertyInReturn =
-                    functionObjectLiteralReturn->Belt.Option.mapWithDefault(false, return =>
-                      return.property->Belt.Option.isNone
-                    )
-
-                  let newScript = newScript->Belt.Option.map(newScript =>
-                    functionObjectLiteralReturn->Belt.Option.mapWithDefault(
-                      newScript,
-                      returnObjectPositions => {
-                        shouldInsertPropertyInReturn
-                          ? {
-                              Debug.assignToWindowForDeveloperDebug(~name="tNewScript", newScript)
-                              let head =
-                                newScript->Js.String2.slice(
-                                  ~from=0,
-                                  ~to_=returnObjectPositions.objectPosition.start + 2,
-                                )
-
-                              let tail =
-                                newScript->Js.String2.slice(
-                                  ~from=returnObjectPositions.objectPosition.start + 2,
-                                  ~to_=newScript->Js.String2.length,
-                                )
-
-                              j`${head} ${binding}: ${binding},${tail}`
-                            }
-                          : newScript
-                      },
-                    )
-                  )
-
-                  let newChain = {
-                    ...oldState.chain,
-                    script: newScript->Belt.Option.getWithDefault(script),
-                    requests: newRequests,
-                  }
-
-                  {...oldState, chain: newChain, connectionDrag: Empty}
-                })
-              }
-
-              let onClose = () => {
-                setState(oldState => {...oldState, connectionDrag: Empty})
-              }
-
-              <PopupPicker top=y left=x onClose>
-                <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
-                  {"Type mismatch, choose coercer: "->string}
-                </span>
-                <ul>
-                  <li
-                    className="cursor-pointer graphql-structure-preview-entry"
-                    key="INTERNAL_PASSTHROUGH"
-                    onClick={_ => onClick(Some("INTERNAL_PASSTHROUGH"))}>
-                    {"Passthrough"->string}
-                  </li>
-                  {potentialFunctionMatches
-                  ->Belt.Array.map((fn: TypeScript.simpleFunctionType) => {
-                    <li
-                      className="cursor-pointer graphql-structure-preview-entry"
-                      onClick={_ => onClick(Some(fn.name))}
-                      key=fn.name>
-                      {fn.name->string}
-                    </li>
-                  })
-                  ->array}
-                  <li
-                    className="cursor-pointer graphql-structure-preview-entry"
-                    key="createNew"
-                    onClick={_ => onClick(None)}>
-                    {"Create new function"->string}
-                  </li>
-                </ul>
-              </PopupPicker>
-            | Completed({
-                sourceRequest,
-                target: Script({scriptPosition}),
-                windowPosition: (x, y),
-              }) =>
-              let chainFragmentsDoc =
-                state.chain.blocks
-                ->Belt.Array.keepMap(block => {
-                  switch block.kind {
-                  | Fragment => Some(block.body)
-                  | _ => None
-                  }
-                })
-                ->Js.Array2.joinWith("\n\n")
-
-              let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
-              let definition = parsedOperation.definitions->Belt.Array.getExn(0)
-
-              let onClose = () =>
-                setState(oldState => {
-                  ...oldState,
-                  connectionDrag: Empty,
-                })
-
-              <PopupPicker top=y left=x onClose>
-                <Inspector.GraphQLPreview
-                  requestId=sourceRequest.id
-                  schema
-                  definition
-                  fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
-                    "operationDoc": chainFragmentsDoc,
-                  })}
-                  targetGqlType="[String]"
-                  onClose={() => {
-                    setState(oldState => {...oldState, connectionDrag: Empty})
-                  }}
-                  definitionResultData
-                  onCopy={payload => {
-                    let {path} = payload
-                    let dataPath = ["payload"]->Belt.Array.concat(path)
                     let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
-                    let binding = switch dataPath {
-                    | [] => "unknown"
-                    | [field]
-                    | [_, field] => field
-                    | other =>
-                      let parent = other[other->Js.Array2.length - 2]
-                      let field =
-                        other[other->Js.Array2.length - 1]->Utils.String.capitalizeFirstLetter
-                      `${parent}${field}`
-                    }->Js.String2.replaceByRe(re, "")
+                    let inputName =
+                      dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
 
-                    setState(oldState => {
-                      let parsed = try {
+                    let binding = // Should we use the last item, or the targetVariable name?
+                    // dataPath[dataPath->Js.Array2.length - 1]->Js.String2.replaceByRe(re, "")
+                    targetVariableDependency.name
+
+                    let nullableTargetVariableType =
+                      targetVariableType->Belt.Option.map(typ =>
+                        typ
+                        ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+                        ->namedGraphQLScalarTypeScriptType
+                      )
+
+                    let nullablePrintedType =
+                      sourceType->Js.String2.replaceByRe(
+                        Js.Re.fromStringWithFlags("!", ~flags="g"),
+                        "",
+                      )
+
+                    let defaultCoercerName = j`${nullablePrintedType}To${nullableTargetVariableType
+                      ->Belt.Option.getWithDefault("Unknown")
+                      ->Utils.String.capitalizeFirstLetter}`
+
+                    let coercerName = switch name {
+                    | None =>
+                      Utils.prompt(
+                        "Coercer function name: ",
+                        ~default=Some(defaultCoercerName->Utils.String.safeCamelize),
+                      )
+                      ->Js.Nullable.toOption
+                      ->Belt.Option.getWithDefault(defaultCoercerName)
+                    | Some(name) => name
+                    }->Utils.String.safeCamelize
+
+                    let coercerExists = switch name {
+                    | Some("INTERNAL_PASSTHROUGH") => true
+                    | _ =>
+                      parsed
+                      ->Belt.Option.flatMap(parsed => parsed->TypeScript.findFnPos(coercerName))
+                      ->Belt.Option.isSome
+                    }
+
+                    let newScript = lineNumbers->Belt.Option.map(((
+                      _fnLineNumber,
+                      fnBodyLineNumber,
+                    )) => {
+                      let newBinding = switch name {
+                      | Some("INTERNAL_PASSTHROUGH") =>
+                        j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith("?.")}`
+                      | _ =>
+                        j`\tlet ${binding} = ${coercerName}(${dataPath->Js.Array2.joinWith("?.")})`
+                      }
+
+                      let temp = script->Js.String2.split("\n")
+
+                      let _ =
+                        temp->Js.Array2.spliceInPlace(
+                          ~pos=fnBodyLineNumber + 1,
+                          ~remove=0,
+                          ~add=[newBinding],
+                        )
+
+                      let inputType = request->Belt.Option.mapWithDefault(
+                        nullablePrintedType,
+                        request => {
+                          let names = request->Chain.requestScriptNames
+                          let typePath = path->Belt.Array.joinWith("", step => {
+                            step->Js.String2.endsWith("[0]")
+                              ? {
+                                  let step = step->Js.String2.replace("[0]", "")
+                                  j`["${step}"][0]`
+                                }
+                              : j`["${step}"]`
+                          })
+                          let typ = `${names.inputTypeName}${typePath}`
+                          typ
+                        },
+                      )
+
+                      let signatureReturnType =
+                        nullableTargetVariableType->Belt.Option.mapWithDefault("", t => j`: ${t}`)
+
+                      let newFunctionDefinition = j`function ${coercerName}(${inputName} : ${inputType}) ${signatureReturnType} {
+  /* TODO: Convert ${inputName} => ${binding} */
+  return ${inputName}
+}`
+
+                      coercerExists
+                        ? temp->Js.Array2.joinWith("\n")
+                        : temp->Js.Array2.joinWith("\n") ++ "\n\n" ++ newFunctionDefinition
+                    })
+
+                    let parsed = newScript->Belt.Option.flatMap(newScript =>
+                      try {
                         Some(
                           TypeScript.createSourceFile(
                             ~name="main.ts",
-                            ~source=oldState.chain.script,
+                            ~source=newScript,
                             ~target=99,
                             true,
                           ),
@@ -3325,213 +2741,145 @@ ${newScript}`
                       } catch {
                       | _ => None
                       }
+                    )
 
-                      let lineNumber = parsed->Belt.Option.map(parsed =>
-                        try {
-                          let position =
-                            parsed->TypeScript.getPositionOfLineAndCharacter(
-                              scriptPosition.lineNumber - 1,
-                              scriptPosition.column - 1,
-                            )
+                    let functionObjectLiteralReturn = request->Belt.Option.flatMap(request => {
+                      let names = request->Chain.requestScriptNames
 
-                          let parsedPosition =
-                            parsed
-                            ->TypeScript.findPositionOfFirstLineOfContainingFunctionForPosition(
-                              position,
-                            )
-                            ->Belt.Option.getExn
-
-                          let lineAndCharacter =
-                            parsed->TypeScript.getLineAndCharacterOfPosition(parsedPosition)
-
-                          lineAndCharacter.line + 1
-                        } catch {
-                        | e =>
-                          Js.Console.warn2("Exn trying to find smart position", e)
-                          scriptPosition.lineNumber - 1
-                        }
-                      )
-
-                      let assignmentExpressionRange = parsed->Belt.Option.flatMap(parsed => {
-                        let position =
-                          parsed->TypeScript.getPositionOfLineAndCharacter(
-                            scriptPosition.lineNumber - 1,
-                            scriptPosition.column - 1,
-                          )
-                        parsed->TypeScript.findContainingDeclaration(position)
-                      })
-
-                      let newScript = switch (assignmentExpressionRange, lineNumber) {
-                      | (Some({name, start, end}), _) =>
-                        let newBinding = j`${name} = ${dataPath->Js.Array2.joinWith("?.")}`
-
-                        oldState.chain.script->Utils.String.replaceRange(
-                          ~start=start + 1,
-                          ~end,
-                          ~by=newBinding,
+                      parsed->Belt.Option.flatMap(parsed =>
+                        parsed->TypeScript.findLastReturnObjectPos(
+                          ~functionName=names.functionName,
+                          ~properyName=binding,
                         )
-                      | (_, Some(lineNumber)) =>
-                        let newBinding = j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith("?.")}`
-
-                        let temp = oldState.chain.script->Js.String2.split("\n")
-
-                        let _ =
-                          temp->Js.Array2.spliceInPlace(
-                            ~pos=lineNumber,
-                            ~remove=0,
-                            ~add=[newBinding],
-                          )
-                        temp->Js.Array2.joinWith("\n")
-                      | _ => oldState.chain.script
-                      }
-
-                      let newChain = {...oldState.chain, script: newScript}
-
-                      {
-                        ...oldState,
-                        chain: newChain,
-                        connectionDrag: Empty,
-                      }
+                      )
                     })
-                  }}
-                />
-              </PopupPicker>
-            | Completed({sourceRequest, target: Input({inputDom}), windowPosition: (x, y)}) =>
-              let chainFragmentsDoc =
-                state.chain.blocks
-                ->Belt.Array.keepMap(block => {
-                  switch block.kind {
-                  | Fragment => Some(block.body)
-                  | _ => None
-                  }
-                })
-                ->Js.Array2.joinWith("\n\n")
 
-              let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
-              let definition = parsedOperation.definitions->Belt.Array.getExn(0)
-
-              let onClose = () =>
-                setState(oldState => {
-                  ...oldState,
-                  connectionDrag: Empty,
-                })
-
-              <PopupPicker top=y left=x onClose>
-                <Inspector.GraphQLPreview
-                  requestId=sourceRequest.id
-                  schema
-                  definition
-                  fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
-                    "operationDoc": chainFragmentsDoc,
-                  })}
-                  targetGqlType="[String]"
-                  onClose={() => {
-                    setState(oldState => {...oldState, connectionDrag: Empty})
-                  }}
-                  definitionResultData
-                  onCopy={payload => {
-                    let {displayedData} = payload
-
-                    let _ = try {
-                      inputDom->Inspector.forceablySetInputValue(displayedData)
-                    } catch {
-                    | _ => ()
-                    }
-
-                    setState(oldState => {
-                      ...oldState,
-                      connectionDrag: Empty,
-                    })
-                  }}
-                />
-              </PopupPicker>
-            | StartedTarget({target: Input(_)}) =>
-              setState(oldState => {
-                ...oldState,
-                connectionDrag: Empty,
-              })
-              null
-            | Completed({
-                sourceRequest,
-                sourceDom,
-                target: Variable(
-                  {variableDependency: targetVariableDependency, targetRequest} as variabletarget,
-                ),
-                windowPosition: (x, y) as windowPosition,
-              }) =>
-              let chainFragmentsDoc =
-                state.chain.blocks
-                ->Belt.Array.keepMap(block => {
-                  switch block.kind {
-                  | Fragment => Some(block.body)
-                  | _ => None
-                  }
-                })
-                ->Js.Array2.joinWith("\n\n")
-
-              let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
-              let definition = parsedOperation.definitions->Belt.Array.getExn(0)
-
-              let targetParsedOperation = targetRequest.operation.body->GraphQLJs.parse
-              let targetDefinition = targetParsedOperation.definitions->Belt.Array.getExn(0)
-              let targetVariables = targetDefinition->GraphQLUtils.getOperationVariables
-
-              let targetVariableType =
-                targetVariables
-                ->Belt.Array.getBy(((variableName, _)) => {
-                  targetVariableDependency.name == variableName
-                })
-                ->Belt.Option.map(((_, typ)) => typ)
-
-              let onClose = () =>
-                setState(oldState => {
-                  ...oldState,
-                  connectionDrag: Empty,
-                })
-
-              <PopupPicker top=y left=x onClose>
-                <Inspector.GraphQLPreview
-                  requestId=sourceRequest.id
-                  schema
-                  definition
-                  fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
-                    "operationDoc": chainFragmentsDoc,
-                  })}
-                  targetGqlType=?targetVariableType
-                  onClose={() => {
-                    setState(oldState => {...oldState, connectionDrag: Empty})
-                  }}
-                  definitionResultData
-                  onCopy={({printedType, path}) => {
-                    let dataPath = ["payload"]->Belt.Array.concat(path)
-
-                    let nullableTargetVariableType =
-                      targetVariableType->Belt.Option.map(typ =>
-                        typ->Js.String2.replaceByRe(Js.Re.fromStringWithFlags("!", ~flags="g"), "")
+                    let shouldInsertPropertyInReturn =
+                      functionObjectLiteralReturn->Belt.Option.mapWithDefault(false, return =>
+                        return.property->Belt.Option.isNone
                       )
 
-                    let nullablePrintedType =
-                      printedType->Js.String2.replaceByRe(
-                        Js.Re.fromStringWithFlags("!", ~flags="g"),
-                        "",
-                      )
+                    let newScript = newScript->Belt.Option.map(newScript =>
+                      functionObjectLiteralReturn->Belt.Option.mapWithDefault(
+                        newScript,
+                        returnObjectPositions => {
+                          shouldInsertPropertyInReturn
+                            ? {
+                                Debug.assignToWindowForDeveloperDebug(~name="tNewScript", newScript)
+                                let head =
+                                  newScript->Js.String2.slice(
+                                    ~from=0,
+                                    ~to_=returnObjectPositions.objectPosition.start + 2,
+                                  )
 
-                    let typesMatch = switch (
-                      Some(nullablePrintedType->Js.String2.toLocaleLowerCase),
-                      nullableTargetVariableType->Belt.Option.map(Js.String2.toLocaleLowerCase),
-                    ) {
-                    | (Some(a), Some(b)) if a == b => true
-                    | (Some("string"), Some("id"))
-                    | (Some("id"), Some("string")) => true
-                    | (Some("int"), Some("float"))
-                    | (Some("float"), Some("int")) => true
-                    | (Some("json"), _)
-                    | (_, Some("json")) => true
-                    | _ => false
+                                let tail =
+                                  newScript->Js.String2.slice(
+                                    ~from=returnObjectPositions.objectPosition.start + 2,
+                                    ~to_=newScript->Js.String2.length,
+                                  )
+
+                                j`${head} ${binding}: ${binding},${tail}`
+                              }
+                            : newScript
+                        },
+                      )
+                    )
+
+                    let newChain = {
+                      ...oldState.chain,
+                      script: newScript->Belt.Option.getWithDefault(script),
+                      requests: newRequests,
                     }
 
-                    switch typesMatch {
-                    | false =>
+                    {...oldState, chain: newChain, connectionDrag: Empty}
+                  })
+                }
+
+                let onClose = () => {
+                  setState(oldState => {...oldState, connectionDrag: Empty})
+                }
+
+                <PopupPicker top=y left=x onClose>
+                  <span style={ReactDOMStyle.make(~color=Comps.colors["gray-2"], ())}>
+                    {"Type mismatch, choose coercer: "->string}
+                  </span>
+                  <ul>
+                    <li
+                      className="cursor-pointer graphql-structure-preview-entry"
+                      key="INTERNAL_PASSTHROUGH"
+                      onClick={_ => onClick(Some("INTERNAL_PASSTHROUGH"))}>
+                      {"Passthrough"->string}
+                    </li>
+                    {potentialFunctionMatches
+                    ->Belt.Array.map((fn: TypeScript.simpleFunctionType) => {
+                      <li
+                        className="cursor-pointer graphql-structure-preview-entry"
+                        onClick={_ => onClick(Some(fn.name))}
+                        key=fn.name>
+                        {fn.name->string}
+                      </li>
+                    })
+                    ->array}
+                    <li
+                      className="cursor-pointer graphql-structure-preview-entry"
+                      key="createNew"
+                      onClick={_ => onClick(None)}>
+                      {"Create new function"->string}
+                    </li>
+                  </ul>
+                </PopupPicker>
+              | Completed({
+                  sourceRequest,
+                  target: Script({scriptPosition}),
+                  windowPosition: (x, y),
+                }) =>
+                let chainFragmentsDoc =
+                  state.chain.blocks
+                  ->Belt.Array.keepMap(block => {
+                    switch block.kind {
+                    | Fragment => Some(block.body)
+                    | _ => None
+                    }
+                  })
+                  ->Js.Array2.joinWith("\n\n")
+
+                let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
+                let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+                let onClose = () =>
+                  setState(oldState => {
+                    ...oldState,
+                    connectionDrag: Empty,
+                  })
+
+                <PopupPicker top=y left=x onClose>
+                  <Inspector.GraphQLPreview
+                    requestId=sourceRequest.id
+                    schema
+                    definition
+                    fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                      "operationDoc": chainFragmentsDoc,
+                    })}
+                    targetGqlType="[String]"
+                    onClose={() => {
+                      setState(oldState => {...oldState, connectionDrag: Empty})
+                    }}
+                    definitionResultData
+                    onCopy={payload => {
+                      let {path} = payload
+                      let dataPath = ["payload"]->Belt.Array.concat(path)
+                      let re = Js.Re.fromStringWithFlags(~flags="g", "\\[.+\\]")
+                      let binding = switch dataPath {
+                      | [] => "unknown"
+                      | [field]
+                      | [_, field] => field
+                      | other =>
+                        let parent = other[other->Js.Array2.length - 2]
+                        let field =
+                          other[other->Js.Array2.length - 1]->Utils.String.capitalizeFirstLetter
+                        `${parent}${field}`
+                      }->Js.String2.replaceByRe(re, "")
+
                       setState(oldState => {
                         let parsed = try {
                           Some(
@@ -3546,176 +2894,404 @@ ${newScript}`
                         | _ => None
                         }
 
-                        let newConnectionDrag = parsed->Belt.Option.map(parsed => {
-                          let fnTypes = parsed->TypeScript.findFunctionTypes
+                        let lineNumber = parsed->Belt.Option.map(parsed =>
+                          try {
+                            let position =
+                              parsed->TypeScript.getPositionOfLineAndCharacter(
+                                scriptPosition.lineNumber - 1,
+                                scriptPosition.column - 1,
+                              )
 
-                          let existingFnMatches =
-                            fnTypes
-                            ->Js.Dict.values
-                            ->Belt.Array.keep(({firstParamType, returnType}) => {
-                              let firstParamMatches = switch (
-                                nullablePrintedType->Js.String2.toLocaleLowerCase,
-                                firstParamType->Belt.Option.map(Js.String2.toLocaleLowerCase),
-                              ) {
-                              | (a, Some(b)) if a == b => true
-                              | ("int", Some("number"))
-                              | ("float", Some("number")) => true
-                              | ("id", Some("string")) => true
-                              | _ => false
-                              }
+                            let parsedPosition =
+                              parsed
+                              ->TypeScript.findPositionOfFirstLineOfContainingFunctionForPosition(
+                                position,
+                              )
+                              ->Belt.Option.getExn
 
-                              let returnTypeMatches = switch (
-                                nullableTargetVariableType->Belt.Option.map(
-                                  Js.String2.toLocaleLowerCase,
-                                ),
-                                returnType->Belt.Option.map(Js.String2.toLocaleLowerCase),
-                              ) {
-                              | (Some(a), Some(b)) if a == b => true
-                              | (Some("int"), Some("number"))
-                              | (Some("float"), Some("number")) => true
-                              | (Some("id"), Some("string")) => true
-                              | _ => false
-                              }
+                            let lineAndCharacter =
+                              parsed->TypeScript.getLineAndCharacterOfPosition(parsedPosition)
 
-                              firstParamMatches && returnTypeMatches
-                            })
-                            ->Belt.SortArray.stableSortBy((a, b) => String.compare(a.name, b.name))
-
-                          ConnectionContext.CompletedWithTypeMismatch({
-                            sourceRequest: sourceRequest,
-                            sourceDom: sourceDom,
-                            variableTarget: variabletarget,
-                            windowPosition: windowPosition,
-                            targetVariableType: targetVariableType,
-                            sourceType: printedType,
-                            potentialFunctionMatches: existingFnMatches,
-                            dataPath: dataPath,
-                            path: path,
-                          })
-                        })
-
-                        {
-                          ...oldState,
-                          connectionDrag: newConnectionDrag->Belt.Option.getWithDefault(Empty),
-                        }
-                      })
-                    | true =>
-                      setState(oldState => {
-                        let potentialProbeDependency = Chain.GraphQLProbe({
-                          name: targetVariableDependency.name,
-                          ifMissing: #SKIP,
-                          ifList: #FIRST,
-                          fromRequestId: sourceRequest.id,
-                          functionFromScript: "TBD",
-                          path: dataPath,
-                        })
-
-                        let newRequests = oldState.chain.requests->Belt.Array.map(request => {
-                          switch targetRequest.id == request.id {
-                          | false => request
-                          | true =>
-                            let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
-                              switch varDep.name == targetVariableDependency.name {
-                              | true => {...varDep, dependency: potentialProbeDependency}
-
-                              | false =>
-                                let dependency = switch varDep.dependency {
-                                | ArgumentDependency(argDep) =>
-                                  let newArgDep = {
-                                    ...argDep,
-                                    fromRequestIds: argDep.fromRequestIds
-                                    ->Belt.Array.concat([sourceRequest.id])
-                                    ->Utils.String.distinctStrings,
-                                  }
-
-                                  Chain.ArgumentDependency(newArgDep)
-                                | other => other
-                                }
-                                let varDep = {...varDep, dependency: dependency}
-
-                                varDep
-                              }
-                            })
-
-                            {
-                              ...request,
-                              variableDependencies: varDeps,
-                              dependencyRequestIds: request.dependencyRequestIds
-                              ->Belt.Array.concat([sourceRequest.id])
-                              ->Utils.String.distinctStrings,
-                            }
+                            lineAndCharacter.line + 1
+                          } catch {
+                          | e =>
+                            Js.Console.warn2("Exn trying to find smart position", e)
+                            scriptPosition.lineNumber - 1
                           }
+                        )
+
+                        let assignmentExpressionRange = parsed->Belt.Option.flatMap(parsed => {
+                          let position =
+                            parsed->TypeScript.getPositionOfLineAndCharacter(
+                              scriptPosition.lineNumber - 1,
+                              scriptPosition.column - 1,
+                            )
+                          parsed->TypeScript.findContainingDeclaration(position)
                         })
 
-                        let newScript =
-                          Inspector.deleteRequestFunctionIfEmpty(
-                            ~script=oldState.chain.script,
-                            ~request=targetRequest,
-                            (),
-                          )
-                          ->Belt.Result.getWithDefault(oldState.chain.script)
-                          ->Js.String2.trim
+                        let newScript = switch (assignmentExpressionRange, lineNumber) {
+                        | (Some({name, start, end}), _) =>
+                          let newBinding = j`${name} = ${dataPath->Js.Array2.joinWith("?.")}`
 
-                        let newChain = {
-                          ...oldState.chain,
-                          script: newScript,
-                          requests: newRequests,
+                          oldState.chain.script->Utils.String.replaceRange(
+                            ~start=start + 1,
+                            ~end,
+                            ~by=newBinding,
+                          )
+                        | (_, Some(lineNumber)) =>
+                          let newBinding = j`\tlet ${binding} = ${dataPath->Js.Array2.joinWith(
+                              "?.",
+                            )}`
+
+                          let temp = oldState.chain.script->Js.String2.split("\n")
+
+                          let _ =
+                            temp->Js.Array2.spliceInPlace(
+                              ~pos=lineNumber,
+                              ~remove=0,
+                              ~add=[newBinding],
+                            )
+                          temp->Js.Array2.joinWith("\n")
+                        | _ => oldState.chain.script
                         }
 
-                        let diagram = diagramFromChain(newChain)
-
-                        let newTargetRequest = newChain.requests->Belt.Array.getBy(request => {
-                          targetRequest.id == request.id
-                        })
-
-                        let inspected =
-                          newTargetRequest->Belt.Option.mapWithDefault(
-                            oldState.inspected,
-                            newTargetRequest => {
-                              switch oldState.inspected {
-                              | Request({request: {id}}) if id == newTargetRequest.id =>
-                                Request({chain: newChain, request: newTargetRequest})
-                              | _ => oldState.inspected
-                              }
-                            },
-                          )
+                        let newChain = {...oldState.chain, script: newScript}
 
                         {
                           ...oldState,
-                          inspected: inspected,
-                          diagram: diagram,
                           chain: newChain,
                           connectionDrag: Empty,
                         }
                       })
+                    }}
+                  />
+                </PopupPicker>
+              | Completed({sourceRequest, target: Input({inputDom}), windowPosition: (x, y)}) =>
+                let chainFragmentsDoc =
+                  state.chain.blocks
+                  ->Belt.Array.keepMap(block => {
+                    switch block.kind {
+                    | Fragment => Some(block.body)
+                    | _ => None
                     }
+                  })
+                  ->Js.Array2.joinWith("\n\n")
+
+                let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
+                let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+                let onClose = () =>
+                  setState(oldState => {
+                    ...oldState,
+                    connectionDrag: Empty,
+                  })
+
+                <PopupPicker top=y left=x onClose>
+                  <Inspector.GraphQLPreview
+                    requestId=sourceRequest.id
+                    schema
+                    definition
+                    fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                      "operationDoc": chainFragmentsDoc,
+                    })}
+                    targetGqlType="[String]"
+                    onClose={() => {
+                      setState(oldState => {...oldState, connectionDrag: Empty})
+                    }}
+                    definitionResultData
+                    onCopy={payload => {
+                      let {displayedData} = payload
+
+                      let _ = try {
+                        inputDom->Inspector.forceablySetInputValue(displayedData)
+                      } catch {
+                      | _ => ()
+                      }
+
+                      setState(oldState => {
+                        ...oldState,
+                        connectionDrag: Empty,
+                      })
+                    }}
+                  />
+                </PopupPicker>
+              | StartedTarget({target: Input(_)}) =>
+                setState(oldState => {
+                  ...oldState,
+                  connectionDrag: Empty,
+                })
+                null
+              | Completed({
+                  sourceRequest,
+                  sourceDom,
+                  target: Variable(
+                    {variableDependency: targetVariableDependency, targetRequest} as variabletarget,
+                  ),
+                  windowPosition: (x, y) as windowPosition,
+                }) =>
+                let chainFragmentsDoc =
+                  state.chain.blocks
+                  ->Belt.Array.keepMap(block => {
+                    switch block.kind {
+                    | Fragment => Some(block.body)
+                    | _ => None
+                    }
+                  })
+                  ->Js.Array2.joinWith("\n\n")
+
+                let parsedOperation = sourceRequest.operation.body->GraphQLJs.parse
+                let definition = parsedOperation.definitions->Belt.Array.getExn(0)
+
+                let targetParsedOperation = targetRequest.operation.body->GraphQLJs.parse
+                let targetDefinition = targetParsedOperation.definitions->Belt.Array.getExn(0)
+                let targetVariables = targetDefinition->GraphQLUtils.getOperationVariables
+
+                let targetVariableType =
+                  targetVariables
+                  ->Belt.Array.getBy(((variableName, _)) => {
+                    targetVariableDependency.name == variableName
+                  })
+                  ->Belt.Option.map(((_, typ)) => typ)
+
+                let onClose = () =>
+                  setState(oldState => {
+                    ...oldState,
+                    connectionDrag: Empty,
+                  })
+
+                <PopupPicker top=y left=x onClose>
+                  <Inspector.GraphQLPreview
+                    requestId=sourceRequest.id
+                    schema
+                    definition
+                    fragmentDefinitions={GraphQLJs.Mock.gatherFragmentDefinitions({
+                      "operationDoc": chainFragmentsDoc,
+                    })}
+                    targetGqlType=?targetVariableType
+                    onClose={() => {
+                      setState(oldState => {...oldState, connectionDrag: Empty})
+                    }}
+                    definitionResultData
+                    onCopy={({printedType, path}) => {
+                      let dataPath = ["payload"]->Belt.Array.concat(path)
+
+                      let nullableTargetVariableType =
+                        targetVariableType->Belt.Option.map(typ =>
+                          typ->Js.String2.replaceByRe(
+                            Js.Re.fromStringWithFlags("!", ~flags="g"),
+                            "",
+                          )
+                        )
+
+                      let nullablePrintedType =
+                        printedType->Js.String2.replaceByRe(
+                          Js.Re.fromStringWithFlags("!", ~flags="g"),
+                          "",
+                        )
+
+                      let typesMatch = switch (
+                        Some(nullablePrintedType->Js.String2.toLocaleLowerCase),
+                        nullableTargetVariableType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                      ) {
+                      | (Some(a), Some(b)) if a == b => true
+                      | (Some("string"), Some("id"))
+                      | (Some("id"), Some("string")) => true
+                      | (Some("int"), Some("float"))
+                      | (Some("float"), Some("int")) => true
+                      | (Some("json"), _)
+                      | (_, Some("json")) => true
+                      | _ => false
+                      }
+
+                      switch typesMatch {
+                      | false =>
+                        setState(oldState => {
+                          let parsed = try {
+                            Some(
+                              TypeScript.createSourceFile(
+                                ~name="main.ts",
+                                ~source=oldState.chain.script,
+                                ~target=99,
+                                true,
+                              ),
+                            )
+                          } catch {
+                          | _ => None
+                          }
+
+                          let newConnectionDrag = parsed->Belt.Option.map(parsed => {
+                            let fnTypes = parsed->TypeScript.findFunctionTypes
+
+                            let existingFnMatches =
+                              fnTypes
+                              ->Js.Dict.values
+                              ->Belt.Array.keep(({firstParamType, returnType}) => {
+                                let firstParamMatches = switch (
+                                  nullablePrintedType->Js.String2.toLocaleLowerCase,
+                                  firstParamType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                                ) {
+                                | (a, Some(b)) if a == b => true
+                                | ("int", Some("number"))
+                                | ("float", Some("number")) => true
+                                | ("id", Some("string")) => true
+                                | _ => false
+                                }
+
+                                let returnTypeMatches = switch (
+                                  nullableTargetVariableType->Belt.Option.map(
+                                    Js.String2.toLocaleLowerCase,
+                                  ),
+                                  returnType->Belt.Option.map(Js.String2.toLocaleLowerCase),
+                                ) {
+                                | (Some(a), Some(b)) if a == b => true
+                                | (Some("int"), Some("number"))
+                                | (Some("float"), Some("number")) => true
+                                | (Some("id"), Some("string")) => true
+                                | _ => false
+                                }
+
+                                firstParamMatches && returnTypeMatches
+                              })
+                              ->Belt.SortArray.stableSortBy((a, b) =>
+                                String.compare(a.name, b.name)
+                              )
+
+                            ConnectionContext.CompletedWithTypeMismatch({
+                              sourceRequest: sourceRequest,
+                              sourceDom: sourceDom,
+                              variableTarget: variabletarget,
+                              windowPosition: windowPosition,
+                              targetVariableType: targetVariableType,
+                              sourceType: printedType,
+                              potentialFunctionMatches: existingFnMatches,
+                              dataPath: dataPath,
+                              path: path,
+                            })
+                          })
+
+                          {
+                            ...oldState,
+                            connectionDrag: newConnectionDrag->Belt.Option.getWithDefault(Empty),
+                          }
+                        })
+                      | true =>
+                        setState(oldState => {
+                          let potentialProbeDependency = Chain.GraphQLProbe({
+                            name: targetVariableDependency.name,
+                            ifMissing: #SKIP,
+                            ifList: #FIRST,
+                            fromRequestId: sourceRequest.id,
+                            functionFromScript: "TBD",
+                            path: dataPath,
+                          })
+
+                          let newRequests = oldState.chain.requests->Belt.Array.map(request => {
+                            switch targetRequest.id == request.id {
+                            | false => request
+                            | true =>
+                              let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
+                                switch varDep.name == targetVariableDependency.name {
+                                | true => {...varDep, dependency: potentialProbeDependency}
+
+                                | false =>
+                                  let dependency = switch varDep.dependency {
+                                  | ArgumentDependency(argDep) =>
+                                    let newArgDep = {
+                                      ...argDep,
+                                      fromRequestIds: argDep.fromRequestIds
+                                      ->Belt.Array.concat([sourceRequest.id])
+                                      ->Utils.String.distinctStrings,
+                                    }
+
+                                    Chain.ArgumentDependency(newArgDep)
+                                  | other => other
+                                  }
+                                  let varDep = {...varDep, dependency: dependency}
+
+                                  varDep
+                                }
+                              })
+
+                              {
+                                ...request,
+                                variableDependencies: varDeps,
+                                dependencyRequestIds: request.dependencyRequestIds
+                                ->Belt.Array.concat([sourceRequest.id])
+                                ->Utils.String.distinctStrings,
+                              }
+                            }
+                          })
+
+                          let newScript =
+                            Inspector.deleteRequestFunctionIfEmpty(
+                              ~script=oldState.chain.script,
+                              ~request=targetRequest,
+                              (),
+                            )
+                            ->Belt.Result.getWithDefault(oldState.chain.script)
+                            ->Js.String2.trim
+
+                          let newChain = {
+                            ...oldState.chain,
+                            script: newScript,
+                            requests: newRequests,
+                          }
+
+                          let diagram = diagramFromChain(newChain)
+
+                          let newTargetRequest = newChain.requests->Belt.Array.getBy(request => {
+                            targetRequest.id == request.id
+                          })
+
+                          let inspected =
+                            newTargetRequest->Belt.Option.mapWithDefault(
+                              oldState.inspected,
+                              newTargetRequest => {
+                                switch oldState.inspected {
+                                | Request({request: {id}}) if id == newTargetRequest.id =>
+                                  Request({chain: newChain, request: newTargetRequest})
+                                | _ => oldState.inspected
+                                }
+                              },
+                            )
+
+                          {
+                            ...oldState,
+                            inspected: inspected,
+                            diagram: diagram,
+                            chain: newChain,
+                            connectionDrag: Empty,
+                          }
+                        })
+                      }
+                    }}
+                  />
+                </PopupPicker>
+              | StartedSource(conDrag) =>
+                <ConnectorLine
+                  source=conDrag.sourceDom
+                  invert={false}
+                  onDragEnd={() => {
+                    setState(oldState => {
+                      {...oldState, connectionDrag: Empty}
+                    })
                   }}
                 />
-              </PopupPicker>
-            | StartedSource(conDrag) =>
-              <ConnectorLine
-                source=conDrag.sourceDom
-                invert={false}
-                onDragEnd={() => {
-                  setState(oldState => {
-                    {...oldState, connectionDrag: Empty}
-                  })
-                }}
-              />
-            | StartedTarget({target: Variable(_), sourceDom}) =>
-              <ConnectorLine
-                source=sourceDom
-                invert={true}
-                onDragEnd={() => {
-                  setState(oldState => {
-                    {...oldState, connectionDrag: Empty}
-                  })
-                }}
-              />
-            | StartedTarget({target: Script(_)}) => // TODO!
-              null
-            }}
-          </ConnectionContext.Provider>
+              | StartedTarget({target: Variable(_), sourceDom}) =>
+                <ConnectorLine
+                  source=sourceDom
+                  invert={true}
+                  onDragEnd={() => {
+                    setState(oldState => {
+                      {...oldState, connectionDrag: Empty}
+                    })
+                  }}
+                />
+              | StartedTarget({target: Script(_)}) => // TODO!
+                null
+              }}
+            </ConnectionContext.Provider>
+          </AudioStreamContext.Provider>
         </InspectedContextProvider>
       </RequestValueCacheProvider>
       {helpOpen
@@ -3749,6 +3325,18 @@ ${newScript}`
             </div>
           </Comps.Modal>
         : null}
+      <audio autoPlay=true id="test-audio-tag" />
+      <video
+        id="test-video-tag"
+        style={ReactDOMStyle.make(
+          ~position="absolute",
+          ~top="0",
+          ~left="0",
+          ~width="64%",
+          ~zIndex="99999",
+          (),
+        )}
+      />
     </div>
   }
 }

@@ -559,7 +559,10 @@ function internallyPatchChain(chain) {
           script: transpiled,
           scriptDependencies: chain.scriptDependencies,
           requests: requestsWithLockedVariables,
-          blocks: chain.blocks
+          blocks: chain.blocks,
+          accessToken: chain.accessToken,
+          traceRetentionPolicy: chain.traceRetentionPolicy,
+          yjsScript: chain.yjsScript
         };
 }
 
@@ -606,7 +609,7 @@ function remoteChainCalls(schema, appId, chainId, chain) {
             return exposed.exposedName;
           })).join(", ");
   var curl = "curl -X POST \"https://serve.onegraph.com/graphql?app_id=" + appId + "\" --data '{\"doc_id\": \"" + chainId + "\", \"operationName\": \"" + targetChain.operationName + "\", \"variables\": {" + freeVariables + "}}'";
-  var $$fetch = "async function " + chain.name + " ({" + variableParams + "}) {\n  await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      \"Content-Type\": \"application/json\",\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + freeVariables + "}\n        }\n      )\n    }\n  )\n}";
+  var $$fetch = "async function " + chain.name + " ({" + variableParams + "}) {\n  await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      headers: {\"Content-Type\": \"application/json\"},\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + freeVariables + "}\n        }\n      )\n    }\n  )\n}";
   var htmlInputs = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
             var key = exposed.exposedName;
             var _other = exposed.upstreamType;
@@ -672,7 +675,7 @@ function remoteChainCalls(schema, appId, chainId, chain) {
             var key = exposed.exposedName;
             return "\"" + key + "\": " + key;
           })).join(", ");
-  var netlifyScript = "// ./functions/" + chain.name + ".js\nconst fetch = require(\"node-fetch\");\nconst querystring = require(\"querystring\");\n\nexports.handler = async (event, context) => {\n  // Only allow POST\n  if (event.httpMethod !== \"POST\") {\n    return { statusCode: 405, body: \"Method Not Allowed\" };\n  }\n\n  // When the method is POST, the name will no longer be in the event’s\n  // queryStringParameters – it’ll be in the event body encoded as a query string\n  const params = querystring.parse(event.body);\n  " + netlifyVariables + "\n\n  // Execute chain\n  await fetch(\n    \"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  {\n    method: \"POST\",\n    \"Content-Type\": \"application/json\",\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + netlifyVariablesObject + "}\n      }\n    )\n  })\n\n  return {\n    statusCode: 200,\n    body: \"Finished executing chain!\",\n  };\n};\n";
+  var netlifyScript = "// ./functions/" + chain.name + ".js\nconst fetch = require(\"node-fetch\");\nconst querystring = require(\"querystring\");\n\nexports.handler = async (event, context) => {\n  // Only allow POST\n  if (event.httpMethod !== \"POST\") {\n    return { statusCode: 405, body: \"Method Not Allowed\" };\n  }\n\n  // When the method is POST, the name will no longer be in the event’s\n  // queryStringParameters – it’ll be in the event body encoded as a query string\n  const params = querystring.parse(event.body);\n  " + netlifyVariables + "\n\n  // Execute chain\n  await fetch(\n    \"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n  {\n    method: \"POST\",\n    headers: {\"Content-Type\": \"application/json\"},\n    body: JSON.stringify({\n      \"doc_id\": \"" + chainId + "\",\n      \"operationName\": \"" + targetChain.operationName + "\",\n      \"variables\": {" + netlifyVariablesObject + "}\n      }\n    )\n  })\n\n  return {\n    statusCode: 200,\n    body: \"Finished executing chain!\",\n  };\n};\n";
   var netlify_path = "functions/" + chain.name + ".js";
   var netlify = {
     path: netlify_path,
@@ -740,16 +743,22 @@ function remoteChainCalls(schema, appId, chainId, chain) {
             }
             return key + ": " + coerce;
           })).join(",\n\t");
-  var nextjsScript = "const fetch = require(\"node-fetch\");\n\nasync function " + chain.name + " ({" + variableParams + "}) {\n  const resp = await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      \"Content-Type\": \"application/json\",\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + nextJsVariableCoerced + "}\n        }\n      )\n    }\n  )\n\n  return resp.json()\n}\n\nexport default async function handler(req, res) {\n  /* If not using GET, be sure to set the header \"Content-Type: application/json\"\n     for requests to your Next.js API */\n  const { query, " + variableParams + " } = req.method === 'GET' ? req.query : req.body\n\n  const result = await " + chain.name + "({ " + variableParams + " })\n\n  let errors = result.errors || [];\n\n  // Gather all of the errors from the nodes in the request chain\n  result?.data?.oneGraph?.executeChain?.results?.forEach((call) => {\n    const requestId = call.request.id\n\n    const requestErrors =\n      call?.result?.flatMap((result) => result?.errors)?.filter(Boolean) || []\n\n    const callArgumentDependencyErrors =\n      call?.argumentDependencies\n        ?.filter((argumentDependency) => !!argumentDependency?.error)\n        ?.map((argumentDependency) => {\n          return {\n            name: requestId + '.' + argumentDependency.name,\n            errors: argumentDependency.error,\n          }\n        })\n        ?.filter(Boolean) || []\n\n    if (requestErrors.length > 0 || callArgumentDependencyErrors.length > 0) {\n      console.warn('Error in requestId=', requestId, requestErrors, errors)\n      errors = errors\n        .concat(requestErrors)\n        .concat(callArgumentDependencyErrors)\n        .filter(Boolean)\n    }\n  })\n\n  // No errors present means the chain executed well\n  if ((errors || []).length === 0) {\n    res.status(200).json({\n      success: true\n    })\n  } else {\n    if ((result.errors || []).length > 0) {\n      console.warning(\"Error in executing chain " + chain.name + "\", errors)\n    }\n    res.status(500).json({ message: \"Error executing chain\" })\n  }\n}";
+  var nextjsScript = "const fetch = require(\"node-fetch\");\n\nasync function " + chain.name + " ({" + variableParams + "}) {\n  const resp = await fetch(\"https://serve.onegraph.com/graphql?app_id=" + appId + "\",\n    {\n      method: \"POST\",\n      headers: {\"Content-Type\": \"application/json\"},\n      body: JSON.stringify({\n        \"doc_id\": \"" + chainId + "\",\n        \"operationName\": \"" + targetChain.operationName + "\",\n        \"variables\": {" + nextJsVariableCoerced + "}\n        }\n      )\n    }\n  )\n\n  return resp.json()\n}\n\nexport default async function handler(req, res) {\n  /* If not using GET, be sure to set the header \"Content-Type: application/json\"\n     for requests to your Next.js API */\n  const { query, " + variableParams + " } = req.method === 'GET' ? req.query : req.body\n\n  const result = await " + chain.name + "({ " + variableParams + " })\n\n  let errors = result.errors || [];\n\n  // Gather all of the errors from the nodes in the request chain\n  result?.data?.oneGraph?.executeChain?.results?.forEach((call) => {\n    const requestId = call.request.id\n\n    const requestErrors =\n      call?.result?.flatMap((result) => result?.errors)?.filter(Boolean) || []\n\n    const callArgumentDependencyErrors =\n      call?.argumentDependencies\n        ?.filter((argumentDependency) => !!argumentDependency?.error)\n        ?.map((argumentDependency) => {\n          return {\n            name: requestId + '.' + argumentDependency.name,\n            errors: argumentDependency.error,\n          }\n        })\n        ?.filter(Boolean) || []\n\n    if (requestErrors.length > 0 || callArgumentDependencyErrors.length > 0) {\n      console.warn('Error in requestId=', requestId, requestErrors, errors)\n      errors = errors\n        .concat(requestErrors)\n        .concat(callArgumentDependencyErrors)\n        .filter(Boolean)\n    }\n  })\n\n  // No errors present means the chain executed well\n  if ((errors || []).length === 0) {\n    res.status(200).json({\n      success: true\n    })\n  } else {\n    if ((result.errors || []).length > 0) {\n      console.warning(\"Error in executing chain " + chain.name + "\", errors)\n    }\n    res.status(500).json({ message: \"Error executing chain\" })\n  }\n}";
   var nextjs_path = "pages/api/" + chain.name + ".js";
   var nextjs = {
     path: nextjs_path,
     code: nextjsScript
   };
+  var webhookQuery = Belt_Array.map(targetChain.exposedVariables, (function (exposed) {
+            var key = exposed.exposedName;
+            return key + "=";
+          })).join("&");
+  var webhook = "https://hookchain.vercel.app/app/" + appId + "/chain/" + chainId + "/" + targetChain.operationName + "?" + webhookQuery;
   return {
           fetch: $$fetch,
           curl: curl,
           scriptKit: scriptKit,
+          webhook: webhook,
           netlify: netlify,
           nextjs: nextjs
         };
@@ -937,6 +946,7 @@ function Inspector$GitHub(Props) {
                                     value: ""
                                   }), Belt_Array.map(repoList, (function (repoEdge) {
                                       return React.createElement("option", {
+                                                  key: repoEdge.node.id,
                                                   value: repoEdge.node.id
                                                 }, repoEdge.node.nameWithOwner);
                                     }))), React.createElement(Comps.Button.make, {
@@ -1444,6 +1454,9 @@ function Inspector$Request(Props) {
           var chain_script = chain.script;
           var chain_scriptDependencies = chain.scriptDependencies;
           var chain_blocks = chain.blocks;
+          var chain_accessToken = chain.accessToken;
+          var chain_traceRetentionPolicy = chain.traceRetentionPolicy;
+          var chain_yjsScript = chain.yjsScript;
           var chain$1 = {
             name: chain_name,
             description: chain_description,
@@ -1451,7 +1464,10 @@ function Inspector$Request(Props) {
             script: chain_script,
             scriptDependencies: chain_scriptDependencies,
             requests: requestsWithLockedVariables,
-            blocks: chain_blocks
+            blocks: chain_blocks,
+            accessToken: chain_accessToken,
+            traceRetentionPolicy: chain_traceRetentionPolicy,
+            yjsScript: chain_yjsScript
           };
           var request$1 = patchRequestArgDeps(request);
           var __x = evalRequest(schema, chain$1, request$1, requestValueCache, trace);
@@ -1778,6 +1794,9 @@ function Inspector$Request(Props) {
                                   var newChain_id = chain.id;
                                   var newChain_scriptDependencies = chain.scriptDependencies;
                                   var newChain_blocks = chain.blocks;
+                                  var newChain_accessToken = chain.accessToken;
+                                  var newChain_traceRetentionPolicy = chain.traceRetentionPolicy;
+                                  var newChain_yjsScript = chain.yjsScript;
                                   var newChain = {
                                     name: newChain_name,
                                     description: newChain_description,
@@ -1785,7 +1804,10 @@ function Inspector$Request(Props) {
                                     script: newScript,
                                     scriptDependencies: newChain_scriptDependencies,
                                     requests: requests,
-                                    blocks: newChain_blocks
+                                    blocks: newChain_blocks,
+                                    accessToken: newChain_accessToken,
+                                    traceRetentionPolicy: newChain_traceRetentionPolicy,
+                                    yjsScript: newChain_yjsScript
                                   };
                                   Curry._1(onChainUpdated, newChain);
                                   return Curry._1(setOpenedTabs, (function (oldOpenedTabs) {
@@ -1821,7 +1843,10 @@ function Inspector$Request(Props) {
                                               requests: Belt_Array.keepMap(chain.requests, (function (existingRequest) {
                                                       return Caml_obj.caml_equal(existingRequest, request) ? newRequest : existingRequest;
                                                     })),
-                                              blocks: chain.blocks
+                                              blocks: chain.blocks,
+                                              accessToken: chain.accessToken,
+                                              traceRetentionPolicy: chain.traceRetentionPolicy,
+                                              yjsScript: chain.yjsScript
                                             });
                                 }),
                               defaultRequestArgument: varDep
@@ -1942,6 +1967,7 @@ function Inspector$Request(Props) {
                 value: "TEMP"
               }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
                   return React.createElement("option", {
+                              key: token.accessToken,
                               value: token.accessToken
                             }, token.displayedToken);
                 }))), React.createElement(Comps.Button.make, {
@@ -2151,6 +2177,11 @@ function Inspector$Nothing(Props) {
       });
   var setOpenedTab = match$2[1];
   var openedTab = match$2[0];
+  var match$3 = React.useState(function () {
+        return "";
+      });
+  var setRawJsonVariables = match$3[1];
+  var rawJsonVariables = match$3[0];
   var isSubscription = Belt_Array.some(chain.requests, (function (request) {
           return request.operation.kind === /* Subscription */2;
         }));
@@ -2208,11 +2239,11 @@ function Inspector$Nothing(Props) {
                           }));
             })), null);
   var isChainViable = chain.requests.length !== 0;
-  var match$3 = React.useState(function () {
+  var match$4 = React.useState(function () {
         
       });
-  var setCurrentAuthToken = match$3[1];
-  var currentAuthToken = match$3[0];
+  var setCurrentAuthToken = match$4[1];
+  var currentAuthToken = match$4[0];
   var requests = Belt_Array.map(chain.requests, (function (request) {
           var tmp;
           tmp = typeof connectionDrag === "number" || !(connectionDrag.TAG === /* StartedSource */0 && connectionDrag.sourceRequest.id !== request.id) ? "" : "node-drop drag-target";
@@ -2319,6 +2350,7 @@ function Inspector$Nothing(Props) {
                           value: "TEMP"
                         }, "Use current scratchpad auth"), Belt_Array.map(authTokens, (function (token) {
                             return React.createElement("option", {
+                                        key: token.accessToken,
                                         value: token.accessToken
                                       }, token.name);
                           }))), React.createElement(Comps.Button.make, {
@@ -2334,7 +2366,42 @@ function Inspector$Nothing(Props) {
                               chain: chain,
                               chainExecutionResults: Caml_option.some(chainExecutionResults)
                             });
-                })), null));
+                })), null), React.createElement(Inspector$CollapsableSection, {
+            title: "Raw JSON input [advanced]",
+            defaultOpen: false,
+            children: React.createElement("form", {
+                  onSubmit: (function ($$event) {
+                      $$event.preventDefault();
+                      $$event.stopPropagation();
+                      try {
+                        var variables = Caml_option.some(JSON.parse(rawJsonVariables));
+                        return Curry._2(transformAndExecuteChain, variables, currentAuthToken);
+                      }
+                      catch (exn){
+                        console.warn("Invalid raw json for variables", rawJsonVariables);
+                        return ;
+                      }
+                    })
+                }, React.createElement(Comps.Textarea.make, {
+                      className: "w-full select-button comp-select my-4 mx-2",
+                      onChange: (function ($$event) {
+                          var value = $$event.target.value;
+                          return Curry._1(setRawJsonVariables, (function (param) {
+                                        return value;
+                                      }));
+                        }),
+                      style: {
+                        paddingRight: "40px"
+                      }
+                    }), authButtons, React.createElement(Comps.Button.make, {
+                      className: "w-full",
+                      type_: "submit",
+                      children: null
+                    }, React.createElement(Icons.RunLink.make, {
+                          className: "inline-block",
+                          color: Comps.colors["gray-6"]
+                        }), isSubscription ? " Start chain" : "  Run chain"))
+          }));
   var tmp$1 = {
     margin: "10px",
     textAlign: "center",
@@ -2357,6 +2424,7 @@ function Inspector$Nothing(Props) {
           }, "Choose auth to use with persisted chain:"), React.createElement(Comps.Select.make, {
             children: Belt_Array.map(authTokens, (function (token) {
                     return React.createElement("option", {
+                                key: token.accessToken,
                                 value: token.accessToken
                               }, token.name);
                   })),
@@ -2408,6 +2476,9 @@ function Inspector$Nothing(Props) {
                                 case "scriptkit" :
                                     value = remoteChainCalls$1.scriptKit;
                                     break;
+                                case "webhook" :
+                                    value = remoteChainCalls$1.webhook;
+                                    break;
                                 default:
                                   value = undefined;
                               }
@@ -2432,6 +2503,8 @@ function Inspector$Nothing(Props) {
               }, "Copy Netlify function usage"), React.createElement("option", {
                 value: "scriptkit"
               }, "Copy ScriptKit usage"), React.createElement("option", {
+                value: "webhook"
+              }, "Copy Webhook url"), React.createElement("option", {
                 value: "id"
               }, "Copy Chain Id")), null);
   var inspectorTab = React.createElement(React.Fragment, undefined, isChainViable ? null : React.createElement("div", {
@@ -2469,7 +2542,10 @@ function Inspector$Nothing(Props) {
                                           script: chain.script,
                                           scriptDependencies: chain.scriptDependencies,
                                           requests: chain.requests,
-                                          blocks: chain.blocks
+                                          blocks: chain.blocks,
+                                          accessToken: chain.accessToken,
+                                          traceRetentionPolicy: chain.traceRetentionPolicy,
+                                          yjsScript: chain.yjsScript
                                         });
                             })
                         })))
@@ -2688,6 +2764,8 @@ function Inspector(Props) {
   var appId = Props.appId;
   var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
   var authTokens = Props.authTokens;
+  var onStartAudio = Props.onStartAudio;
+  var audioLevel = Props.audioLevel;
   var subInspectorRef = React.useRef(undefined);
   var tmp;
   tmp = inspected.TAG === /* Nothing */0 ? false : true;
@@ -2776,6 +2854,17 @@ function Inspector(Props) {
                   className: "flex flex-row py-1 px-2 mb-2 justify-between"
                 }, React.createElement(Comps.Header.make, {
                       children: "Chain Inspector"
+                    }), React.createElement(Icons.Volume.Auto.make, {
+                      color: "red",
+                      level: audioLevel,
+                      onClick: onStartAudio
+                    }), React.createElement(Icons.Volume.Auto.make, {
+                      color: "#662299",
+                      level: 99,
+                      onClick: onStartAudio
+                    }), React.createElement(Icons.Volume.Auto.make, {
+                      level: 10,
+                      onClick: onStartAudio
                     })), React.createElement("div", {
                   className: "overflow-y-scroll",
                   style: {

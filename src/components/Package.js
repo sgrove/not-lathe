@@ -297,9 +297,7 @@ function computeNewVersion($$package, diff) {
           name: $$package.name,
           description: $$package.description,
           version: newVersion,
-          chains: $$package.chains,
-          traceRetentionPolicy: $$package.traceRetentionPolicy,
-          traceRetentionDays: $$package.traceRetentionDays
+          chains: $$package.chains
         };
 }
 
@@ -307,6 +305,7 @@ function Package$PackageEditor(Props) {
   var schema = Props.schema;
   var initialPackage = Props.initialPackage;
   var $$package = Props.package;
+  var authTokens = Props.authTokens;
   var onCreateChain = Props.onCreateChain;
   var onInspectChain = Props.onInspectChain;
   var onEditChain = Props.onEditChain;
@@ -323,331 +322,6 @@ function Package$PackageEditor(Props) {
   var chains = $$package.chains;
   var diff = diffPackage(schema, initialPackage, $$package);
   var diff$1 = match[0].view;
-  var tmp;
-  if (typeof diff$1 === "number") {
-    if (diff$1 !== 0) {
-      var match$1 = $$package.traceRetentionPolicy;
-      tmp = React.createElement(Comps.Modal.make, {
-            children: React.createElement("div", {
-                  className: "flex w-full flex-col"
-                }, React.createElement("div", {
-                      className: "flex flex-grow flex-row h-full"
-                    }, React.createElement("table", {
-                          className: ""
-                        }, React.createElement("thead", undefined, React.createElement("tr", {
-                                  className: "text-gray-600 text-sm leading-normal",
-                                  style: {
-                                    color: Comps.colors["gray-3"]
-                                  }
-                                }, React.createElement("th", {
-                                      className: "py-3 px-6 text-left"
-                                    }, "Name"), React.createElement("th", {
-                                      className: "py-3 px-6 text-left"
-                                    }, "Setting"))), React.createElement("tbody", {
-                              className: ""
-                            }, React.createElement("tr", {
-                                  className: "rounded-md border-4 border-gray-900 ",
-                                  style: {
-                                    backgroundColor: Comps.colors["gray-15"],
-                                    color: Comps.colors["gray-6"],
-                                    marginTop: "5px"
-                                  }
-                                }, React.createElement("td", {
-                                      className: "py-3 px-6 text-left whitespace-nowrap"
-                                    }, React.createElement("div", {
-                                          className: "flex items-center"
-                                        }, React.createElement("span", {
-                                              className: "font-medium cursor-pointer mr-2"
-                                            }, "Package name: "))), React.createElement("td", {
-                                      className: "py-3 px-6 "
-                                    }, React.createElement("div", {
-                                          className: "relative text-lg bg-transparent text-gray-800"
-                                        }, React.createElement("div", {
-                                              className: "flex items-center ml-2 mr-2"
-                                            }, React.createElement("input", {
-                                                  defaultValue: $$package.name,
-                                                  className: "border-none px-2 leading-tight outline-none text-white form-input",
-                                                  style: {
-                                                    backgroundColor: Comps.colors["gray-9"]
-                                                  },
-                                                  placeholder: "npm-package-name",
-                                                  type: "text",
-                                                  onChange: (function ($$event) {
-                                                      var value = $$event.target.value;
-                                                      return Curry._1(onEditPackage, {
-                                                                  name: value,
-                                                                  description: $$package.description,
-                                                                  version: $$package.version,
-                                                                  chains: $$package.chains,
-                                                                  traceRetentionPolicy: $$package.traceRetentionPolicy,
-                                                                  traceRetentionDays: $$package.traceRetentionDays
-                                                                });
-                                                    })
-                                                }))))), React.createElement("tr", {
-                                  className: "rounded-md border-4 border-gray-900 ",
-                                  style: {
-                                    backgroundColor: Comps.colors["gray-15"],
-                                    color: Comps.colors["gray-6"],
-                                    marginTop: "5px"
-                                  }
-                                }, React.createElement("td", {
-                                      className: "py-3 px-6 text-left whitespace-nowrap"
-                                    }, React.createElement("div", {
-                                          className: "flex items-center"
-                                        }, React.createElement("span", {
-                                              className: "font-medium cursor-pointer mr-2"
-                                            }, "Package descriptions: "))), React.createElement("td", {
-                                      className: "py-3 px-6 "
-                                    }, React.createElement("div", {
-                                          className: "relative text-lg bg-transparent text-gray-800"
-                                        }, React.createElement("div", {
-                                              className: "flex items-center ml-2 mr-2"
-                                            }, React.createElement("input", {
-                                                  defaultValue: Belt_Option.getWithDefault($$package.description, ""),
-                                                  className: "border-none px-2 leading-tight outline-none text-white form-input",
-                                                  style: {
-                                                    backgroundColor: Comps.colors["gray-9"]
-                                                  },
-                                                  type: "text",
-                                                  onChange: (function ($$event) {
-                                                      var other = $$event.target.value.trim();
-                                                      var value = other === "" ? undefined : other;
-                                                      return Curry._1(onEditPackage, {
-                                                                  name: $$package.name,
-                                                                  description: value,
-                                                                  version: $$package.version,
-                                                                  chains: $$package.chains,
-                                                                  traceRetentionPolicy: $$package.traceRetentionPolicy,
-                                                                  traceRetentionDays: $$package.traceRetentionDays
-                                                                });
-                                                    })
-                                                }))))), React.createElement("tr", {
-                                  className: "rounded-md border-4 border-gray-900 ",
-                                  style: {
-                                    backgroundColor: Comps.colors["gray-15"],
-                                    color: Comps.colors["gray-6"],
-                                    marginTop: "5px"
-                                  }
-                                }, React.createElement("td", {
-                                      className: "py-3 px-6 text-left whitespace-nowrap"
-                                    }, React.createElement("div", {
-                                          className: "flex items-center"
-                                        }, React.createElement("span", {
-                                              className: "font-medium cursor-pointer mr-2"
-                                            }, "Manually set package version ('int.int.int'): "))), React.createElement("td", {
-                                      className: "py-3 px-6 "
-                                    }, React.createElement("div", {
-                                          className: "relative text-lg bg-transparent text-gray-800"
-                                        }, React.createElement("div", {
-                                              className: "flex items-center ml-2 mr-2"
-                                            }, React.createElement("input", {
-                                                  defaultValue: packageVersion($$package),
-                                                  className: "border-none px-2 leading-tight outline-none text-white form-input",
-                                                  style: {
-                                                    backgroundColor: Comps.colors["gray-9"]
-                                                  },
-                                                  placeholder: "e.g. 1.0.2",
-                                                  type: "text",
-                                                  onChange: (function ($$event) {
-                                                      var value = $$event.target.value.trim();
-                                                      var match = value.split(".");
-                                                      var version;
-                                                      if (match.length !== 3) {
-                                                        version = undefined;
-                                                      } else {
-                                                        var major = match[0];
-                                                        var minor = match[1];
-                                                        var patch = match[2];
-                                                        try {
-                                                          version = [
-                                                            Caml_format.caml_int_of_string(major),
-                                                            Caml_format.caml_int_of_string(minor),
-                                                            Caml_format.caml_int_of_string(patch)
-                                                          ];
-                                                        }
-                                                        catch (exn){
-                                                          version = undefined;
-                                                        }
-                                                      }
-                                                      return Belt_Option.forEach(version, (function (version) {
-                                                                    return Curry._1(onEditPackage, {
-                                                                                name: $$package.name,
-                                                                                description: $$package.description,
-                                                                                version: version,
-                                                                                chains: $$package.chains,
-                                                                                traceRetentionPolicy: $$package.traceRetentionPolicy,
-                                                                                traceRetentionDays: $$package.traceRetentionDays
-                                                                              });
-                                                                  }));
-                                                    })
-                                                }))))), React.createElement("tr", {
-                                  className: "rounded-md border-4 border-gray-900 ",
-                                  style: {
-                                    backgroundColor: Comps.colors["gray-15"],
-                                    color: Comps.colors["gray-6"],
-                                    marginTop: "5px"
-                                  }
-                                }, React.createElement("td", {
-                                      className: "py-3 px-6 text-left whitespace-nowrap"
-                                    }, React.createElement("div", {
-                                          className: "flex items-center"
-                                        }, React.createElement("span", {
-                                              className: "font-medium cursor-pointer mr-2"
-                                            }, "Trace Retention Policy: "))), React.createElement("td", {
-                                      className: "py-3 px-6 "
-                                    }, React.createElement(Comps.Select.make, {
-                                          children: null,
-                                          onChange: (function ($$event) {
-                                              var value = $$event.target.value;
-                                              var policy;
-                                              switch (value) {
-                                                case "all" :
-                                                    policy = "all";
-                                                    break;
-                                                case "never" :
-                                                    policy = "never";
-                                                    break;
-                                                case "onlyErrors" :
-                                                    policy = "onlyErrors";
-                                                    break;
-                                                default:
-                                                  policy = undefined;
-                                              }
-                                              return Belt_Option.forEach(policy, (function (policy) {
-                                                            return Curry._1(onEditPackage, {
-                                                                        name: $$package.name,
-                                                                        description: $$package.description,
-                                                                        version: $$package.version,
-                                                                        chains: $$package.chains,
-                                                                        traceRetentionPolicy: policy,
-                                                                        traceRetentionDays: $$package.traceRetentionDays
-                                                                      });
-                                                          }));
-                                            }),
-                                          value: match$1 === "all" ? "all" : (
-                                              match$1 === "never" ? "never" : "onlyErrors"
-                                            )
-                                        }, React.createElement("option", {
-                                              value: "all"
-                                            }, "Keep trace for every invocation"), React.createElement("option", {
-                                              value: "onlyErrors"
-                                            }, "Only keep trace for invocations with errors"), React.createElement("option", {
-                                              value: "never"
-                                            }, "Never retain any trace data")))), React.createElement("tr", {
-                                  className: "rounded-md border-4 border-gray-900 ",
-                                  style: {
-                                    backgroundColor: Comps.colors["gray-15"],
-                                    color: Comps.colors["gray-6"],
-                                    marginTop: "5px"
-                                  }
-                                }, React.createElement("td", {
-                                      className: "py-3 px-6 text-left whitespace-nowrap"
-                                    }, React.createElement("div", {
-                                          className: "flex items-center"
-                                        }, React.createElement("span", {
-                                              className: "font-medium cursor-pointer mr-2"
-                                            }, "Days to retain trace data: "))), React.createElement("td", {
-                                      className: "py-3 px-6 "
-                                    }, React.createElement("input", {
-                                          className: "bg-transparent border-none px-2 leading-tight outline-none text-white",
-                                          disabled: $$package.traceRetentionPolicy === "never",
-                                          placeholder: "days",
-                                          type: "number",
-                                          value: String($$package.traceRetentionDays),
-                                          onChange: (function ($$event) {
-                                              var value = $$event.target.value;
-                                              try {
-                                                var number = Caml_format.caml_int_of_string(value);
-                                                return Curry._1(onEditPackage, {
-                                                            name: $$package.name,
-                                                            description: $$package.description,
-                                                            version: $$package.version,
-                                                            chains: $$package.chains,
-                                                            traceRetentionPolicy: $$package.traceRetentionPolicy,
-                                                            traceRetentionDays: number
-                                                          });
-                                              }
-                                              catch (exn){
-                                                return ;
-                                              }
-                                            })
-                                        })))))), React.createElement("div", {
-                      className: "w-full ml-auto flex"
-                    }, React.createElement(Comps.Button.make, {
-                          onClick: (function (param) {
-                              return Curry._1(setState, (function (oldState) {
-                                            return {
-                                                    view: /* Nothing */0
-                                                  };
-                                          }));
-                            }),
-                          className: "flex-grow",
-                          children: "Close"
-                        })))
-          });
-    } else {
-      tmp = null;
-    }
-  } else {
-    tmp = React.createElement(Comps.Modal.make, {
-          children: React.createElement("div", {
-                className: "w-full h-full shadow-md rounded my-6 text-white flex flex-col"
-              }, React.createElement("div", {
-                    className: "overflow-y-scroll flex flex-col"
-                  }, React.createElement("h1", {
-                        className: "m-5 flex-1 font-bold block",
-                        style: {
-                          color: Comps.colors["gray-6"]
-                        }
-                      }, "Publish package changes: ", React.createElement("span", {
-                            className: "mx-2"
-                          }, React.createElement("code", undefined, stringVersion(initialPackage))), React.createElement("span", {
-                            className: "mx-2"
-                          }, " => "), React.createElement("span", {
-                            className: "mx-2"
-                          }, React.createElement("code", undefined, stringVersion(computeNewVersion($$package, diff$1._0))))), React.createElement("table", {
-                        className: "min-w-max h-full w-full table-auto"
-                      }, React.createElement("thead", undefined, React.createElement("tr", {
-                                className: "text-gray-600 text-sm leading-normal",
-                                style: {
-                                  color: Comps.colors["gray-3"]
-                                }
-                              }, React.createElement("th", {
-                                    className: "py-3 px-6 text-left"
-                                  }, "Function"), React.createElement("th", {
-                                    className: "py-3 px-6 text-left"
-                                  }, "Input"), React.createElement("th", {
-                                    className: "py-3 px-6 text-center"
-                                  }, "Return"))), React.createElement("tbody", {
-                            className: "text-gray-600 text-sm font-light"
-                          }, Belt_Array.map($$package.chains, (function (chain) {
-                                  var typeDef = Chain.typeScriptDefinition(schema, chain);
-                                  return React.createElement("tr", {
-                                              className: "rounded-md border-4 border-gray-900 text-gray-50 hover:bg-gray-400"
-                                            }, React.createElement("td", undefined, typeDef.functionName), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
-                                                      children: typeDef.inputType
-                                                    })), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
-                                                      children: typeDef.returnType
-                                                    })));
-                                }))))), React.createElement("div", {
-                    className: "w-full ml-auto flex"
-                  }, React.createElement(Comps.Button.make, {
-                        className: "flex-grow",
-                        children: "Save",
-                        disabled: true
-                      }), React.createElement(Comps.Button.make, {
-                        onClick: (function (param) {
-                            return Curry._1(setState, (function (oldState) {
-                                          return {
-                                                  view: /* Nothing */0
-                                                };
-                                        }));
-                          }),
-                        className: "flex-grow",
-                        children: "Cancel"
-                      })))
-        });
-  }
   return React.createElement("div", {
               className: "w-full m-2 h-full bg-white flex items-center justify-center font-sans overflow-hidden",
               style: {
@@ -760,6 +434,8 @@ function Package$PackageEditor(Props) {
                                       className: "py-3 px-6 text-left"
                                     }, "Auth Token"), React.createElement("th", {
                                       className: "py-3 px-6 text-center"
+                                    }, "Data Retention"), React.createElement("th", {
+                                      className: "py-3 px-6 text-center"
                                     }, "Team Access"), React.createElement("th", {
                                       className: "py-3 px-6 text-center"
                                     }, "Status"), React.createElement("th", {
@@ -774,6 +450,26 @@ function Package$PackageEditor(Props) {
                                       marginTop: "5px"
                                     };
                                     var className = even ? " text-gray-50 hover:bg-gray-400" : " text-gray-50 hover:bg-gray-700";
+                                    var saveChain = function (newChain) {
+                                      var newPackage_name = $$package.name;
+                                      var newPackage_description = $$package.description;
+                                      var newPackage_version = $$package.version;
+                                      var newPackage_chains = Belt_Array.map($$package.chains, (function (chain) {
+                                              if (Caml_obj.caml_equal(chain.id, newChain.id)) {
+                                                return newChain;
+                                              } else {
+                                                return chain;
+                                              }
+                                            }));
+                                      var newPackage = {
+                                        name: newPackage_name,
+                                        description: newPackage_description,
+                                        version: newPackage_version,
+                                        chains: newPackage_chains
+                                      };
+                                      console.log("onEditPackage: ", newPackage);
+                                      return Curry._1(onEditPackage, newPackage);
+                                    };
                                     var images = Belt_Array.keepMap(Belt_Array.mapWithIndex(Chain.gatherAllReferencedServices(schema, chain), (function (idx, service) {
                                                 return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
                                                               var friendlyServiceName = param[1];
@@ -791,6 +487,21 @@ function Package$PackageEditor(Props) {
                                               })), (function (el) {
                                             return el;
                                           }));
+                                    var match = chain.traceRetentionPolicy.captureTarget;
+                                    var tmp;
+                                    switch (match) {
+                                      case /* ALL */0 :
+                                          tmp = "ALL";
+                                          break;
+                                      case /* ERRORS */1 :
+                                          tmp = "ERRORS";
+                                          break;
+                                      case /* NEVER */2 :
+                                          tmp = "NEVER";
+                                          break;
+                                      
+                                    }
+                                    var match$1 = chain.traceRetentionPolicy.captureTarget;
                                     return React.createElement("tr", {
                                                 key: Belt_Option.mapWithDefault(chain.id, "no-id", (function (prim) {
                                                         return prim.toString();
@@ -812,7 +523,114 @@ function Package$PackageEditor(Props) {
                                                                 className: "flex items-center justify-center"
                                                               }, images.length !== 0 ? images : " ")))), React.createElement("td", {
                                                     className: "py-3 px-6 "
-                                                  }, "OFGM***************************************"), React.createElement("td", {
+                                                  }, React.createElement(Comps.Select.make, {
+                                                        children: null,
+                                                        className: "inline-block comp-select",
+                                                        onChange: (function ($$event) {
+                                                            var value = $$event.target.value;
+                                                            var accessToken = value === "" ? undefined : value;
+                                                            return saveChain({
+                                                                        name: chain.name,
+                                                                        description: chain.description,
+                                                                        id: chain.id,
+                                                                        script: chain.script,
+                                                                        scriptDependencies: chain.scriptDependencies,
+                                                                        requests: chain.requests,
+                                                                        blocks: chain.blocks,
+                                                                        accessToken: accessToken,
+                                                                        traceRetentionPolicy: chain.traceRetentionPolicy,
+                                                                        yjsScript: chain.yjsScript
+                                                                      });
+                                                          }),
+                                                        value: Belt_Option.getWithDefault(chain.accessToken, "")
+                                                      }, React.createElement("option", {
+                                                            value: ""
+                                                          }, "None"), Belt_Array.map(authTokens, (function (authToken) {
+                                                              var lead4 = authToken.accessToken.substring(0, 4);
+                                                              return React.createElement("option", {
+                                                                          key: authToken.accessToken,
+                                                                          value: authToken.accessToken
+                                                                        }, authToken.name + " (" + lead4 + "****....)");
+                                                            })))), React.createElement("td", undefined, React.createElement(Comps.Select.make, {
+                                                        children: null,
+                                                        className: "inline-block comp-select",
+                                                        onChange: (function ($$event) {
+                                                            var value = $$event.target.value;
+                                                            var policy;
+                                                            switch (value) {
+                                                              case "ALL" :
+                                                                  policy = /* ALL */0;
+                                                                  break;
+                                                              case "ERRORS" :
+                                                                  policy = /* ERRORS */1;
+                                                                  break;
+                                                              case "NEVER" :
+                                                                  policy = /* NEVER */2;
+                                                                  break;
+                                                              default:
+                                                                policy = undefined;
+                                                            }
+                                                            return Belt_Option.forEach(policy, (function (policy) {
+                                                                          var init = chain.traceRetentionPolicy;
+                                                                          return saveChain({
+                                                                                      name: chain.name,
+                                                                                      description: chain.description,
+                                                                                      id: chain.id,
+                                                                                      script: chain.script,
+                                                                                      scriptDependencies: chain.scriptDependencies,
+                                                                                      requests: chain.requests,
+                                                                                      blocks: chain.blocks,
+                                                                                      accessToken: chain.accessToken,
+                                                                                      traceRetentionPolicy: {
+                                                                                        captureTarget: policy,
+                                                                                        retentionDays: init.retentionDays
+                                                                                      },
+                                                                                      yjsScript: chain.yjsScript
+                                                                                    });
+                                                                        }));
+                                                          }),
+                                                        value: tmp
+                                                      }, React.createElement("option", {
+                                                            value: "ALL"
+                                                          }, "Keep trace for every invocation"), React.createElement("option", {
+                                                            value: "ERRORS"
+                                                          }, "Only keep trace for invocations with errors"), React.createElement("option", {
+                                                            value: "NEVER"
+                                                          }, "Never retain any trace data")), React.createElement("br", undefined), match$1 >= 2 ? null : React.createElement(React.Fragment, undefined, " for ", React.createElement("input", {
+                                                              className: "bg-transparent border-none px-2 leading-tight outline-none text-white inline",
+                                                              style: {
+                                                                width: "10ch"
+                                                              },
+                                                              disabled: chain.traceRetentionPolicy.captureTarget === /* NEVER */2,
+                                                              placeholder: "days",
+                                                              type: "number",
+                                                              value: String(chain.traceRetentionPolicy.retentionDays),
+                                                              onChange: (function ($$event) {
+                                                                  var value = $$event.target.value;
+                                                                  try {
+                                                                    var number = Caml_format.caml_int_of_string(value);
+                                                                    var init = chain.traceRetentionPolicy;
+                                                                    return saveChain({
+                                                                                name: chain.name,
+                                                                                description: chain.description,
+                                                                                id: chain.id,
+                                                                                script: chain.script,
+                                                                                scriptDependencies: chain.scriptDependencies,
+                                                                                requests: chain.requests,
+                                                                                blocks: chain.blocks,
+                                                                                accessToken: chain.accessToken,
+                                                                                traceRetentionPolicy: {
+                                                                                  captureTarget: init.captureTarget,
+                                                                                  retentionDays: number
+                                                                                },
+                                                                                yjsScript: chain.yjsScript
+                                                                              });
+                                                                  }
+                                                                  catch (exn){
+                                                                    return ;
+                                                                  }
+                                                                })
+                                                            }), " days")), React.createElement("td", {
                                                     className: "py-3 px-6 text-center"
                                                   }, React.createElement("div", {
                                                         className: "flex items-center justify-center"
@@ -870,7 +688,227 @@ function Package$PackageEditor(Props) {
                                                           }, React.createElement(Icons.Trash.make, {
                                                                 color: Comps.colors["gray-4"]
                                                               })))));
-                                  })))))), tmp);
+                                  })))))), typeof diff$1 === "number" ? (
+                diff$1 !== 0 ? React.createElement(Comps.Modal.make, {
+                        children: React.createElement("div", {
+                              className: "flex w-full flex-col"
+                            }, React.createElement("div", {
+                                  className: "flex flex-grow flex-row h-full"
+                                }, React.createElement("table", {
+                                      className: ""
+                                    }, React.createElement("thead", undefined, React.createElement("tr", {
+                                              className: "text-gray-600 text-sm leading-normal",
+                                              style: {
+                                                color: Comps.colors["gray-3"]
+                                              }
+                                            }, React.createElement("th", {
+                                                  className: "py-3 px-6 text-left"
+                                                }, "Name"), React.createElement("th", {
+                                                  className: "py-3 px-6 text-left"
+                                                }, "Setting"))), React.createElement("tbody", {
+                                          className: ""
+                                        }, React.createElement("tr", {
+                                              className: "rounded-md border-4 border-gray-900 ",
+                                              style: {
+                                                backgroundColor: Comps.colors["gray-15"],
+                                                color: Comps.colors["gray-6"],
+                                                marginTop: "5px"
+                                              }
+                                            }, React.createElement("td", {
+                                                  className: "py-3 px-6 text-left whitespace-nowrap"
+                                                }, React.createElement("div", {
+                                                      className: "flex items-center"
+                                                    }, React.createElement("span", {
+                                                          className: "font-medium cursor-pointer mr-2"
+                                                        }, "Package name: "))), React.createElement("td", {
+                                                  className: "py-3 px-6 "
+                                                }, React.createElement("div", {
+                                                      className: "relative text-lg bg-transparent text-gray-800"
+                                                    }, React.createElement("div", {
+                                                          className: "flex items-center ml-2 mr-2"
+                                                        }, React.createElement("input", {
+                                                              defaultValue: $$package.name,
+                                                              className: "border-none px-2 leading-tight outline-none text-white form-input",
+                                                              style: {
+                                                                backgroundColor: Comps.colors["gray-9"]
+                                                              },
+                                                              placeholder: "npm-package-name",
+                                                              type: "text",
+                                                              onChange: (function ($$event) {
+                                                                  var value = $$event.target.value;
+                                                                  return Curry._1(onEditPackage, {
+                                                                              name: value,
+                                                                              description: $$package.description,
+                                                                              version: $$package.version,
+                                                                              chains: $$package.chains
+                                                                            });
+                                                                })
+                                                            }))))), React.createElement("tr", {
+                                              className: "rounded-md border-4 border-gray-900 ",
+                                              style: {
+                                                backgroundColor: Comps.colors["gray-15"],
+                                                color: Comps.colors["gray-6"],
+                                                marginTop: "5px"
+                                              }
+                                            }, React.createElement("td", {
+                                                  className: "py-3 px-6 text-left whitespace-nowrap"
+                                                }, React.createElement("div", {
+                                                      className: "flex items-center"
+                                                    }, React.createElement("span", {
+                                                          className: "font-medium cursor-pointer mr-2"
+                                                        }, "Package descriptions: "))), React.createElement("td", {
+                                                  className: "py-3 px-6 "
+                                                }, React.createElement("div", {
+                                                      className: "relative text-lg bg-transparent text-gray-800"
+                                                    }, React.createElement("div", {
+                                                          className: "flex items-center ml-2 mr-2"
+                                                        }, React.createElement("input", {
+                                                              defaultValue: Belt_Option.getWithDefault($$package.description, ""),
+                                                              className: "border-none px-2 leading-tight outline-none text-white form-input",
+                                                              style: {
+                                                                backgroundColor: Comps.colors["gray-9"]
+                                                              },
+                                                              type: "text",
+                                                              onChange: (function ($$event) {
+                                                                  var other = $$event.target.value.trim();
+                                                                  var value = other === "" ? undefined : other;
+                                                                  return Curry._1(onEditPackage, {
+                                                                              name: $$package.name,
+                                                                              description: value,
+                                                                              version: $$package.version,
+                                                                              chains: $$package.chains
+                                                                            });
+                                                                })
+                                                            }))))), React.createElement("tr", {
+                                              className: "rounded-md border-4 border-gray-900 ",
+                                              style: {
+                                                backgroundColor: Comps.colors["gray-15"],
+                                                color: Comps.colors["gray-6"],
+                                                marginTop: "5px"
+                                              }
+                                            }, React.createElement("td", {
+                                                  className: "py-3 px-6 text-left whitespace-nowrap"
+                                                }, React.createElement("div", {
+                                                      className: "flex items-center"
+                                                    }, React.createElement("span", {
+                                                          className: "font-medium cursor-pointer mr-2"
+                                                        }, "Manually set package version ('int.int.int'): "))), React.createElement("td", {
+                                                  className: "py-3 px-6 "
+                                                }, React.createElement("div", {
+                                                      className: "relative text-lg bg-transparent text-gray-800"
+                                                    }, React.createElement("div", {
+                                                          className: "flex items-center ml-2 mr-2"
+                                                        }, React.createElement("input", {
+                                                              defaultValue: packageVersion($$package),
+                                                              className: "border-none px-2 leading-tight outline-none text-white form-input",
+                                                              style: {
+                                                                backgroundColor: Comps.colors["gray-9"]
+                                                              },
+                                                              placeholder: "e.g. 1.0.2",
+                                                              type: "text",
+                                                              onChange: (function ($$event) {
+                                                                  var value = $$event.target.value.trim();
+                                                                  var match = value.split(".");
+                                                                  var version;
+                                                                  if (match.length !== 3) {
+                                                                    version = undefined;
+                                                                  } else {
+                                                                    var major = match[0];
+                                                                    var minor = match[1];
+                                                                    var patch = match[2];
+                                                                    try {
+                                                                      version = [
+                                                                        Caml_format.caml_int_of_string(major),
+                                                                        Caml_format.caml_int_of_string(minor),
+                                                                        Caml_format.caml_int_of_string(patch)
+                                                                      ];
+                                                                    }
+                                                                    catch (exn){
+                                                                      version = undefined;
+                                                                    }
+                                                                  }
+                                                                  return Belt_Option.forEach(version, (function (version) {
+                                                                                return Curry._1(onEditPackage, {
+                                                                                            name: $$package.name,
+                                                                                            description: $$package.description,
+                                                                                            version: version,
+                                                                                            chains: $$package.chains
+                                                                                          });
+                                                                              }));
+                                                                })
+                                                            })))))))), React.createElement("div", {
+                                  className: "w-full ml-auto flex"
+                                }, React.createElement(Comps.Button.make, {
+                                      onClick: (function (param) {
+                                          return Curry._1(setState, (function (oldState) {
+                                                        return {
+                                                                view: /* Nothing */0
+                                                              };
+                                                      }));
+                                        }),
+                                      className: "flex-grow",
+                                      children: "Close"
+                                    })))
+                      }) : null
+              ) : React.createElement(Comps.Modal.make, {
+                    children: React.createElement("div", {
+                          className: "w-full h-full shadow-md rounded my-6 text-white flex flex-col"
+                        }, React.createElement("div", {
+                              className: "overflow-y-scroll flex flex-col"
+                            }, React.createElement("h1", {
+                                  className: "m-5 flex-1 font-bold block",
+                                  style: {
+                                    color: Comps.colors["gray-6"]
+                                  }
+                                }, "Publish package changes: ", React.createElement("span", {
+                                      className: "mx-2"
+                                    }, React.createElement("code", undefined, stringVersion(initialPackage))), React.createElement("span", {
+                                      className: "mx-2"
+                                    }, " => "), React.createElement("span", {
+                                      className: "mx-2"
+                                    }, React.createElement("code", undefined, stringVersion(computeNewVersion($$package, diff$1._0))))), React.createElement("table", {
+                                  className: "min-w-max h-full w-full table-auto"
+                                }, React.createElement("thead", undefined, React.createElement("tr", {
+                                          className: "text-gray-600 text-sm leading-normal",
+                                          style: {
+                                            color: Comps.colors["gray-3"]
+                                          }
+                                        }, React.createElement("th", {
+                                              className: "py-3 px-6 text-left"
+                                            }, "Function"), React.createElement("th", {
+                                              className: "py-3 px-6 text-left"
+                                            }, "Input"), React.createElement("th", {
+                                              className: "py-3 px-6 text-center"
+                                            }, "Return"))), React.createElement("tbody", {
+                                      className: "text-gray-600 text-sm font-light"
+                                    }, Belt_Array.map($$package.chains, (function (chain) {
+                                            var typeDef = Chain.typeScriptDefinition(schema, chain);
+                                            return React.createElement("tr", {
+                                                        key: chain.name,
+                                                        className: "rounded-md border-4 border-gray-900 text-gray-50 hover:bg-gray-400"
+                                                      }, React.createElement("td", undefined, typeDef.functionName), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
+                                                                children: typeDef.inputType
+                                                              })), React.createElement("td", undefined, React.createElement(Comps.Pre.make, {
+                                                                children: typeDef.returnType
+                                                              })));
+                                          }))))), React.createElement("div", {
+                              className: "w-full ml-auto flex"
+                            }, React.createElement(Comps.Button.make, {
+                                  className: "flex-grow",
+                                  children: "Save",
+                                  disabled: true
+                                }), React.createElement(Comps.Button.make, {
+                                  onClick: (function (param) {
+                                      return Curry._1(setState, (function (oldState) {
+                                                    return {
+                                                            view: /* Nothing */0
+                                                          };
+                                                  }));
+                                    }),
+                                  className: "flex-grow",
+                                  children: "Cancel"
+                                })))
+                  }));
 }
 
 var PackageEditor = {
@@ -1199,7 +1237,9 @@ function Package$ChainLogs(Props) {
                                                         return m.totalRequestMs;
                                                       }))) + "ms total"))), Belt_Array.map(byHost, (function (param) {
                                         var metrics = param[1];
+                                        var host = param[0];
                                         return React.createElement("tr", {
+                                                    key: host,
                                                     className: "rounded-sm",
                                                     style: {
                                                       backgroundColor: Comps.colors["gray-15"],
@@ -1209,7 +1249,7 @@ function Package$ChainLogs(Props) {
                                                         className: "px-5 py-5 text-sm w-2/5"
                                                       }, React.createElement("div", {
                                                             className: "flex items-center"
-                                                          }, React.createElement("code", undefined, param[0] + ": "))), React.createElement("td", {
+                                                          }, React.createElement("code", undefined, host + ": "))), React.createElement("td", {
                                                         className: "px-5 py-5 text-sm w-2/5"
                                                       }, React.createElement("p", {
                                                             className: "whitespace-no-wrap"
@@ -1512,9 +1552,7 @@ function Package(Props) {
           name: "bushido-fns",
           description: undefined,
           version: package_version,
-          chains: initialChains$1,
-          traceRetentionPolicy: "all",
-          traceRetentionDays: 5
+          chains: initialChains$1
         };
         return {
                 inspected: /* Package */0,
@@ -1568,6 +1606,16 @@ function Package(Props) {
           schema: schema,
           initialPackage: state.initialPackage,
           package: state.package,
+          authTokens: [
+            {
+              name: "studio-test",
+              accessToken: "9mKUXvNQBsGu-dMIK1iAiPjB1qzM3NqAW8a0iqWFTu4"
+            },
+            {
+              name: "Persist query token",
+              accessToken: "Mie9GEmMA2wCO5x39tGsxLZ-yy5Wr3JNBZhPYdj5h4Y"
+            }
+          ],
           onCreateChain: (function (newChain) {
               Chain.saveToLocalStorage(newChain);
               return Curry._1(setState, (function (oldState) {
@@ -1583,9 +1631,7 @@ function Package(Props) {
                                       name: init.name,
                                       description: init.description,
                                       version: init.version,
-                                      chains: Belt_Array.concat(oldState.package.chains, [newChain]),
-                                      traceRetentionPolicy: init.traceRetentionPolicy,
-                                      traceRetentionDays: init.traceRetentionDays
+                                      chains: Belt_Array.concat(oldState.package.chains, [newChain])
                                     },
                                     initialPackage: oldState.initialPackage,
                                     helpOpen: oldState.helpOpen
@@ -1633,9 +1679,7 @@ function Package(Props) {
                                       version: init.version,
                                       chains: Belt_Array.keep(oldState.package.chains, (function (chain) {
                                               return Caml_obj.caml_notequal(chain.id, targetChain.id);
-                                            })),
-                                      traceRetentionPolicy: init.traceRetentionPolicy,
-                                      traceRetentionDays: init.traceRetentionDays
+                                            }))
                                     },
                                     initialPackage: oldState.initialPackage,
                                     helpOpen: oldState.helpOpen
@@ -1656,7 +1700,6 @@ function Package(Props) {
               var persistedChainPromises = Belt_Array.map(state.package.chains, (function (chain) {
                       return new Promise((function (resolve, param) {
                                     return ChainEditor.persistChain(config, schema, config.chainAccessToken, chain, (function (docId) {
-                                                  console.log("Persisted chain", chain.name, docId);
                                                   return resolve([
                                                               docId,
                                                               chain
@@ -1780,9 +1823,7 @@ function Package(Props) {
                                               } else {
                                                 return oldChain;
                                               }
-                                            })),
-                                      traceRetentionPolicy: init.traceRetentionPolicy,
-                                      traceRetentionDays: init.traceRetentionDays
+                                            }))
                                     },
                                     initialPackage: oldState.initialPackage,
                                     helpOpen: oldState.helpOpen
@@ -1814,9 +1855,7 @@ function Package(Props) {
                                               } else {
                                                 return oldChain;
                                               }
-                                            })),
-                                      traceRetentionPolicy: init.traceRetentionPolicy,
-                                      traceRetentionDays: init.traceRetentionDays
+                                            }))
                                     },
                                     initialPackage: oldState.initialPackage,
                                     helpOpen: oldState.helpOpen

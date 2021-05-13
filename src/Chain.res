@@ -81,6 +81,7 @@ type variableDependency = {name: string, dependency: variableDependencyKind}
 
 type request = {
   id: string,
+  // title: string,
   variableDependencies: array<variableDependency>,
   operation: Card.block,
   dependencyRequestIds: array<string>,
@@ -91,6 +92,15 @@ type scriptDependency = {
   version: string,
 }
 
+type authToken
+
+type traceRetentionCaptureTarget = ALL | ERRORS | NEVER
+
+type traceRetentionPolicy = {
+  captureTarget: traceRetentionCaptureTarget,
+  retentionDays: int,
+}
+
 type t = {
   name: string,
   description: option<string>,
@@ -99,6 +109,9 @@ type t = {
   scriptDependencies: array<scriptDependency>,
   requests: array<request>,
   blocks: array<Card.block>,
+  accessToken: option<string>,
+  traceRetentionPolicy: traceRetentionPolicy,
+  yjsScript: option<string>,
 }
 
 let base = `mutation ExecuteChainMutation($chain: OneGraphQueryChainInput!) {
@@ -503,6 +516,12 @@ let chain2 = {
         }",
   requests: [req1, req2, req3, req4],
   blocks: [addToDocMutation, slackSub],
+  accessToken: None,
+  traceRetentionPolicy: {
+    captureTarget: ALL,
+    retentionDays: 0,
+  },
+  yjsScript: None,
 }
 
 let _chain = {
@@ -549,6 +568,12 @@ export function getIssueTitle(payload) {
 ",
   requests: [req3, req4],
   blocks: [npmDownloadsLastMonth, testMutation],
+  accessToken: None,
+  traceRetentionPolicy: {
+    captureTarget: ALL,
+    retentionDays: 0,
+  },
+  yjsScript: None,
 }
 
 let _chain = {
@@ -582,6 +607,12 @@ export function makeVariablesForSetSlackStatus(
 }`,
   requests: [req5, req6],
   blocks: [Card.gitHubStatus, Card.setSlackStatus],
+  accessToken: None,
+  traceRetentionPolicy: {
+    captureTarget: ALL,
+    retentionDays: 0,
+  },
+  yjsScript: None,
 }
 
 let makeEmptyChain = name => {
@@ -592,6 +623,12 @@ let makeEmptyChain = name => {
   scriptDependencies: [],
   requests: [],
   blocks: [],
+  accessToken: None,
+  traceRetentionPolicy: {
+    captureTarget: ALL,
+    retentionDays: 0,
+  },
+  yjsScript: None,
 }
 
 let emptyChain = {
@@ -602,6 +639,12 @@ let emptyChain = {
   scriptDependencies: [],
   requests: [],
   blocks: [],
+  accessToken: None,
+  traceRetentionPolicy: {
+    captureTarget: ALL,
+    retentionDays: 0,
+  },
+  yjsScript: None,
 }
 
 let chain = emptyChain
@@ -1417,4 +1460,171 @@ module TypeScript = {
   }
 }`
   }
+}
+
+type requestScriptTypeScriptSignature = {
+  functionFromScriptInputType: string,
+  functionFromScriptOutputType: string,
+  functionFromScriptName: string,
+}
+
+let requestScriptTypeScriptSignature = (
+  request: request,
+  schema: GraphQLJs.schema,
+  chain: t,
+): requestScriptTypeScriptSignature => {
+  let chainFragmentsDoc =
+    chain.blocks
+    ->Belt.Array.keepMap(block => {
+      switch block.kind {
+      | Fragment => Some(block.body)
+      | _ => None
+      }
+    })
+    ->Js.Array2.joinWith("\n\n")
+    ->Js.String2.concat("\n\nfragment INTERNAL_UNUSED on Query { __typename }")
+
+  let chainFragmentDefinitions = GraphQLJs.Mock.gatherFragmentDefinitions({
+    "operationDoc": chainFragmentsDoc,
+  })
+
+  let upstreamArgDepRequestIds =
+    request.variableDependencies
+    ->Belt.Array.keepMap(varDep => {
+      switch varDep.dependency {
+      | ArgumentDependency(argDep) => Some(argDep.fromRequestIds)
+      | _ => None
+      }
+    })
+    ->Belt.Array.concatMany
+
+  let upstreamRequestDependencyIds = request.dependencyRequestIds
+
+  let upstreamRequestIds =
+    Belt.Array.concat(
+      upstreamArgDepRequestIds,
+      upstreamRequestDependencyIds,
+    )->Utils.String.distinctStrings
+
+  let inputType = {
+    let dependencyRequests = chain.requests->Belt.Array.keepMap(request => {
+      switch upstreamRequestIds->Js.Array2.indexOf(request.id) {
+      | -1 => None
+      | _ =>
+        let ast = request.operation.body->GraphQLJs.parse
+        let dependencyRequest = ast.definitions->Belt.Array.get(0)
+
+        dependencyRequest->Belt.Option.map(dependencyRequest => {
+          let tsSignature = GraphQLJs.Mock.typeScriptForOperation(
+            schema,
+            dependencyRequest,
+            ~fragmentDefinitions=chainFragmentDefinitions,
+          )
+          (request.id, tsSignature)
+        })
+      }
+    })
+
+    dependencyRequests
+    ->Belt.Array.reduce(Js.Dict.empty(), (acc, (name, tsType)) => {
+      acc->Js.Dict.set(name, tsType)
+      acc
+    })
+    ->ignore
+
+    let fields =
+      dependencyRequests
+      ->Belt.Array.map(((name, tsType)) => {
+        j`"${name}": ${tsType}`
+      })
+      ->Js.Array2.joinWith(", ")
+
+    j`{${fields}}`
+  }
+
+  let inputType = inputType->Obj.magic
+
+  let inputType = switch inputType {
+  | ""
+  | "{}" => "EmptyObject"
+  | other => other
+  }
+
+  let operationDef = (request.operation.body->GraphQLJs.parse).definitions->Belt.Array.get(0)
+
+  let outputTypeForVariables =
+    operationDef
+    ->Belt.Option.map(operationDef => {
+      let signature =
+        request.variableDependencies
+        ->Belt.Array.keepMap(varDep => {
+          switch varDep.dependency {
+          | ArgumentDependency(argDep) => Some(argDep.name)
+          | _ => None
+          }
+        })
+        ->GraphQLJs.Mock.typeScriptSignatureForOperationVariables(schema, operationDef)
+
+      switch signature {
+      | "{}" => "EmptyObject"
+      | other => other
+      }
+    })
+    ->Belt.Option.getWithDefault("// No operation definition for request")
+
+  let names = request->requestScriptNames
+
+  let outputType = j`export type ${names.returnTypeName} = ${outputTypeForVariables}`
+  let inputType = j`export type ${names.inputTypeName} = ${inputType}`
+
+  {
+    functionFromScriptInputType: inputType,
+    functionFromScriptOutputType: outputType,
+    functionFromScriptName: names.functionName,
+  }
+}
+
+type monacoTypelib = {
+  importLine: string,
+  dDotTs: string,
+}
+
+let monacoTypelibForChain = (schema, chain: t) => {
+  let computedRequests =
+    chain.requests->Belt.Array.keep(request => requestHasComputedVariables(request))
+
+  let types =
+    computedRequests->Belt.Array.map(request =>
+      request->requestScriptTypeScriptSignature(schema, chain)
+    )
+
+  let dDotTsDefs =
+    types
+    ->Belt.Array.map(typeSigs => {
+      j`${typeSigs.functionFromScriptInputType}
+${typeSigs.functionFromScriptOutputType}
+`
+    })
+    ->Js.Array2.joinWith("\n\n")
+
+  let dDotTs = j`type EmptyObject = Record<any, never>
+
+${dDotTsDefs}`
+
+  let names = computedRequests->Belt.Array.map(requestScriptNames)
+
+  let importedNames =
+    names
+    ->Belt.Array.map(({inputTypeName, returnTypeName}) => {
+      [inputTypeName, returnTypeName]
+    })
+    ->Belt.Array.concatMany
+    ->Js.Array2.joinWith(", ")
+
+  let importLine = switch names {
+  | [] => ""
+  | _ => j`import { ${importedNames} } from 'oneGraphStudio';`
+  }
+
+  {dDotTs: dDotTs, importLine: importLine}
 }

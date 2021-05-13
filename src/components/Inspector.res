@@ -93,6 +93,7 @@ type remoteChainCalls = {
   fetch: string,
   curl: string,
   scriptKit: string,
+  webhook: string,
   netlify: netlifyRemoteChainCall,
   nextjs: nextjsRemoteChainCall,
 }
@@ -658,7 +659,7 @@ let remoteChainCalls = (~schema, ~appId, ~chainId, chain: Chain.t) => {
   await fetch("https://serve.onegraph.com/graphql?app_id=${appId}",
     {
       method: "POST",
-      "Content-Type": "application/json",
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
         "doc_id": "${chainId}",
         "operationName": "${targetChain.operationName}",
@@ -762,7 +763,7 @@ exports.handler = async (event, context) => {
     "https://serve.onegraph.com/graphql?app_id=${appId}",
   {
     method: "POST",
-    "Content-Type": "application/json",
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
       "doc_id": "${chainId}",
       "operationName": "${targetChain.operationName}",
@@ -866,7 +867,7 @@ async function ${chain.name} ({${variableParams}}) {
   const resp = await fetch("https://serve.onegraph.com/graphql?app_id=${appId}",
     {
       method: "POST",
-      "Content-Type": "application/json",
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
         "doc_id": "${chainId}",
         "operationName": "${targetChain.operationName}",
@@ -933,12 +934,23 @@ export default async function handler(req, res) {
     code: nextjsScript,
   }
 
+  let webhookQuery =
+    targetChain.exposedVariables
+    ->Belt.Array.map(exposed => {
+      let key = exposed.exposedName
+
+      j`${key}=`
+    })
+    ->Js.Array2.joinWith("&")
+  let webhook = j`https://hookchain.vercel.app/app/${appId}/chain/${chainId}/${targetChain.operationName}?${webhookQuery}`
+
   {
     curl: curl,
     fetch: fetch,
     scriptKit: scriptKit,
     netlify: netlify,
     nextjs: nextjs,
+    webhook: webhook,
   }
 }
 
@@ -1137,7 +1149,7 @@ module GitHub = {
             <option value="" />
             {repoList
             ->Belt.Array.map(repoEdge => {
-              <option value={repoEdge.node.id}>
+              <option key={repoEdge.node.id} value={repoEdge.node.id}>
                 {repoEdge.node.nameWithOwner->React.string}
               </option>
             })
@@ -2156,7 +2168,9 @@ module Request = {
           <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
           {authTokens
           ->Belt.Array.map(token => {
-            <option value={token.accessToken}> {token.displayedToken->string} </option>
+            <option key={token.accessToken} value={token.accessToken}>
+              {token.displayedToken->string}
+            </option>
           })
           ->array}
         </Comps.Select>
@@ -2387,6 +2401,7 @@ module Nothing = {
 
     let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
     let (openedTab, setOpenedTab) = React.useState(() => #inspector)
+    let (rawJsonVariables, setRawJsonVariables) = React.useState(() => "")
 
     let isSubscription =
       chain.requests->Belt.Array.some(request => request.operation.kind == Subscription)
@@ -2561,7 +2576,9 @@ module Nothing = {
               <option value="TEMP"> {"Use current scratchpad auth"->string} </option>
               {authTokens
               ->Belt.Array.map(token => {
-                <option value={token.accessToken}> {token.name->string} </option>
+                <option key={token.accessToken} value={token.accessToken}>
+                  {token.name->string}
+                </option>
               })
               ->array}
             </Comps.Select>
@@ -2579,6 +2596,37 @@ module Nothing = {
           <ChainResultsViewer chain chainExecutionResults={Some(chainExecutionResults)} />
         )
         ->Belt.Option.getWithDefault(React.null)}
+        <CollapsableSection title={"Raw JSON input [advanced]"->React.string} defaultOpen=false>
+          <form
+            onSubmit={event => {
+              event->ReactEvent.Form.preventDefault
+              event->ReactEvent.Form.stopPropagation
+              try {
+                let variables = Some(rawJsonVariables->Js.Json.parseExn)
+                transformAndExecuteChain(~variables, ~authToken=currentAuthToken)
+              } catch {
+              | _ => Js.Console.warn2("Invalid raw json for variables", rawJsonVariables)
+              }
+            }}>
+            <Comps.Textarea
+              className="w-full select-button comp-select my-4 mx-2"
+              style={ReactDOMStyle.make(~paddingRight="40px", ())}
+              onChange={event => {
+                let value = ReactEvent.Form.target(event)["value"]
+
+                setRawJsonVariables(_ => value)
+              }}
+            />
+            {authButtons->React.array}
+            <Comps.Button type_="submit" className="w-full">
+              <Icons.RunLink className="inline-block" color={Comps.colors["gray-6"]} />
+              {(isSubscription ? " Start chain" : "  Run chain")->React.string}
+            </Comps.Button>
+            // <Comps.Pre>
+            //   {formVariables->Obj.magic->Js.Json.stringifyWithSpace(2)->string}
+            // </Comps.Pre>
+          </form>
+        </CollapsableSection>
       </>
     let saveTab =
       <div className="flex flex-col">
@@ -2597,7 +2645,9 @@ module Nothing = {
           }}>
           {authTokens
           ->Belt.Array.map(token => {
-            <option value={token.accessToken}> {token.name->string} </option>
+            <option key={token.accessToken} value={token.accessToken}>
+              {token.name->string}
+            </option>
           })
           ->array}
         </Comps.Select>
@@ -2648,6 +2698,7 @@ ${remoteChainCalls.netlify.form}
 ${remoteChainCalls.netlify.code}
 `,
                 )
+              | "webhook" => Some(remoteChainCalls.webhook)
               | "scriptkit" => Some(remoteChainCalls.scriptKit)
               | _ => None
               }
@@ -2659,6 +2710,7 @@ ${remoteChainCalls.netlify.code}
           <option value={"curl"}> {"Copy cURL call"->React.string} </option>
           <option value={"netlify"}> {"Copy Netlify function usage"->React.string} </option>
           <option value={"scriptkit"}> {"Copy ScriptKit usage"->React.string} </option>
+          <option value={"webhook"}> {"Copy Webhook url"->React.string} </option>
           <option value={"id"}> {"Copy Chain Id"->React.string} </option>
         </Comps.Select>
         {
@@ -2928,6 +2980,8 @@ let make = (
   ~appId,
   ~onPotentialVariableSourceConnect,
   ~authTokens,
+  ~onStartAudio,
+  ~audioLevel,
 ) => {
   open React
   let subInspectorRef = useRef(None)
@@ -2992,6 +3046,9 @@ let make = (
     )}>
     <nav className="flex flex-row py-1 px-2 mb-2 justify-between">
       <Comps.Header> {"Chain Inspector"->string} </Comps.Header>
+      <Icons.Volume.Auto color="red" onClick={onStartAudio} level=audioLevel />
+      <Icons.Volume.Auto color="#662299" onClick={onStartAudio} level=99 />
+      <Icons.Volume.Auto onClick={onStartAudio} level=10 />
     </nav>
     <div
       className="overflow-y-scroll"
