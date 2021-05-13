@@ -35,7 +35,7 @@ type observable<'a> = {subscribe: 'a => unit}
 @send
 external request: (
   t,
-  operationOptions<option<Js.Json.t>, option<Js.t<{..}>>>,
+  operationOptions<option<Js.Json.t>, option<{..}>>,
 ) => observable<'subscription> = "request"
 
 @send

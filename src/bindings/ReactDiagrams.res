@@ -38,7 +38,7 @@ module Engine = {
 
     @send external redistribute: (layoutEngine, model) => unit = "redistribute"
     @send external getModel: engine => model = "getModel"
-    @send external getSelectedEntities: model => Js.t<'a> = "getSelectedEntities"
+    @send external getSelectedEntities: model => 'a = "getSelectedEntities"
   }
 
   module ActionEventBus = {

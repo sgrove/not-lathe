@@ -75,7 +75,7 @@ let findFnPos = (ast: ast, targetName: string) => {
   })
 }
 
-type declaration<'a> = Js.t<'a>
+type declaration<'a> = 'a
 
 let findContainingDeclaration = (ast: ast, position: int): option<declaration<'a>> => {
   let containingFunction = Obj.magic(ast)["statements"]->Belt.Array.getBy((

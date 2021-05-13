@@ -1,4 +1,4 @@
-import FormRes from "src/FormOuter.js";
+import FormRes from "src/FormOuter.mjs";
 
 // Note:
 // We need to wrap the make call with

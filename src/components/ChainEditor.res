@@ -41,7 +41,7 @@ module SimpleTooltip = {
 
 module FragmentNodeComponent = {
   @react.component @module("./FragmentNode.js")
-  external make: (~data: Js.t<'a>) => React.element = "default"
+  external make: (~data: 'a) => React.element = "default"
 }
 
 type blockEdit = Nothing | Create(Card.block) | Edit(Card.block)
