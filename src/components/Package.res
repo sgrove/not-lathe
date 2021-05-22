@@ -1557,52 +1557,52 @@ let make = (~schema, ~config) => {
         })
       }}
     />
-  | Edit({chain, trace}) =>
-    <ChainEditor
-      config
-      schema
-      initialChain=chain
-      trace
-      helpOpen=state.helpOpen
-      onSaveChain={(newChain: Chain.t) => {
-        setState(oldState => {
-          newChain->Chain.saveToLocalStorage
+  | Edit({chain, trace}) => null
+  // <ChainEditor
+  //   config
+  //   schema
+  //   localStorageChain=chain
+  //   trace
+  //   helpOpen=state.helpOpen
+  //   onSaveChain={(newChain: Chain.t) => {
+  //     setState(oldState => {
+  //       newChain->Chain.saveToLocalStorage
 
-          let inspected = switch oldState.inspected {
-          | Edit({trace}) => Edit({chain: newChain, trace: trace})
-          | _ => Edit({chain: newChain, trace: None})
-          }
-          {
-            ...oldState,
-            package: {
-              ...oldState.package,
-              chains: oldState.package.chains->Belt.Array.map(oldChain => {
-                oldChain.id == newChain.id ? newChain : oldChain
-              }),
-            },
-            inspected: inspected,
-          }
-        })
-      }}
-      onClose={() => {
-        setState(oldState => {
-          ...oldState,
-          inspected: Package,
-        })
-      }}
-      onSaveAndClose={newChain => {
-        setState(oldState => {
-          ...oldState,
-          inspected: Package,
-          package: {
-            ...oldState.package,
-            chains: oldState.package.chains->Belt.Array.map(oldChain => {
-              oldChain == chain ? newChain : oldChain
-            }),
-          },
-        })
-      }}
-    />
+  //       let inspected = switch oldState.inspected {
+  //       | Edit({trace}) => Edit({chain: newChain, trace: trace})
+  //       | _ => Edit({chain: newChain, trace: None})
+  //       }
+  //       {
+  //         ...oldState,
+  //         package: {
+  //           ...oldState.package,
+  //           chains: oldState.package.chains->Belt.Array.map(oldChain => {
+  //             oldChain.id == newChain.id ? newChain : oldChain
+  //           }),
+  //         },
+  //         inspected: inspected,
+  //       }
+  //     })
+  //   }}
+  //   onClose={() => {
+  //     setState(oldState => {
+  //       ...oldState,
+  //       inspected: Package,
+  //     })
+  //   }}
+  //   onSaveAndClose={newChain => {
+  //     setState(oldState => {
+  //       ...oldState,
+  //       inspected: Package,
+  //       package: {
+  //         ...oldState.package,
+  //         chains: oldState.package.chains->Belt.Array.map(oldChain => {
+  //           oldChain == chain ? newChain : oldChain
+  //         }),
+  //       },
+  //     })
+  //   }}
+  // />
   | Package =>
     <PackageEditor
       schema

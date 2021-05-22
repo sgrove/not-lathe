@@ -270,6 +270,42 @@ var Textarea = {
   make: Comps$Textarea
 };
 
+function Comps$CollapsableSection(Props) {
+  var title = Props.title;
+  var defaultOpenOpt = Props.defaultOpen;
+  var children = Props.children;
+  var defaultOpen = defaultOpenOpt !== undefined ? defaultOpenOpt : true;
+  var match = React.useState(function () {
+        return defaultOpen;
+      });
+  var setIsOpen = match[1];
+  var isOpen = match[0];
+  return React.createElement(React.Fragment, undefined, React.createElement(Comps$Header, {
+                  onClick: (function (param) {
+                      return Curry._1(setIsOpen, (function (isOpen) {
+                                    return !isOpen;
+                                  }));
+                    }),
+                  style: {
+                    color: colors["gray-6"],
+                    cursor: "pointer"
+                  },
+                  children: null
+                }, isOpen ? React.createElement(Icons.CaretUp.make, {
+                        className: "inline mr-2",
+                        color: colors["gray-6"]
+                      }) : React.createElement(Icons.CaretRight.make, {
+                        className: "inline mr-2",
+                        color: colors["gray-6"]
+                      }), title), React.createElement("div", {
+                  className: isOpen ? "" : "hidden"
+                }, children));
+}
+
+var CollapsableSection = {
+  make: Comps$CollapsableSection
+};
+
 export {
   colors ,
   Header ,
@@ -282,6 +318,7 @@ export {
   Tab ,
   Tabs ,
   Textarea ,
+  CollapsableSection ,
   
 }
 /* defaultStyle Not a pure module */

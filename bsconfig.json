@@ -2,8 +2,8 @@
   "name": "rescript-nextjs-template",
   "namespace": false,
   "reason": { "react-jsx": 3 },
-  "bs-dependencies": ["bs-fetch", "@rescript/react"],
-  "ppx-flags": [],
+  "bs-dependencies": ["bs-fetch", "@rescript/react", "rescript-relay", "reason-promise"],
+  "ppx-flags": ["rescript-relay/ppx"],
   "sources": [
     { "dir": "src", "subdirs": true }
   ],

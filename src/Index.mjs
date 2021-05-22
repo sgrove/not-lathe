@@ -7,6 +7,7 @@ import * as Icons from "./Icons.mjs";
 import * as Utils from "./Utils.mjs";
 import * as React from "react";
 import * as Graphql from "graphql";
+import * as RelayEnv from "./RelayEnv.mjs";
 import * as GraphQLJs from "./bindings/GraphQLJs.mjs";
 import Head from "next/head";
 import * as OneGraphRe from "./OneGraphRe.mjs";
@@ -14,6 +15,7 @@ import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Belt_Result from "rescript/lib/es6/belt_Result.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as OneGraphAuth from "./bindings/OneGraphAuth.mjs";
+import * as RescriptRelay from "rescript-relay/src/RescriptRelay.mjs";
 import * as Mock from "@graphql-tools/mock";
 
 import dynamic from 'next/dynamic'
@@ -414,7 +416,10 @@ function $$default(param) {
                                   className: "font-semibold"
                                 }, state.msg)))))));
   }
-  return React.createElement(React.Fragment, undefined, React.createElement(Head, {
+  return React.createElement(RescriptRelay.Context.Provider.make, {
+              environment: RelayEnv.environment,
+              children: null
+            }, React.createElement(Head, {
                   children: React.createElement("title", undefined, "OneGraph Serverless Studio")
                 }), tmp);
 }

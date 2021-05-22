@@ -10,6 +10,32 @@ type block = {
   services: array<string>,
 }
 
+let makeBlankBlock = (kind): block => {
+  let (kind: operationKind, body) = switch kind {
+  | #query => (Query, "query Untitled { __typename }")
+  | #mutation => (Mutation, "mutation Untitled { __typename }")
+  | #subscription => (Subscription, "subscription Untitled { __typename }")
+  | #compute => (
+      Compute,
+      `# Fields on ComputeType will turn into variables for you to compute
+# based on other blocks or user input
+type ComputeType {
+  name: String!
+}`,
+    )
+  }
+
+  {
+    title: "Untitled",
+    id: Uuid.v4(),
+    body: body,
+    description: "TODO",
+    kind: kind,
+    contributedBy: None,
+    services: [],
+  }
+}
+
 @module("./OneGraph.js")
 external fetchOneGraph: (
   OneGraphAuth.t,

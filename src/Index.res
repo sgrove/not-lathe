@@ -331,7 +331,7 @@ let default = () => {
     }, _)->ignore
     None
   })
-  <>
+  <RescriptRelay.Context.Provider environment=RelayEnv.environment>
     <Next.Head> <title> {"OneGraph Serverless Studio"->React.string} </title> </Next.Head>
     {switch state {
     | {mod: None} => <>
@@ -358,5 +358,5 @@ let default = () => {
       />
     | {mod: Some(mod), config: Some(config)} => <Inner mod config />
     }}
-  </>
+  </RescriptRelay.Context.Provider>
 }

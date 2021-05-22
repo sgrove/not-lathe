@@ -514,8 +514,8 @@ function compileAsObj(chain) {
         };
 }
 
-function requestScriptNames(request) {
-  var title = Utils.$$String.capitalizeFirstLetter(request.operation.title);
+function requestScriptNames(actionName) {
+  var title = Utils.$$String.capitalizeFirstLetter(actionName);
   var functionName = "makeVariablesFor" + title;
   var returnTypeName = title + "Variables";
   var inputTypeName = title + "Input";
@@ -527,12 +527,12 @@ function requestScriptNames(request) {
 }
 
 function callForVariable(request, variableName) {
-  var requestScriptName = requestScriptNames(request).functionName;
+  var requestScriptName = requestScriptNames(request.operation.title).functionName;
   return "export function " + requestScriptName + "_" + variableName + " (payload) {\n  return " + requestScriptName + "(payload)?.[\"" + variableName + "\"]\n}";
 }
 
 function callForProbe(request, variableName, probe) {
-  var requestScriptName = requestScriptNames(request).functionName;
+  var requestScriptName = requestScriptNames(request.operation.title).functionName;
   var other = probe.path;
   var path = other.length !== 0 ? other.join("?.") : "null";
   return "export function " + requestScriptName + "_" + variableName + " (payload) {\n  return " + path + "\n}";
@@ -1145,7 +1145,7 @@ function requestScriptTypeScriptSignature(request, schema, chain) {
                 return signature;
               }
             })), "// No operation definition for request");
-  var names = requestScriptNames(request);
+  var names = requestScriptNames(request.operation.title);
   var outputType = "export type " + names.returnTypeName + " = " + outputTypeForVariables;
   var inputType$2 = "export type " + names.inputTypeName + " = " + inputType$1;
   return {
@@ -1164,7 +1164,9 @@ function monacoTypelibForChain(schema, chain) {
             return typeSigs.functionFromScriptInputType + "\n" + typeSigs.functionFromScriptOutputType + "\n";
           })).join("\n\n");
   var dDotTs = "type EmptyObject = Record<any, never>\n\n" + dDotTsDefs;
-  var names = Belt_Array.map(computedRequests, requestScriptNames);
+  var names = Belt_Array.map(computedRequests, (function (request) {
+          return requestScriptNames(request.operation.title);
+        }));
   var importedNames = Belt_Array.concatMany(Belt_Array.map(names, (function (param) {
                 return [
                         param.inputTypeName,

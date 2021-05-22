@@ -20,36 +20,39 @@ var decodeUint8Array = (function decodeUint8Array(str) {
   return new Uint8Array(atob(str).split('').map(function (c) { return c.charCodeAt(0); }));
 });
 
-function idempotentCreate(name, yjsScript, audioStreamPromise) {
+function idempotentCreate(name, concurrentSource, audioStreamPromise, localUser, param) {
+  console.log("idempotentCreate: ", globalState, name);
   var room = Belt_HashMapString.get(globalState, name);
   if (room !== undefined) {
     return room;
   }
   var ydocument = new Yjs$1.Doc();
-  Belt_Option.forEach(yjsScript, (function (base64History) {
-          var update = decodeUint8Array(base64History);
-          Yjs$1.applyUpdate(ydocument, update);
-          
-        }));
+  var update = decodeUint8Array(concurrentSource);
+  Yjs$1.applyUpdate(ydocument, update);
   var yprovider = new YWebrtc.WebrtcProvider(name, ydocument, {
         maxConns: 20
       });
+  Debug.assignToWindowForDeveloperDebug("yprovider", yprovider);
+  yprovider.awareness.setLocalStateField("user", localUser);
   yprovider.on("synced", (function (update, origin, other) {
           console.log("Provider synced: ", update, origin, other);
           
         }));
   yprovider.on("peers", (function ($$event) {
-          console.log("Provider onPeers: ", $$event);
+          console.log("Provider onPeers:", $$event);
           return Belt_Array.forEach($$event.added, (function (peerId) {
                         var connection = Yjs.WebRTC.getConnection(yprovider, peerId);
                         var peer = Belt_Option.map(connection, (function (connection) {
                                 return connection.peer;
                               }));
                         Belt_Option.forEach(peer, (function (peer) {
-                                audioStreamPromise.then(function (audioStream) {
-                                      console.log("Adding audioStream to peer: ", peer, audioStream);
-                                      return Promise.resolve((peer.addStream(audioStream), undefined));
-                                    });
+                                Belt_Option.forEach(audioStreamPromise, (function (audioStreamPromise) {
+                                        audioStreamPromise.then(function (audioStream) {
+                                              console.log("Adding audioStream to peer: ", peer, audioStream);
+                                              return Promise.resolve((peer.addStream(audioStream), undefined));
+                                            });
+                                        
+                                      }));
                                 peer.on("stream", (function (stream) {
                                         console.log("Got a stream: ", stream);
                                         Debug.assignToWindowForDeveloperDebug("incomingStream", {

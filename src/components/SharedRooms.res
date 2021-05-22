@@ -10,38 +10,44 @@ let decodeUint8Array = %raw(`function decodeUint8Array(str) {
   return new Uint8Array(atob(str).split('').map(function (c) { return c.charCodeAt(0); }));
 }`)
 
-let idempotentCreate = (~name, ~yjsScript, ~audioStreamPromise) => {
+let idempotentCreate = (~name, ~concurrentSource, ~audioStreamPromise=?, ~localUser, ()) => {
+  Js.log3("idempotentCreate: ", globalState, name)
   switch globalState->Belt.HashMap.String.get(name) {
   | Some(room) => room
   | None =>
     let ydocument = Yjs.createDocument()
-    yjsScript->Belt.Option.forEach(base64History => {
-      let update = decodeUint8Array(base64History)
-      ydocument->Yjs.applyUpdate(update)
-    })
-
+    let update = concurrentSource->decodeUint8Array
+    ydocument->Yjs.applyUpdate(update)
     let yprovider = Yjs.WebRTC.createProvider(
       name,
       ydocument,
       Yjs.WebRTC.providerOptions(~maxConns=20, ()),
     )
 
+    Debug.assignToWindowForDeveloperDebug(~name="yprovider", yprovider)
+
+    yprovider->Yjs.Provider.awareness->Yjs.Awareness.setLocalStateField("user", localUser)
+
     yprovider->Yjs.Provider.on("synced", (update, origin, other) => {
       Js.log4("Provider synced: ", update, origin, other)
     })
 
     yprovider->Yjs.WebRTC.onPeers(event => {
-      Js.log2("Provider onPeers: ", event)
+      Js.log2("Provider onPeers:", event)
 
       event.added->Belt.Array.forEach(peerId => {
         let connection = yprovider->Yjs.WebRTC.getConnection(peerId)
         let peer = connection->Belt.Option.map(connection => connection.peer)
 
         peer->Belt.Option.forEach(peer => {
-          audioStreamPromise->Js.Promise.then_(audioStream => {
-            Js.log3("Adding audioStream to peer: ", peer, audioStream)
-            peer->Yjs.Peer.addStream(audioStream)->Js.Promise.resolve
-          }, _)->ignore
+          audioStreamPromise
+          ->Belt.Option.forEach(audioStreamPromise =>
+            audioStreamPromise->Js.Promise.then_(audioStream => {
+              Js.log3("Adding audioStream to peer: ", peer, audioStream)
+              peer->Yjs.Peer.addStream(audioStream)->Js.Promise.resolve
+            }, _)->ignore
+          )
+          ->ignore
 
           peer->Yjs.Peer.onStream(stream => {
             Js.log2("Got a stream: ", stream)

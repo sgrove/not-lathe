@@ -66,10 +66,10 @@ external buildClientSchema: introspectionQueryResult => schema = "buildClientSch
 
 @get external typeName: graphqlType => string = "name"
 
-@bs.send
+@send
 external getQueryType: schema => Js.Undefined.t<graphqlType> = "getQueryType"
 
-@bs.send
+@send
 external getType: (schema, string) => Js.Undefined.t<graphqlType> = "getType"
 
 @module("graphql") external parseType: string => graphqlAst = "parseType"
@@ -118,13 +118,13 @@ let categorizeType = graphqlType =>
             }
       }
 
-@bs.send
+@send
 external getObjectFields: graphqlType => Js.Dict.t<'field> = "getFields"
 
 @module("graphql")
 external getNamedType: graphqlType => graphqlType = "getNamedType"
 
-@bs.send external printType: graphqlType => string = "toString"
+@send external printType: graphqlType => string = "toString"
 
 @get external fieldName: graphqlField => string = "name"
 @get external fieldType: graphqlField => graphqlType = "type"
@@ -137,7 +137,7 @@ let getFields = (typ: graphqlType): array<graphqlField> =>
 let getFieldByName = (typ: graphqlType, name: string): option<graphqlField> =>
   isObjectType(typ) ? typ->getObjectFields->Js.Dict.get(name) : None
 
-@bs.send
+@send
 external _schemaTypes: schema => Js.Dict.t<graphqlType> = "getTypeMap"
 
 let schemaTypes = (schema: schema): array<graphqlType> => schema->_schemaTypes->Js.Dict.values
@@ -1523,7 +1523,7 @@ type SpotifyTrack {
 `
 
 let getSubFields = (schema, typename) =>
-  schema->getType(typename)->Js.Undefined.toOption->Belt.Option.map(root => root |> getFields)
+  schema->getType(typename)->Js.Undefined.toOption->Belt.Option.map(root => root->getFields)
 
 let rootFields: (schema, 'a) => option<array<graphqlField>> = (schema, root) => {
   let fields = root->typeName->getSubFields(schema, _)

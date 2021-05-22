@@ -30,6 +30,8 @@ type update
 
 module Awareness = {
   type t
+
+  @send external setLocalStateField: (t, string, 'value) => unit = "setLocalStateField"
 }
 
 module Stream = {

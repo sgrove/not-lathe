@@ -4,6 +4,7 @@ import * as Chain from "./Chain.mjs";
 import * as Curry from "rescript/lib/es6/curry.js";
 import * as React from "react";
 import * as Graphql from "graphql";
+import * as Compiler from "./lib/Compiler.mjs";
 import * as Inspector from "./components/Inspector.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as OneGraphRe from "./OneGraphRe.mjs";
@@ -27,8 +28,8 @@ function Form$Main(Props) {
   var setState = match$1[1];
   var chain = Chain.loadFromLocalStorageById(chainId);
   var form = Belt_Option.getWithDefault(Belt_Option.map(chain, (function (chain) {
-              var webhookUrl = Inspector.webhookUrlForAppId(appId);
-              var compiledOperation = Curry._1(Inspector.transformChain(chain)(schema), webhookUrl);
+              var webhookUrl = Compiler.Exports.webhookUrlForAppId(appId);
+              var compiledOperation = Curry._1(Compiler.transformChain(chain)(schema), webhookUrl);
               var targetChain = Belt_Array.get(compiledOperation.chains, 0);
               return Belt_Array.map(targetChain.exposedVariables, (function (exposedVariable) {
                             var def_variable = {
@@ -62,8 +63,8 @@ function Form$Main(Props) {
                   type: "button",
                   onClick: (function (param) {
                       return Belt_Option.forEach(chain, (function (chain) {
-                                    var webhookUrl = Inspector.webhookUrlForAppId(appId);
-                                    var compiledOperation = Curry._1(Inspector.transformChain(chain)(schema), webhookUrl);
+                                    var webhookUrl = Compiler.Exports.webhookUrlForAppId(appId);
+                                    var compiledOperation = Curry._1(Compiler.transformChain(chain)(schema), webhookUrl);
                                     var targetChain = Belt_Array.get(compiledOperation.chains, 0);
                                     var variables = Caml_option.some(formVariables);
                                     var __x = OneGraphRe.basicFetchOneGraphPersistedQuery(appId, undefined, chainId, variables, targetChain.operationName);

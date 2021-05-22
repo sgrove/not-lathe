@@ -35,7 +35,7 @@ let r = () => {
   let audio = createAudio()
   Obj.magic(audio)["crossOrigin"] = "anonymous"
   Obj.magic(audio)["src"] = "https://dl.dropboxusercontent.com/s/cnvbozzi5xhatv1/11%20Charlotte.mp3"
-  Obj.magic(audio)["play"]()
+  let () = Obj.magic(audio)["play"]()
 
   monitorAudio(~audio, ~onAudioProcess=event => {
     let ints = event["inputBuffer"]["getChannelData"](0)

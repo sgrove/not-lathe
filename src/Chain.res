@@ -735,8 +735,8 @@ type requestScriptNames = {
   inputTypeName: string,
 }
 
-let requestScriptNames = (request: request) => {
-  let title = request.operation.title->Utils.String.capitalizeFirstLetter
+let requestScriptNames = actionName => {
+  let title = actionName->Utils.String.capitalizeFirstLetter
   let functionName = j`makeVariablesFor${title}`
   let returnTypeName = j`${title}Variables`
   let inputTypeName = j`${title}Input`
@@ -748,7 +748,7 @@ let requestScriptNames = (request: request) => {
 }
 
 let callForVariable = (request: request, variableName) => {
-  let requestScriptName = requestScriptNames(request).functionName
+  let requestScriptName = requestScriptNames(request.operation.title).functionName
 
   j`export function ${requestScriptName}_${variableName} (payload) {
   return ${requestScriptName}(payload)?.["${variableName}"]
@@ -756,7 +756,7 @@ let callForVariable = (request: request, variableName) => {
 }
 
 let callForProbe = (request: request, variableName, probe: graphQLProbe) => {
-  let requestScriptName = requestScriptNames(request).functionName
+  let requestScriptName = requestScriptNames(request.operation.title).functionName
 
   let path = switch probe.path {
   | [] => "null"
@@ -1572,7 +1572,7 @@ let requestScriptTypeScriptSignature = (
     })
     ->Belt.Option.getWithDefault("// No operation definition for request")
 
-  let names = request->requestScriptNames
+  let names = request.operation.title->requestScriptNames
 
   let outputType = j`export type ${names.returnTypeName} = ${outputTypeForVariables}`
   let inputType = j`export type ${names.inputTypeName} = ${inputType}`
@@ -1611,7 +1611,8 @@ ${typeSigs.functionFromScriptOutputType}
 
 ${dDotTsDefs}`
 
-  let names = computedRequests->Belt.Array.map(requestScriptNames)
+  let names =
+    computedRequests->Belt.Array.map(request => requestScriptNames(request.operation.title))
 
   let importedNames =
     names

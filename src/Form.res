@@ -12,8 +12,8 @@ module Main = {
     let form =
       chain
       ->Belt.Option.map(chain => {
-        let webhookUrl = Inspector.webhookUrlForAppId(~appId)
-        let compiledOperation = Inspector.transformChain(~schema, ~webhookUrl, chain)
+        let webhookUrl = Compiler.Exports.webhookUrlForAppId(~appId)
+        let compiledOperation = Compiler.transformChain(~schema, ~webhookUrl, chain)
         let targetChain = compiledOperation.chains->Belt.Array.get(0)->Belt.Option.getUnsafe
         let inputs = targetChain.exposedVariables->Belt.Array.map(exposedVariable => {
           let def: GraphQLJs.variableDefinition = {
@@ -53,8 +53,8 @@ module Main = {
         type_="button"
         onClick={_ => {
           chain->Belt.Option.forEach(chain => {
-            let webhookUrl = Inspector.webhookUrlForAppId(~appId)
-            let compiledOperation = chain->Inspector.transformChain(~schema, ~webhookUrl)
+            let webhookUrl = Compiler.Exports.webhookUrlForAppId(~appId)
+            let compiledOperation = chain->Compiler.transformChain(~schema, ~webhookUrl)
             let targetChain = compiledOperation.chains->Belt.Array.get(0)->Belt.Option.getUnsafe
             let variables = Some(formVariables->Obj.magic)
 

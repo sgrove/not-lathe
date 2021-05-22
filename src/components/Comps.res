@@ -175,3 +175,23 @@ module Textarea = {
     />
   }
 }
+
+module CollapsableSection = {
+  @react.component
+  let make = (~title, ~defaultOpen=true, ~children) => {
+    open React
+    let (isOpen, setIsOpen) = useState(() => defaultOpen)
+
+    <>
+      <Header
+        onClick={_ => setIsOpen(isOpen => !isOpen)}
+        style={ReactDOMStyle.make(~cursor="pointer", ~color=colors["gray-6"], ())}>
+        {isOpen
+          ? <Icons.CaretUp className="inline mr-2" color={colors["gray-6"]} />
+          : <Icons.CaretRight className="inline mr-2" color={colors["gray-6"]} />}
+        title
+      </Header>
+      <div className={isOpen ? "" : "hidden"}> {children} </div>
+    </>
+  }
+}

@@ -9,8 +9,49 @@ function assignToWindowForDeveloperDebug(_name, _value) {
   
 }
 
+var $$JSON = {};
+
+function stringify(a) {
+  return ((function stringifyRelayData(data) {
+  const helper = (oldObj) => {
+    let obj;
+    if (oldObj && typeof oldObj === "object") {
+      obj = {};
+
+      var allKeys = Object.keys(oldObj);
+      for (var i = 0; i < allKeys.length; i++) {
+        var k = allKeys[i];
+
+        const isBadKey = k.startsWith("__")
+
+        if (!isBadKey) {
+          var value = oldObj[k];
+
+          if (Array.isArray(value)) {
+            value = value.map(helper);
+          } else if (typeof value === "object") {
+            value = helper(value);
+          }
+
+          obj[k] = value;
+        }
+      }
+    }
+    return obj ?? oldObj;
+  };
+
+  return JSON.stringify(helper(data), null, 2);
+}))(a);
+}
+
+var Relay = {
+  stringify: stringify
+};
+
 export {
   assignToWindowForDeveloperDebug ,
+  $$JSON ,
+  Relay ,
   
 }
 /* No side effect */
