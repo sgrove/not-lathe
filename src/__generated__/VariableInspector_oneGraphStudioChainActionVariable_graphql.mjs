@@ -91,7 +91,7 @@ var node = {
     {
       "args": null,
       "kind": "FragmentSpread",
-      "name": "ComputedVariableInspector_oneGraphAppPackageChainActionVariable"
+      "name": "ComputedVariableInspector_chainActionVariable"
     }
   ],
   "type": "OneGraphStudioChainActionVariable",

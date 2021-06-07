@@ -49,7 +49,7 @@ module Types = {
     maxRecur: int,
     computeMethod: enum_OneGraphStudioChainActionVariableMethodEnum,
     probePath: array<string>,
-    fragmentRefs: RescriptRelay.fragmentRefs<[ | #ComputedVariableInspector_oneGraphAppPackageChainActionVariable]>
+    fragmentRefs: RescriptRelay.fragmentRefs<[ | #ComputedVariableInspector_chainActionVariable]>
   }
 }
 
@@ -166,7 +166,7 @@ let node: operationType = %raw(json` {
     {
       "args": null,
       "kind": "FragmentSpread",
-      "name": "ComputedVariableInspector_oneGraphAppPackageChainActionVariable"
+      "name": "ComputedVariableInspector_chainActionVariable"
     }
   ],
   "type": "OneGraphStudioChainActionVariable",

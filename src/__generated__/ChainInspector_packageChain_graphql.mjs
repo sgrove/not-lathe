@@ -54,7 +54,7 @@ return {
           "alias": null,
           "args": null,
           "kind": "ScalarField",
-          "name": "graphQLOperationKind",
+          "name": "graphqlOperationKind",
           "storageKey": null
         },
         {

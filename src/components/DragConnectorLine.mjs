@@ -8,6 +8,81 @@ import * as React from "react";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 
+function DragConnectorLine$Line(Props) {
+  var startX = Props.startX;
+  var startY = Props.startY;
+  var endX = Props.endX;
+  var endY = Props.endY;
+  var onMouseMove = Props.onMouseMove;
+  var highColor = Props.highColor;
+  var tmp = {
+    className: "absolute w-full h-full pointer-events-none",
+    style: {
+      cursor: "none",
+      left: "0px",
+      top: "0px",
+      zIndex: "9999"
+    }
+  };
+  if (onMouseMove !== undefined) {
+    tmp.onMouseMove = Caml_option.valFromOption(onMouseMove);
+  }
+  return React.createElement("div", tmp, React.createElement("svg", {
+                  className: "relative w-full h-full pointer-events-none",
+                  style: {
+                    cursor: "none",
+                    left: "0px",
+                    top: "0px",
+                    zIndex: "9999"
+                  },
+                  xmlns: "http://www.w3.org/2000/svg"
+                }, React.createElement("filter", {
+                      id: "blurMe"
+                    }, React.createElement("feGaussianBlur", {
+                          in: "SourceGraphic",
+                          stdDeviation: "5"
+                        })), React.createElement("marker", {
+                      id: "connectMarker",
+                      markerHeight: "4",
+                      markerWidth: "2",
+                      orient: "auto",
+                      refX: "0.1",
+                      refY: "2"
+                    }, React.createElement("path", {
+                          d: "M0 0v4l2-2z",
+                          fill: "green"
+                        })), React.createElement("line", {
+                      className: "pointer-events-none",
+                      style: {
+                        cursor: "none"
+                      },
+                      markerEnd: "url(#connectMarker)",
+                      stroke: highColor,
+                      strokeWidth: "3",
+                      x1: String(startX),
+                      x2: String(endX),
+                      y1: String(startY),
+                      y2: String(endY)
+                    }), React.createElement("line", {
+                      className: "moving-path pointer-events-none",
+                      style: {
+                        cursor: "none"
+                      },
+                      markerEnd: "url(#connectMarker)",
+                      stroke: Comps.colors["green-3"],
+                      strokeDasharray: "50",
+                      strokeWidth: "3",
+                      x1: String(startX),
+                      x2: String(endX),
+                      y1: String(startY),
+                      y2: String(endY)
+                    })));
+}
+
+var Line = {
+  make: DragConnectorLine$Line
+};
+
 function DragConnectorLine(Props) {
   var source = Props.source;
   var onDragEnd = Props.onDragEnd;
@@ -66,18 +141,11 @@ function DragConnectorLine(Props) {
       mouseX - 2 | 0,
       mouseY - 2 | 0
     ];
-  var endY = match$2[3];
-  var endX = match$2[2];
-  var startY = match$2[1];
-  var startX = match$2[0];
-  return React.createElement("div", {
-              className: "absolute w-full h-full pointer-events-none",
-              style: {
-                cursor: "none",
-                left: "0px",
-                top: "0px",
-                zIndex: "9999"
-              },
+  return React.createElement(DragConnectorLine$Line, {
+              startX: match$2[0],
+              startY: match$2[1],
+              endX: match$2[2],
+              endY: match$2[3],
               onMouseMove: (function ($$event) {
                   var x = $$event.clientX;
                   var y = $$event.clientY;
@@ -89,62 +157,15 @@ function DragConnectorLine(Props) {
                                         ]
                                       };
                               }));
-                })
-            }, React.createElement("svg", {
-                  className: "relative w-full h-full pointer-events-none",
-                  style: {
-                    cursor: "none",
-                    left: "0px",
-                    top: "0px",
-                    zIndex: "9999"
-                  },
-                  xmlns: "http://www.w3.org/2000/svg"
-                }, React.createElement("filter", {
-                      id: "blurMe"
-                    }, React.createElement("feGaussianBlur", {
-                          in: "SourceGraphic",
-                          stdDeviation: "5"
-                        })), React.createElement("marker", {
-                      id: "connectMarker",
-                      markerHeight: "4",
-                      markerWidth: "2",
-                      orient: "auto",
-                      refX: "0.1",
-                      refY: "2"
-                    }, React.createElement("path", {
-                          d: "M0 0v4l2-2z",
-                          fill: "green"
-                        })), React.createElement("line", {
-                      className: "pointer-events-none",
-                      style: {
-                        cursor: "none"
-                      },
-                      markerEnd: "url(#connectMarker)",
-                      stroke: Comps.colors["green-6"],
-                      strokeWidth: "3",
-                      x1: String(startX),
-                      x2: String(endX),
-                      y1: String(startY),
-                      y2: String(endY)
-                    }), React.createElement("line", {
-                      className: "moving-path pointer-events-none",
-                      style: {
-                        cursor: "none"
-                      },
-                      markerEnd: "url(#connectMarker)",
-                      stroke: Comps.colors["green-3"],
-                      strokeDasharray: "50",
-                      strokeWidth: "3",
-                      x1: String(startX),
-                      x2: String(endX),
-                      y1: String(startY),
-                      y2: String(endY)
-                    })));
+                }),
+              highColor: Comps.colors["green-6"]
+            });
 }
 
 var make = DragConnectorLine;
 
 export {
+  Line ,
   make ,
   
 }

@@ -5,11 +5,11 @@ import * as Curry from "rescript/lib/es6/curry.js";
 import * as React from "react";
 import * as Graphql from "graphql";
 import * as Compiler from "./lib/Compiler.mjs";
-import * as Inspector from "./components/Inspector.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as OneGraphRe from "./OneGraphRe.mjs";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
+import * as GraphQLForm from "./components/GraphQLForm.mjs";
 
 function Form$Main(Props) {
   var schema = Props.schema;
@@ -44,7 +44,7 @@ function Form$Main(Props) {
                               variable: def_variable,
                               type: def_type
                             };
-                            return Inspector.formInput(schema, def, setFormVariables, {});
+                            return GraphQLForm.formInput(schema, def, setFormVariables, {});
                           }));
             })), null);
   return React.createElement("div", {

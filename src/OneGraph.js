@@ -18,7 +18,7 @@ export async function basicFetchOneGraph(
     : {};
 
   const result = await fetch(
-    `https://serve.onegraph.com/graphql?app_id=${appId}&show_api_requests=true&show_metrics=true`,
+    `https://serve.onegraph.io/graphql?app_id=${appId}&show_api_requests=true&show_metrics=true`,
     {
       method: "POST",
       headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -61,7 +61,7 @@ export async function basicFetchOneGraphPersistedQuery(
     : {};
 
   const result = await fetch(
-    `https://serve.onegraph.com/graphql?app_id=${appId}`,
+    `https://serve.onegraph.io/graphql?app_id=${appId}`,
     {
       method: "POST",
       headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -164,7 +164,7 @@ export function persistQuery(
   fixedVariables,
   onComplete
 ) {
-  fetch(`https://serve.onegraph.com/graphql?app_id=${appId}`, {
+  fetch(`https://serve.onegraph.io/graphql?app_id=${appId}`, {
     method: "POST",
     headers: {
       Authorization: "Bearer " + persistQueryToken,

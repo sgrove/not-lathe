@@ -21,7 +21,24 @@ function toSimpleString(connectionDrag) {
   }
 }
 
-var context = React.createContext(/* Empty */0);
+var context = React.createContext({
+      onDragStart: (function (param) {
+          
+        }),
+      onDragEnd: (function (param) {
+          
+        }),
+      value: /* Empty */0,
+      onPotentialScriptSourceConnect: (function (param, param$1, param$2, param$3, param$4) {
+          
+        }),
+      onPotentialVariableSourceConnect: (function (param) {
+          
+        }),
+      onPotentialActionSourceConnect: (function (param) {
+          
+        })
+    });
 
 var provider = context.Provider;
 

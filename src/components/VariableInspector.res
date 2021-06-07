@@ -1,4 +1,4 @@
-module OneGraphStudioChainActionVariableFragment = %relay(`
+module Fragment = %relay(`
   fragment VariableInspector_oneGraphStudioChainActionVariable on OneGraphStudioChainActionVariable {
     id
     name
@@ -9,36 +9,69 @@ module OneGraphStudioChainActionVariableFragment = %relay(`
     maxRecur
     computeMethod: method
     probePath
-    ...ComputedVariableInspector_oneGraphAppPackageChainActionVariable
+    ...ComputedVariableInspector_chainActionVariable
+  }
+`)
+
+module UpdateVariableMutation = %relay(`
+  mutation VariableInspector_OneGraphMutation(
+    $variable: OneGraphUpdateChainActionVariableInput!
+  ) {
+    oneGraph {
+      updateChainActionVariable(input: $variable) {
+        variable {
+          ...VariableInspector_oneGraphStudioChainActionVariable
+        }
+      }
+    }
   }
 `)
 
 @react.component
-let make = (~variableRef) => {
-  let variable = OneGraphStudioChainActionVariableFragment.use(variableRef)
+let make = (~variableRef, ~actionId) => {
+  let variable = Fragment.use(variableRef)
+  let inputVariable: VariableInspector_OneGraphMutation_graphql.Types.oneGraphUpdateChainActionVariableInput = {
+    id: variable.id,
+    probePath: variable.probePath,
+    maxRecur: variable.maxRecur,
+    ifList: variable.ifList->Obj.magic,
+    ifMissing: variable.ifMissing->Obj.magic,
+    graphqlType: variable.graphqlType,
+    method_: variable.computeMethod->Obj.magic,
+    description: variable.description,
+    name: variable.name,
+  }
+
+  let (mutate, isMutating) = UpdateVariableMutation.use()
 
   open React
   let (potentialConnection, setPotentialConnection) = useState(() => Belt.Set.String.empty)
   let connectionDrag = useContext(ConnectionContext.context)
   let isOpen = true
 
-  let dragClassName = ""
+  let dragClassName = switch connectionDrag.value {
+  | ConnectionContext.StartedSource(_) => "drag-target"
+  | ConnectionContext.StartedTarget({target: Variable({variableId})})
+    if variableId == variable.id => "drag-source"
+  | _ => ""
+  }
 
   <article
     key={variable.name}
     id={"inspector-variable-" ++ variable.name}
+    disabled=true
     className={"m-2 variable-settings " ++
     dragClassName ++ {
       potentialConnection->Belt.Set.String.has(variable.name) ? " drop-ready" : ""
     }}
     onMouseEnter={event => {
-      switch connectionDrag {
+      switch connectionDrag.value {
       | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.add(variable.name))
       | _ => ()
       }
     }}
     onMouseLeave={event => {
-      switch connectionDrag {
+      switch connectionDrag.value {
       | StartedSource(_)
       | StartedTarget(_) =>
         setPotentialConnection(s => s->Belt.Set.String.remove(variable.name))
@@ -51,21 +84,19 @@ let make = (~variableRef) => {
       | true =>
         event->ReactEvent.Mouse.preventDefault
         event->ReactEvent.Mouse.stopPropagation
-        switch connectionDrag {
+        switch connectionDrag.value {
         | Empty =>
           let sourceDom = event->ReactEvent.Mouse.target
 
-          //   let connectionDrag: ConnectionContext.connectionDrag = StartedTarget({
-          //     target: Variable({
-          //       targetRequest: request,
-          //       variableDependency: varDep,
-          //     }),
-          //     sourceDom: sourceDom->Obj.magic,
-          //   })
+          let newConnectionDrag: ConnectionContext.connectionDrag = StartedTarget({
+            target: Variable({
+              actionId: actionId,
+              variableId: variable.id,
+            }),
+            sourceDom: sourceDom->Obj.magic,
+          })
 
-          //   onDragStart(~connectionDrag)
-          setPotentialConnection(s => s->Belt.Set.String.add(variable.name))
-
+          connectionDrag.onDragStart(~connectionDrag=newConnectionDrag)
         | _ => ()
         }
       }
@@ -75,21 +106,19 @@ let make = (~variableRef) => {
       let clientY = event->ReactEvent.Mouse.clientY
       let mouseClientPosition = (clientX, clientY)
       setPotentialConnection(s => s->Belt.Set.String.remove(variable.name))
-      switch connectionDrag {
-      | StartedSource({
-          sourceRequest,
-          sourceDom,
-        }) => // let connectionDrag = ConnectionContext.Completed({
-        //   sourceRequest: sourceRequest,
-        //   target: Variable({
-        //     variableDependency: varDep,
-        //     targetRequest: request,
-        //   }),
-        //   windowPosition: mouseClientPosition,
-        //   sourceDom: sourceDom,
-        // })
+      switch connectionDrag.value {
+      | StartedSource({sourceActionId, sourceDom}) =>
+        let newConnectionDrag = ConnectionContext.Completed({
+          sourceActionId: sourceActionId,
+          target: Variable({
+            variableId: variable.id,
+            actionId: actionId,
+          }),
+          windowPosition: mouseClientPosition,
+          sourceDom: sourceDom,
+        })
 
-        // onPotentialVariableSourceConnect(~connectionDrag)
+        connectionDrag.onPotentialVariableSourceConnect(~connectionDrag=newConnectionDrag)
         ()
       | _ => ()
       }
@@ -98,15 +127,7 @@ let make = (~variableRef) => {
       className={"flex justify-between items-center cursor-pointer p-1  text-gray-200 " ++
       (isOpen ? "rounded-t-sm" : "rounded-sm") ++ (
         potentialConnection->Belt.Set.String.has(variable.name) ? " border-blue-900" : ""
-      )}
-      onClick={_ => {
-        // setOpenedTabs(oldOpenedTabs =>
-        //   isOpen
-        //     ? oldOpenedTabs->Belt.Set.String.remove(varDep.name)
-        //     : oldOpenedTabs->Belt.Set.String.add(varDep.name)
-        // )
-        ()
-      }}>
+      )}>
       <div
         style={ReactDOMStyle.make(~color=Comps.colors["green-4"], ())}
         className=" font-semibold text-sm font-mono inline-block flex-grow">
@@ -118,13 +139,18 @@ let make = (~variableRef) => {
       <Comps.Select
         style={ReactDOMStyle.make(~paddingRight="40px", ())}
         value={switch variable.computeMethod {
-        | #COMPUTED => Some("compute")
-        | #DIRECT => Some("direct")
+        | #COMPUTED => Some("COMPUTED")
+        | #DIRECT => Some("DIRECT")
         | _ => None
-        }->Belt.Option.getWithDefault("")}>
+        }->Belt.Option.getWithDefault("")}
+        onChange={event => {
+          let value = ReactEvent.Form.target(event)["value"]
+          let newVariable = {...inputVariable, method_: value}
+          let _result: RescriptRelay.Disposable.t = mutate(~variables={variable: newVariable}, ())
+        }}>
         <option value={"variable"}> {"Variable Input"->string} </option>
-        <option value={"computed"}> {"Computed Value"->string} </option>
-        <option disabled=true value={"direct"}> {"Direct Connection"->string} </option>
+        <option value={"COMPUTED"}> {"Computed Value"->string} </option>
+        <option disabled=true value={"DIRECT"}> {"Direct Connection"->string} </option>
       </Comps.Select>
     </div>
     <label className="m-0">
@@ -146,14 +172,13 @@ let make = (~variableRef) => {
             let ifMissing = ReactEvent.Form.target(event)["value"]->Chain.ifMissingOfString
             switch ifMissing {
             | Error(_) => ()
-            | Ok(ifMissing) => // setArgDep(oldArgDep => {
-              //   let newArgDep = {
-              //     ...oldArgDep,
-              //     ifMissing: ifMissing,
-              //   }
-              //   newArgDep
-              // })
-              ()
+            | Ok(ifMissing) =>
+              let newVariable = {...inputVariable, ifMissing: ifMissing->Obj.magic}
+              let result: RescriptRelay.Disposable.t = mutate(
+                ~variables={variable: newVariable},
+                (),
+              )
+              result->ignore
             }
           }}>
           <option value={#ERROR->Chain.stringOfIfMissing}> {"Error"->string} </option>
@@ -176,23 +201,15 @@ let make = (~variableRef) => {
           style={ReactDOMStyle.make(~borderTopLeftRadius="0px", ~borderBottomLeftRadius="0px", ())}
           value={variable.ifList->Obj.magic}
           onChange={event => {
-            let ifList = ReactEvent.Form.target(event)["value"]->Chain.ifListOfString
-            switch ifList {
-            | Error(_) => ()
-            | Ok(ifList) => // setArgDep(oldArgDep => {
-              //   let newArgDep = {
-              //     ...oldArgDep,
-              //     ifMissing: ifMissing,
-              //   }
-              //   newArgDep
-              // })
-              ()
-            }
+            let ifList = ReactEvent.Form.target(event)["value"]
+            let newVariable = {...inputVariable, ifList: ifList->Obj.magic}
+            let result: RescriptRelay.Disposable.t = mutate(~variables={variable: newVariable}, ())
+            result->ignore
           }}>
-          <option value={#FIRST->Chain.stringOfIfList}> {"First item"->string} </option>
-          <option value={#LAST->Chain.stringOfIfList}> {"Last item"->string} </option>
-          <option value={#ALL->Chain.stringOfIfList}> {"All items as an array"->string} </option>
-          <option value={#EACH->Chain.stringOfIfList}> {"Run once for each item"->string} </option>
+          <option value={#FIRST->Obj.magic}> {"First item"->string} </option>
+          <option value={#LAST->Obj.magic}> {"Last item"->string} </option>
+          <option value={#ALL->Obj.magic}> {"All items as an array"->string} </option>
+          <option value={#EACH->Obj.magic}> {"Run once for each item"->string} </option>
         </Comps.Select>
       </div>
     </label>

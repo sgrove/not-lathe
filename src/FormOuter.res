@@ -17,7 +17,7 @@ module Inner = {
       let oneGraphAuth = OneGraphAuth.create(OneGraphAuth.createOptions(~appId=oneGraphAppId, ()))
 
       oneGraphAuth->Belt.Option.forEach(oneGraphAuth => {
-        let promise = OneGraphRe.fetchOneGraph(
+        let promise = OneGraphRe.fetchOneGraph(.
           oneGraphAuth,
           GraphQLJs.getIntrospectionQuery(),
           None,

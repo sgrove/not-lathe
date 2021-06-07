@@ -9,8 +9,16 @@ module Document = {
     @send external observe: (t, ('textEvent, 'transaction) => unit) => unit = "observe"
     @send external unobserve: (t, ('textEvent, 'transaction) => unit) => unit = "unobserve"
   }
-
   @send external getText: (t, string) => Text.t = "getText"
+
+  module Map = {
+    type t
+    @send external get: (t, string) => Js.Undefined.t<'value> = "get"
+    @send external set: (t, string, 'value) => unit = "set"
+    @send external observe: (t, ('mapEvent, 'transaction) => unit) => unit = "observe"
+    @send external unobserve: (t, ('mapEvent, 'transaction) => unit) => unit = "unobserve"
+  }
+  @send external getMap: (t, string) => Map.t = "getMap"
 
   @send external on: (t, string, ('update, 'origin, t) => unit) => unit = "on"
   @send external once: (t, string, ('update, 'origin, t) => unit) => unit = "once"
@@ -31,7 +39,23 @@ type update
 module Awareness = {
   type t
 
+  type stateChange<'a> = {
+    added: array<'a>,
+    removed: array<'a>,
+    updated: array<'a>,
+  }
+
+  type clientId
+
+  @get external getClientId: t => clientId = "clientID"
+  @send external getStates: t => Js.Dict.t<'state> = "getStates"
   @send external setLocalStateField: (t, string, 'value) => unit = "setLocalStateField"
+  @send
+  external onChange: (t, @as("change") _, (stateChange<'a>, 'transactionOrigin) => unit) => unit =
+    "on"
+  @send
+  external onUpdate: (t, @as("update") _, (stateChange<'a>, 'transactionOrigin) => unit) => unit =
+    "on"
 }
 
 module Stream = {
@@ -41,6 +65,7 @@ module Stream = {
 module Peer = {
   type t
 
+  @get external getChannelName: t => string = "channelName"
   @send external onStream: (t, @as("stream") _, Stream.t => unit) => unit = "on"
   @send external addStream: (t, Stream.t) => unit = "addStream"
 }
@@ -143,29 +168,9 @@ module Monaco = {
   type binding
   @new @module("./y-monaco.js")
   external createBinding: (
-    ~optimisticInitialText: string,
     ~yText: Document.Text.t,
     ~model: BsReactMonaco.Model.t,
     ~editors: 'editorSet,
     ~awareness: Awareness.t,
   ) => binding = "MonacoBinding"
 }
-
-// let ydocument = createDocument()
-// let yprovider = WebRTC.createProvider(
-//   "your-room-name",
-//   ydocument,
-//   WebRTC.providerOptions(
-//     ~password="optional-room-password",
-//     ~signaling=["wss://y-webrtc-ckynwnzncc.now.sh"],
-//     ~maxConns=20,
-//     (),
-//   ),
-// )
-
-// let typ = ydocument->Document.getText("monaco")
-
-// let editor = Obj.magic("editor")
-// let model = Obj.magic(editor)["getModel"]()
-
-// let monacoBinding = Monaco.createBinding(typ, model, [editor], yprovider->WebRTC.awareness)

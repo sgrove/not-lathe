@@ -2,8 +2,10 @@
 
 import * as Comps from "./Comps.mjs";
 import * as Curry from "rescript/lib/es6/curry.js";
+import * as Icons from "../Icons.mjs";
 import * as React from "react";
 import * as Js_dict from "rescript/lib/es6/js_dict.js";
+import * as Caml_obj from "rescript/lib/es6/caml_obj.js";
 import * as NodeLabel from "./NodeLabel.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
@@ -13,29 +15,32 @@ import * as Belt_SortArray from "rescript/lib/es6/belt_SortArray.js";
 import FragmentNodeJs from "./FragmentNode.js";
 import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as Hooks from "react-relay/hooks";
-import * as ReactFlowRenderer from "react-flow-renderer";
-import ReactFlowRenderer$1 from "react-flow-renderer";
+import ReactFlowRenderer from "react-flow-renderer";
+import * as ReactFlowRenderer$1 from "react-flow-renderer";
+import MouseCursorNodeJs from "./MouseCursorNode.js";
+import * as CollaborationContext from "./CollaborationContext.mjs";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
-import * as ChainCanvas_oneGraphAppPackageChain_graphql from "../__generated__/ChainCanvas_oneGraphAppPackageChain_graphql.mjs";
+import FlowRemoteConnectorJs from "./FlowRemoteConnector.js";
+import * as ChainCanvas_chain_graphql from "../__generated__/ChainCanvas_chain_graphql.mjs";
 
 function use(fRef) {
-  var data = Hooks.useFragment(ChainCanvas_oneGraphAppPackageChain_graphql.node, fRef);
-  return RescriptRelay_Internal.internal_useConvertedValue(ChainCanvas_oneGraphAppPackageChain_graphql.Internal.convertFragment, data);
+  var data = Hooks.useFragment(ChainCanvas_chain_graphql.node, fRef);
+  return RescriptRelay_Internal.internal_useConvertedValue(ChainCanvas_chain_graphql.Internal.convertFragment, data);
 }
 
 function useOpt(opt_fRef) {
   var fr = opt_fRef !== undefined ? Caml_option.some(Caml_option.valFromOption(opt_fRef)) : undefined;
-  var nullableFragmentData = Hooks.useFragment(ChainCanvas_oneGraphAppPackageChain_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
+  var nullableFragmentData = Hooks.useFragment(ChainCanvas_chain_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
   var data = (nullableFragmentData == null) ? undefined : Caml_option.some(nullableFragmentData);
   return RescriptRelay_Internal.internal_useConvertedValue((function (rawFragment) {
                 if (rawFragment !== undefined) {
-                  return ChainCanvas_oneGraphAppPackageChain_graphql.Internal.convertFragment(rawFragment);
+                  return ChainCanvas_chain_graphql.Internal.convertFragment(rawFragment);
                 }
                 
               }), data);
 }
 
-var OneGraphAppPackageChainFragment = {
+var Fragment = {
   Types: undefined,
   use: use,
   useOpt: useOpt
@@ -47,6 +52,18 @@ var FragmentNodeComponent = {
   make: make
 };
 
+var make$1 = MouseCursorNodeJs;
+
+var MouseCursorNodeComponent = {
+  make: make$1
+};
+
+var make$2 = FlowRemoteConnectorJs;
+
+var FlowRemoteConnector = {
+  make: make$2
+};
+
 function emptyGraphLevel(level) {
   return {
           nodeCount: 0,
@@ -56,12 +73,12 @@ function emptyGraphLevel(level) {
         };
 }
 
-function diagramFromApi(actions, onEditAction) {
+function diagramFromApi(actions, onEditAction, sharedBlockPositions) {
   var nodeStyle = {
     width: "unset"
   };
   var fragmentNodes = Belt_Array.mapWithIndex(Belt_SortArray.stableSortBy(Belt_Array.keep(actions, (function (action) {
-                  return false;
+                  return action.graphqlOperationKind === "FRAGMENT";
                 })), (function (a, b) {
               return a.name.localeCompare(b.name) | 0;
             })), (function (idx, block) {
@@ -101,9 +118,8 @@ function diagramFromApi(actions, onEditAction) {
         }
       }] : [];
   var operationBlocks = Belt_Array.keep(actions, (function (action) {
-          return true;
+          return action.graphqlOperationKind !== "FRAGMENT";
         }));
-  console.log("operationBlocks: ", operationBlocks);
   var levels = {};
   var graphLevels = {};
   var findReqLevel = function (action) {
@@ -148,11 +164,9 @@ function diagramFromApi(actions, onEditAction) {
   };
   Belt_Array.forEach(operationBlocks, (function (action) {
           var level = findReqLevel(action);
-          console.log("Req level for action: ", action, level);
           levels[action.id] = level;
           
         }));
-  console.log("Graph Levels: ", graphLevels);
   var totalWidth = Belt_Array.reduce(Js_dict.values(graphLevels), 0, (function (highest, next) {
           if (next.width > highest) {
             return next.width;
@@ -169,25 +183,23 @@ function diagramFromApi(actions, onEditAction) {
                             var halfWidth = totalWidth / 2;
                             var furthestLeft = halfWidth - graphLevel.width / 2;
                             var x = furthestLeft + node.left;
+                            var existingPosition = Belt_Option.flatMap(sharedBlockPositions, (function (positions) {
+                                    return Caml_option.undefined_to_opt(positions.get(action.id));
+                                  }));
+                            var position = Belt_Option.getWithDefault(existingPosition, {
+                                  x: x,
+                                  y: 100 + (50 + 10.0) * level
+                                });
                             return {
                                     id: action.id,
                                     type: "default",
                                     data: {
                                       label: React.createElement(NodeLabel.make, {
                                             actionRef: action.fragmentRefs,
-                                            onEditAction: onEditAction,
-                                            onDragStart: (function (param, param$1, param$2) {
-                                                
-                                              }),
-                                            onPotentialVariableSourceConnect: (function (param) {
-                                                
-                                              })
+                                            onEditAction: onEditAction
                                           })
                                     },
-                                    position: {
-                                      x: x,
-                                      y: 100 + (50 + 10.0) * level
-                                    },
+                                    position: position,
                                     draggable: true,
                                     connectable: true,
                                     className: "node-label",
@@ -260,76 +272,206 @@ function ChainCanvas(Props) {
   var chainRef = Props.chainRef;
   var onActionInspected = Props.onActionInspected;
   var onEditAction = Props.onEditAction;
+  var onSelectionCleared = Props.onSelectionCleared;
+  var onConnect = Props.onConnect;
   var chain = use(chainRef);
-  var diagram = diagramFromApi(chain.actions, onEditAction);
-  return React.createElement(ReactFlowRenderer$1, {
-              elements: diagram.elements,
+  var collaborationContext = React.useContext(CollaborationContext.context);
+  var sharedBlockPositions = Curry._2(collaborationContext.getSharedMap, chain.id, "positions");
+  var diagram = diagramFromApi(chain.actions, onEditAction, sharedBlockPositions);
+  var match = ReactFlowRenderer$1.useZoomPanHelper();
+  var project = match.project;
+  var connectorLines = [];
+  var mouseCursors = [];
+  Belt_Option.forEach(Curry._1(collaborationContext.getSharedChannelState, chain.id), (function (param) {
+          var localClientId = param[0];
+          var entries = Array.from(param[1].entries());
+          return Belt_Array.forEach(entries, (function (param) {
+                        var presence = param[1];
+                        var clientId = param[0];
+                        var match = Caml_obj.caml_equal(clientId, localClientId);
+                        var match$1 = presence.position;
+                        var match$2 = presence.connectSourceActionId;
+                        if (match) {
+                          return ;
+                        }
+                        if (match$1 === undefined) {
+                          return ;
+                        }
+                        var mouseElementId = "cursor-" + clientId;
+                        var mouseCursor = {
+                          id: mouseElementId,
+                          type: "mouseCursor",
+                          data: {
+                            label: React.createElement("div", {
+                                  className: "presence-mouse",
+                                  style: {
+                                    color: presence.color
+                                  }
+                                }, React.createElement("div", undefined, React.createElement(Icons.MouseCursor.make, {
+                                          className: "inline-block",
+                                          color: presence.color,
+                                          width: "16px",
+                                          height: "16px"
+                                        }), Belt_Option.mapWithDefault(Caml_option.undefined_to_opt(presence.audioVolumeLevel), null, (function (level) {
+                                            return React.createElement(Icons.Volume.Auto.make, {
+                                                        className: "inline-block",
+                                                        color: presence.color,
+                                                        width: "16px",
+                                                        height: "16px",
+                                                        level: level
+                                                      });
+                                          }))), React.createElement("div", {
+                                      className: "pl-2"
+                                    }, React.createElement("span", {
+                                          className: "pl-2"
+                                        }, presence.name)))
+                          },
+                          position: {
+                            x: match$1.x,
+                            y: match$1.y
+                          },
+                          draggable: false,
+                          selectable: false,
+                          connectable: true,
+                          className: "node-label"
+                        };
+                        Belt_Option.forEach(match$2 === undefined ? undefined : Caml_option.some(match$2), (function (connectSourceActionId) {
+                                var connectorLine = {
+                                  id: "edges-connect-line-" + clientId,
+                                  source: connectSourceActionId,
+                                  target: mouseElementId,
+                                  style: {
+                                    stroke: presence.color,
+                                    strokeWidth: "3px"
+                                  },
+                                  type: "straight"
+                                };
+                                connectorLines.push(connectorLine);
+                                
+                              }));
+                        mouseCursors.push(mouseCursor);
+                        
+                      }));
+        }));
+  var elements = Belt_Array.concatMany([
+        diagram.elements,
+        connectorLines,
+        mouseCursors
+      ]);
+  return React.createElement("div", {
               style: {
-                borderColor: Comps.colors["gray-10"],
-                borderStyle: "solid",
-                borderWidth: "1px"
+                height: "100%",
+                width: "100%"
               },
-              onElementClick: (function (param, node) {
-                  return Curry._1(onActionInspected, node.id);
-                }),
-              onElementsRemove: (function (elements) {
-                  
-                }),
-              connectionLineType: "smoothstep",
-              onPaneClick: (function (param) {
-                  
-                }),
-              onConnect: (function (info) {
-                  var source = info.source;
-                  var target = info.target;
-                  var sourceRequest = Belt_Array.getBy(chain.actions, (function (action) {
-                          return action.id === source;
-                        }));
-                  var targetRequest = Belt_Array.getBy(chain.actions, (function (action) {
-                          return action.id === target;
-                        }));
-                  if (sourceRequest !== undefined && targetRequest !== undefined) {
-                    return ;
-                  } else {
-                    console.warn("Couldn't find source or target request to connect");
-                    return ;
-                  }
-                }),
-              zoomOnScroll: false,
-              panOnScroll: true,
-              onNodeContextMenu: (function (_event, _node) {
-                  
-                }),
-              onPaneContextMenu: (function ($$event) {
-                  
-                }),
-              children: null,
-              nodeTypes: {
-                fragment: make
-              }
-            }, React.createElement(ReactFlowRenderer.Controls, {
-                  showZoom: false,
-                  showFitView: true,
-                  showInteractive: false
-                }), React.createElement(ReactFlowRenderer.Background, {
-                  variant: "lines",
-                  gap: 20,
-                  size: 1,
-                  color: Comps.colors["gray-1"],
+              onMouseMove: (function ($$event) {
+                  var boundingRect = $$event.currentTarget.getBoundingClientRect();
+                  var left = boundingRect.left;
+                  var top = boundingRect.top;
+                  var screenPosition_x = $$event.clientX - left | 0;
+                  var screenPosition_y = $$event.clientY - top | 0;
+                  var screenPosition = {
+                    x: screenPosition_x,
+                    y: screenPosition_y
+                  };
+                  var projectedPosition = project(screenPosition);
+                  return Curry._2(collaborationContext.updateLocalPosition, chain.id, projectedPosition);
+                })
+            }, React.createElement(ReactFlowRenderer, {
+                  elements: elements,
                   style: {
-                    backgroundColor: "rgb(31, 33, 37)"
+                    borderColor: Comps.colors["gray-10"],
+                    borderStyle: "solid",
+                    borderWidth: "1px"
+                  },
+                  onElementClick: (function (param, node) {
+                      return Curry._1(onActionInspected, node.id);
+                    }),
+                  connectionLineType: "smoothstep",
+                  onPaneClick: (function (param) {
+                      return Curry._1(onSelectionCleared, undefined);
+                    }),
+                  onNodeDrag: (function (_event, node) {
+                      if (sharedBlockPositions === undefined) {
+                        return ;
+                      }
+                      var id = node.id;
+                      var position = node.position;
+                      Caml_option.valFromOption(sharedBlockPositions).set(id, position);
+                      
+                    }),
+                  onConnect: (function (info) {
+                      var sourceAction = Belt_Array.getBy(chain.actions, (function (action) {
+                              return action.id === info.source;
+                            }));
+                      var targetAction = Belt_Array.getBy(chain.actions, (function (action) {
+                              return action.id === info.target;
+                            }));
+                      if (sourceAction !== undefined && targetAction !== undefined) {
+                        return Curry._2(onConnect, sourceAction.id, targetAction.id);
+                      } else {
+                        console.warn("Couldn't find source or target request to connect");
+                        return ;
+                      }
+                    }),
+                  onConnectStart: (function ($$event, node) {
+                      var boundingRect = $$event.currentTarget.getBoundingClientRect();
+                      var left = boundingRect.left;
+                      var top = boundingRect.top;
+                      var screenPosition_x = $$event.clientX - left | 0;
+                      var screenPosition_y = $$event.clientY - top | 0;
+                      var screenPosition = {
+                        x: screenPosition_x,
+                        y: screenPosition_y
+                      };
+                      console.log("Connect start: ", $$event, node);
+                      project(screenPosition);
+                      return Curry._2(collaborationContext.updateConnectSourceActionId, chain.id, node.nodeId);
+                    }),
+                  onConnectEnd: (function (_event, _node) {
+                      return Curry._2(collaborationContext.updateConnectSourceActionId, chain.id, undefined);
+                    }),
+                  zoomOnScroll: false,
+                  panOnScroll: true,
+                  onNodeContextMenu: (function (_event, _node) {
+                      
+                    }),
+                  onPaneContextMenu: (function ($$event) {
+                      $$event.preventDefault();
+                      
+                    }),
+                  children: null,
+                  nodeTypes: {
+                    fragment: make,
+                    mouseCursor: make$1
+                  },
+                  edgeTypes: {
+                    remote: make$2
                   }
-                }));
+                }, React.createElement(ReactFlowRenderer$1.Controls, {
+                      showZoom: false,
+                      showFitView: true,
+                      showInteractive: false
+                    }), React.createElement(ReactFlowRenderer$1.Background, {
+                      variant: "lines",
+                      gap: 20,
+                      size: 1,
+                      color: Comps.colors["gray-1"],
+                      style: {
+                        backgroundColor: "rgb(31, 33, 37)"
+                      }
+                    })));
 }
 
-var make$1 = ChainCanvas;
+var make$3 = ChainCanvas;
 
 export {
-  OneGraphAppPackageChainFragment ,
+  Fragment ,
   FragmentNodeComponent ,
+  MouseCursorNodeComponent ,
+  FlowRemoteConnector ,
   emptyGraphLevel ,
   diagramFromApi ,
-  make$1 as make,
+  make$3 as make,
   
 }
 /* make Not a pure module */

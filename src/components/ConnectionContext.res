@@ -1,30 +1,31 @@
 type scriptPosition = {lineNumber: int, column: int}
 
-type variableTarget = {targetRequest: Chain.request, variableDependency: Chain.variableDependency}
+type variableTarget = {actionId: string, variableId: string}
 
 type target =
   | Variable(variableTarget)
-  | Script({scriptPosition: scriptPosition})
+  | Script({scriptId: string, scriptPosition: scriptPosition})
+  | Action({targetActionId: string})
   | Input({inputDom: Dom.element})
 
 type connectionDrag =
   | Empty
-  | StartedSource({sourceRequest: Chain.request, sourceDom: Dom.element})
+  | StartedSource({sourceActionId: string, sourceDom: Dom.element})
   | StartedTarget({target: target, sourceDom: Dom.element})
   | CompletedPendingVariable({
-      sourceRequest: Chain.request,
+      sourceActionId: string,
       sourceDom: Dom.element,
-      targetRequest: Chain.request,
+      targetActionId: string,
       windowPosition: (int, int),
     })
   | Completed({
-      sourceRequest: Chain.request,
+      sourceActionId: string,
       sourceDom: Dom.element,
       target: target,
       windowPosition: (int, int),
     })
   | CompletedWithTypeMismatch({
-      sourceRequest: Chain.request,
+      sourceActionId: string,
       sourceDom: Dom.element,
       variableTarget: variableTarget,
       sourceType: string,
@@ -46,7 +47,35 @@ let toSimpleString = connectionDrag => {
   }
 }
 
-let context = React.createContext(Empty)
+type state = {
+  onDragStart: (~connectionDrag: connectionDrag) => unit,
+  onDragEnd: unit => unit,
+  value: connectionDrag,
+  onPotentialScriptSourceConnect: (
+    ~scriptId: string,
+    ~sourceActionId: string,
+    ~sourceDom: Dom.element,
+    ~scriptPosition: scriptPosition,
+    ~mousePosition: (int, int),
+  ) => unit,
+  onPotentialVariableSourceConnect: (~connectionDrag: connectionDrag) => unit,
+  onPotentialActionSourceConnect: (~connectionDrag: connectionDrag) => unit,
+}
+
+let context = React.createContext({
+  onDragStart: (~connectionDrag as _) => (),
+  onDragEnd: () => (),
+  onPotentialVariableSourceConnect: (~connectionDrag as _) => (),
+  onPotentialScriptSourceConnect: (
+    ~scriptId as _: string,
+    ~sourceActionId as _,
+    ~sourceDom as _,
+    ~scriptPosition as _,
+    ~mousePosition as _,
+  ) => (),
+  onPotentialActionSourceConnect: (~connectionDrag as _) => (),
+  value: Empty,
+})
 
 module Provider = {
   let provider = React.Context.provider(context)

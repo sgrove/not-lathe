@@ -467,35 +467,35 @@ module VirtualFileSystem = {
   external createDefaultMapFromCDN: (cdnOptions, string, bool, ts) => Js.Promise.t<Map.t> =
     "createDefaultMapFromCDN"
 
-  @module("@typescript/vfs") external createSystem: Map.t => system = "createSystem"
+  @module("@typescript/vfs") external createSystem: (. Map.t) => system = "createSystem"
 
   @module("@typescript/vfs")
-  external createVirtualTypeScriptEnvironment: (system, array<string>, ts, 'compilerOpts) => env =
+  external createVirtualTypeScriptEnvironment: (. system, array<string>, ts, 'compilerOpts) => env =
     "createVirtualTypeScriptEnvironment"
 
-  let make = () => {
-    let shouldCache = true
-    // let fsMap = Map.make()
-    createDefaultMapFromCDN(
-      cdnOptions(~target=Obj.magic(ts)["ScriptTarget"]["ES2015"]),
-      "3.7.3",
-      shouldCache,
-      ts,
-    )->Js.Promise.then_(fsMap => {
-      let system = createSystem(fsMap)
-      let env = createVirtualTypeScriptEnvironment(system, ["main.ts"], ts, {"o": true})
-      let program = Obj.magic(env)["languageService"]["getProgram"]()
-      let typeChecker = Obj.magic(program)["getTypeChecker"]()
-      Debug.assignToWindowForDeveloperDebug(~name="tsSystem", system)
-      Debug.assignToWindowForDeveloperDebug(~name="tsEnv", env)
-      Debug.assignToWindowForDeveloperDebug(~name="tsProgram", program)
-      Debug.assignToWindowForDeveloperDebug(~name="tsTypeChecker", typeChecker)
-      Debug.assignToWindowForDeveloperDebug(~name="fsMap", fsMap)
-      fsMap->Js.Promise.resolve
-    }, _)
-  }
+  // let make = () => {
+  //   let shouldCache = true
+  //   // let fsMap = Map.make()
+  //   createDefaultMapFromCDN(
+  //     cdnOptions(~target=Obj.magic(ts)["ScriptTarget"]["ES2015"]),
+  //     "3.7.3",
+  //     shouldCache,
+  //     ts,
+  //   )->Js.Promise.then_(fsMap => {
+  //     let system = createSystem(. fsMap)
+  //     let env = createVirtualTypeScriptEnvironment(. system, ["main.ts"], ts, {"o": true})
+  //     let program = Obj.magic(env)["languageService"]["getProgram"](.)
+  //     let typeChecker = Obj.magic(program)["getTypeChecker"](.)
+  //     Debug.assignToWindowForDeveloperDebug(~name="tsSystem", system)
+  //     Debug.assignToWindowForDeveloperDebug(~name="tsEnv", env)
+  //     Debug.assignToWindowForDeveloperDebug(~name="tsProgram", program)
+  //     Debug.assignToWindowForDeveloperDebug(~name="tsTypeChecker", typeChecker)
+  //     Debug.assignToWindowForDeveloperDebug(~name="fsMap", fsMap)
+  //     fsMap->Js.Promise.resolve
+  //   }, _)
+  // }
 
-  let makeWithFileSystem = (~onCreateFileSystem) => {
+  let makeWithFileSystem = (~mainFile, ~onCreateFileSystem) => {
     let shouldCache = true
     // let fsMap = Map.make()
     createDefaultMapFromCDN(
@@ -504,22 +504,21 @@ module VirtualFileSystem = {
       shouldCache,
       ts,
     )->Js.Promise.then_(fsMap => {
-      onCreateFileSystem(fsMap)
-      let system = createSystem(fsMap)
-      let env = createVirtualTypeScriptEnvironment(system, ["main.ts"], ts, %raw("{}"))
-      let program = Obj.magic(env)["languageService"]["getProgram"]()
-      let typeChecker = Obj.magic(program)["getTypeChecker"]()
-      Debug.assignToWindowForDeveloperDebug(~name="tsSystem", system)
-      Debug.assignToWindowForDeveloperDebug(~name="tsEnv", env)
-      Debug.assignToWindowForDeveloperDebug(~name="tsProgram", program)
-      Debug.assignToWindowForDeveloperDebug(~name="tsTypeChecker", typeChecker)
+      onCreateFileSystem(. fsMap)
       Debug.assignToWindowForDeveloperDebug(~name="fsMap", fsMap)
+      let system = createSystem(. fsMap)
+      let env = createVirtualTypeScriptEnvironment(. system, [mainFile], ts, %raw("{}"))
+      Debug.assignToWindowForDeveloperDebug(~name="tsEnv", env)
+      let program = Obj.magic(env)["languageService"]["getProgram"](.)
+      Debug.assignToWindowForDeveloperDebug(~name="tsProgram", program)
+      let typeChecker = Obj.magic(program)["getTypeChecker"](.)
+      Debug.assignToWindowForDeveloperDebug(~name="tsTypeChecker", typeChecker)
       (env, program, typeChecker, fsMap, system)->Js.Promise.resolve
     }, _)
   }
 
   let () = {
-    Debug.assignToWindowForDeveloperDebug(~name="makeFsMap", make)
+    // Debug.assignToWindowForDeveloperDebug(~name="makeFsMap", make)
     Debug.assignToWindowForDeveloperDebug(~name="makeWithFileSystem", makeWithFileSystem)
   }
   // let r = Obj.magic(env)["languageService"]["getDocumentHighlights"]("main.ts", 0, ["main.ts"])
@@ -546,15 +545,15 @@ let findTypeOfVariableDeclarationAtPosition = (
   ~fileName: string,
   ~position: int,
 ): option<('a, string)> => {
-  let program: program = Obj.magic(env)["languageService"]["getProgram"]()
-  let typeChecker = Obj.magic(program)["getTypeChecker"]()
-  let ast = Obj.magic(program)["getSourceFile"](fileName)
+  let program: program = Obj.magic(env)["languageService"]["getProgram"](.)
+  let typeChecker = Obj.magic(program)["getTypeChecker"](.)
+  let ast = Obj.magic(program)["getSourceFile"](. fileName)
 
   let node = findVariableDeclarationAtPosition(ast, position)
 
-  node->Belt.Option.map(node => (node, typeChecker["getTypeAtLocation"](node)))
+  node->Belt.Option.map(node => (node, typeChecker["getTypeAtLocation"](. node)))
 }
 
 let printType = (~flag=0, ~typeChecker: typeChecker, ~typeNode, ~node, ()) => {
-  Obj.magic(typeChecker)["typeToString"](typeNode, node, flag)
+  Obj.magic(typeChecker)["typeToString"](. typeNode, node, flag)
 }

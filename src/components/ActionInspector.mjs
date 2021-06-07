@@ -4,20 +4,24 @@ import * as Comps from "./Comps.mjs";
 import * as Curry from "rescript/lib/es6/curry.js";
 import * as Icons from "../Icons.mjs";
 import * as React from "react";
+import * as $$String from "rescript/lib/es6/string.js";
 import * as Graphql from "graphql";
 import * as GraphQLJs from "../bindings/GraphQLJs.mjs";
+import * as ActionForm from "./ActionForm.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as Caml_array from "rescript/lib/es6/caml_array.js";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
+import * as RelayRuntime from "relay-runtime";
+import * as Belt_SortArray from "rescript/lib/es6/belt_SortArray.js";
 import * as GraphQLPreview from "../bindings/GraphQLPreview.mjs";
-import * as ConnectionContext from "./ConnectionContext.mjs";
 import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as VariableInspector from "./VariableInspector.mjs";
 import CopyToClipboard from "copy-to-clipboard";
 import * as Hooks from "react-relay/hooks";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
 import * as ActionInspector_oneGraphStudioChainAction_graphql from "../__generated__/ActionInspector_oneGraphStudioChainAction_graphql.mjs";
+import * as ActionInspector_RemoveActionDependencyIdsMutation_graphql from "../__generated__/ActionInspector_RemoveActionDependencyIdsMutation_graphql.mjs";
 
 function use(fRef) {
   var data = Hooks.useFragment(ActionInspector_oneGraphStudioChainAction_graphql.node, fRef);
@@ -36,52 +40,122 @@ function useOpt(opt_fRef) {
               }), data);
 }
 
-var OneGraphStudioChainActionFragment = {
+var Fragment = {
   Types: undefined,
   use: use,
   useOpt: useOpt
 };
 
+function commitMutation(environment, variables, optimisticUpdater, optimisticResponse, updater, onCompleted, onError, uploadables, param) {
+  return RelayRuntime.commitMutation(environment, {
+              mutation: ActionInspector_RemoveActionDependencyIdsMutation_graphql.node,
+              variables: ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertVariables(variables),
+              onCompleted: (function (res, err) {
+                  if (onCompleted !== undefined) {
+                    return Curry._2(onCompleted, ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertResponse(res), (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              onError: (function (err) {
+                  if (onError !== undefined) {
+                    return Curry._1(onError, (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              optimisticResponse: optimisticResponse !== undefined ? ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertWrapRawResponse(optimisticResponse) : undefined,
+              optimisticUpdater: optimisticUpdater,
+              updater: updater !== undefined ? (function (store, r) {
+                    return Curry._2(updater, store, ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertResponse(r));
+                  }) : undefined,
+              uploadables: uploadables
+            });
+}
+
+function use$1(param) {
+  var match = Hooks.useMutation(ActionInspector_RemoveActionDependencyIdsMutation_graphql.node);
+  var mutate = match[0];
+  return [
+          React.useMemo((function () {
+                  return function (param, param$1, param$2, param$3, param$4, param$5, param$6, param$7, param$8) {
+                    return Curry._1(mutate, {
+                                onError: param,
+                                onCompleted: param$1 !== undefined ? (function (r, errors) {
+                                      return Curry._2(param$1, ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertResponse(r), (errors == null) ? undefined : Caml_option.some(errors));
+                                    }) : undefined,
+                                onUnsubscribe: param$2,
+                                optimisticResponse: param$3 !== undefined ? ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertWrapRawResponse(param$3) : undefined,
+                                optimisticUpdater: param$4,
+                                updater: param$5 !== undefined ? (function (store, r) {
+                                      return Curry._2(param$5, store, ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertResponse(r));
+                                    }) : undefined,
+                                variables: ActionInspector_RemoveActionDependencyIdsMutation_graphql.Internal.convertVariables(param$6),
+                                uploadables: param$7
+                              });
+                  };
+                }), [mutate]),
+          match[1]
+        ];
+}
+
+var RemoveActionDependencyIds_make_oneGraphRemoveActionDependencyIdsInput = ActionInspector_RemoveActionDependencyIdsMutation_graphql.Utils.make_oneGraphRemoveActionDependencyIdsInput;
+
+var RemoveActionDependencyIds_makeVariables = ActionInspector_RemoveActionDependencyIdsMutation_graphql.Utils.makeVariables;
+
+var RemoveActionDependencyIds_make_response_oneGraph_removeActionDependencyIds_action = ActionInspector_RemoveActionDependencyIdsMutation_graphql.Utils.make_response_oneGraph_removeActionDependencyIds_action;
+
+var RemoveActionDependencyIds_make_response_oneGraph_removeActionDependencyIds = ActionInspector_RemoveActionDependencyIdsMutation_graphql.Utils.make_response_oneGraph_removeActionDependencyIds;
+
+var RemoveActionDependencyIds_make_response_oneGraph = ActionInspector_RemoveActionDependencyIdsMutation_graphql.Utils.make_response_oneGraph;
+
+var RemoveActionDependencyIds_makeOptimisticResponse = ActionInspector_RemoveActionDependencyIdsMutation_graphql.Utils.makeOptimisticResponse;
+
+var RemoveActionDependencyIds = {
+  make_oneGraphRemoveActionDependencyIdsInput: RemoveActionDependencyIds_make_oneGraphRemoveActionDependencyIdsInput,
+  makeVariables: RemoveActionDependencyIds_makeVariables,
+  make_response_oneGraph_removeActionDependencyIds_action: RemoveActionDependencyIds_make_response_oneGraph_removeActionDependencyIds_action,
+  make_response_oneGraph_removeActionDependencyIds: RemoveActionDependencyIds_make_response_oneGraph_removeActionDependencyIds,
+  make_response_oneGraph: RemoveActionDependencyIds_make_response_oneGraph,
+  makeOptimisticResponse: RemoveActionDependencyIds_makeOptimisticResponse,
+  Types: undefined,
+  commitMutation: commitMutation,
+  use: use$1
+};
+
+function tsdef(schema, request) {
+  var ast = Graphql.parse(request.graphqlOperation);
+  var definition = Caml_array.get(ast.definitions, 0);
+  var typeScriptType = GraphQLJs.Mock.typeScriptForOperation(schema, definition, {});
+  return "\"" + request.name + "\": " + typeScriptType;
+}
+
 function ActionInspector(Props) {
   var actionRef = Props.actionRef;
   var schema = Props.schema;
   var actionNameIdPairs = Props.actionNameIdPairs;
-  var onDeleteEdge = Props.onDeleteEdge;
   var onInspectAction = Props.onInspectAction;
   var onInspectActionCode = Props.onInspectActionCode;
+  var onExecuteAction = Props.onExecuteAction;
   var action = use(actionRef);
-  var definition = Caml_array.get(Graphql.parse(action.graphQLOperation).definitions, 0);
+  var match = use$1(undefined);
+  var removeDependencyId = match[0];
+  var definition = Caml_array.get(Graphql.parse(action.graphqlOperation).definitions, 0);
   var definitionResultData = {};
-  React.useContext(ConnectionContext.context);
-  React.useState(function () {
-        
-      });
-  var match = React.useState(function () {
-        
-      });
-  React.useState(function () {
-        return {};
-      });
-  React.useState(function () {
+  var match$1 = React.useState(function () {
         
       });
   var domRef = React.useRef(null);
-  React.useState(function () {
-        
-      });
-  var match$1 = React.useState(function () {
+  var match$2 = React.useState(function () {
         return "inspector";
       });
-  var setOpenedTab = match$1[1];
-  var openedTab = match$1[0];
+  var setOpenedTab = match$2[1];
+  var openedTab = match$2[0];
   var upstreamActions = Belt_Array.keepMap(action.upstreamActionIds, (function (upstreamActionId) {
           var upstreamAction = Belt_Array.getBy(actionNameIdPairs, (function (param) {
                   return param[0] === upstreamActionId;
                 }));
           return Belt_Option.map(upstreamAction, (function (param) {
-                        var actionId = param[0];
                         return React.createElement("article", {
-                                    key: actionId + upstreamActionId,
+                                    key: action.id + upstreamActionId,
                                     className: "m-2"
                                   }, React.createElement("div", {
                                         className: "flex justify-between items-center cursor-pointer p-1 rounded-sm"
@@ -91,13 +165,29 @@ function ActionInspector(Props) {
                                               color: Comps.colors["green-4"]
                                             },
                                             onClick: (function (param) {
-                                                return Curry._1(onInspectAction, actionId);
+                                                return Curry._1(onInspectAction, upstreamActionId);
                                               })
                                           }, param[1]), React.createElement(Comps.Button.make, {
                                             onClick: (function ($$event) {
                                                 $$event.stopPropagation();
                                                 $$event.preventDefault();
-                                                return Curry._2(onDeleteEdge, actionId, upstreamActionId);
+                                                Curry.app(removeDependencyId, [
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      {
+                                                        input: {
+                                                          removeActionDependencyIds: [upstreamActionId],
+                                                          actionId: action.id
+                                                        }
+                                                      },
+                                                      undefined,
+                                                      undefined
+                                                    ]);
+                                                
                                               }),
                                             className: "og-secodary-button",
                                             children: null
@@ -148,9 +238,13 @@ function ActionInspector(Props) {
                           className: "mx-2"
                         }, "Try Action"))), openedTab === "inspector" ? React.createElement(React.Fragment, undefined, action.actionVariables.length !== 0 ? React.createElement(Comps.CollapsableSection.make, {
                           title: "Variable Settings",
-                          children: Belt_Array.map(action.actionVariables, (function (variable) {
+                          children: Belt_Array.map(Belt_SortArray.stableSortBy(action.actionVariables, (function (a, b) {
+                                      return $$String.compare(a.name, b.name);
+                                    })), (function (variable) {
                                   return React.createElement(VariableInspector.make, {
-                                              variableRef: variable.fragmentRefs
+                                              variableRef: variable.fragmentRefs,
+                                              actionId: action.id,
+                                              key: variable.id
                                             });
                                 }))
                         }) : null, action.actionVariables.length !== 0 ? React.createElement(Comps.CollapsableSection.make, {
@@ -164,7 +258,7 @@ function ActionInspector(Props) {
                                         className: "inline-block ml-2"
                                       }))),
                           children: React.createElement(Comps.Pre.make, {
-                                children: Belt_Option.getWithDefault(Belt_Option.map(match[0], (function (r) {
+                                children: Belt_Option.getWithDefault(Belt_Option.map(match$1[0], (function (r) {
                                             var tmp;
                                             tmp = r._0;
                                             return JSON.stringify(tmp, null, 2);
@@ -199,19 +293,27 @@ function ActionInspector(Props) {
                       })) : React.createElement(Comps.CollapsableSection.make, {
                     title: "Execute block",
                     children: null
-                  }, null, React.createElement(Comps.Pre.make, {
+                  }, React.createElement(ActionForm.make, {
+                        schema: schema,
+                        actionRef: action.fragmentRefs,
+                        onExecuteAction: onExecuteAction
+                      }), React.createElement(Comps.Pre.make, {
                         children: Belt_Option.mapWithDefault({
                               cachedResult: "nothing here"
                             }, "Nothing", (function (json) {
                                 return JSON.stringify(json, null, 2);
                               }))
-                      })));
+                      })), React.createElement(Comps.Pre.make, {
+                  children: tsdef(schema, action)
+                }));
 }
 
 var make = ActionInspector;
 
 export {
-  OneGraphStudioChainActionFragment ,
+  Fragment ,
+  RemoveActionDependencyIds ,
+  tsdef ,
   make ,
   
 }

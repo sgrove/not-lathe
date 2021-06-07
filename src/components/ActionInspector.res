@@ -1,62 +1,99 @@
-module OneGraphStudioChainActionFragment = %relay(`
+module Fragment = %relay(`
   fragment ActionInspector_oneGraphStudioChainAction on OneGraphStudioChainAction {
     id
     name
     description
     upstreamActionIds
-    graphQLOperation
+    graphqlOperation
     actionVariables: variables {
+      id
+      name
       ...VariableInspector_oneGraphStudioChainActionVariable
+    }
+    ...ActionForm_oneGraphStudioChainAction
+  }
+`)
+
+module RemoveActionDependencyIds = %relay(`
+  mutation ActionInspector_RemoveActionDependencyIdsMutation(
+    $input: OneGraphRemoveActionDependencyIdsInput!
+  ) {
+    oneGraph {
+      removeActionDependencyIds(input: $input) {
+        action {
+          ...ActionInspector_oneGraphStudioChainAction
+        }
+      }
     }
   }
 `)
+
+let tsdef = (
+  ~schema,
+  request: ActionInspector_oneGraphStudioChainAction_graphql.Types.fragment,
+) => {
+  let ast = request.graphqlOperation->GraphQLJs.parse
+  let definition = ast.definitions[0]
+
+  let typeScriptType =
+    schema->GraphQLJs.Mock.typeScriptForOperation(definition, ~fragmentDefinitions=Js.Dict.empty())
+
+  j`"${request.name}": ${typeScriptType}`
+}
 
 @react.component
 let make = (
   ~actionRef,
   ~schema,
   ~actionNameIdPairs: array<(string, string)>,
-  ~onDeleteEdge,
   ~onInspectAction: (~actionId: string) => unit,
   ~onInspectActionCode: (~actionId: string) => unit,
+  ~onExecuteAction: (
+    ~actionId: string,
+    ~variables: Js.Dict.t<'c>,
+    ~authToken: option<string>,
+  ) => unit,
 ) => {
-  let action = OneGraphStudioChainActionFragment.use(actionRef)
+  let action = Fragment.use(actionRef)
+  let (removeDependencyId, _isRemovingDependencyId) = RemoveActionDependencyIds.use()
 
   // Temp data
-  let definition = GraphQLJs.parse(action.graphQLOperation).definitions[0]
+  let definition = GraphQLJs.parse(action.graphqlOperation).definitions[0]
   let chainFragmentsDoc = ""
   let definitionResultData = Js.Dict.empty()
 
   open React
 
-  let connectionDrag = useContext(ConnectionContext.context)
-
-  let (openedTabs, setOpenedTabs) = useState(() => Belt.Set.String.empty)
   let (mockedEvalResults, setMockedEvalResults) = useState(() => None)
-  let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
-  let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
   let domRef = React.useRef(Js.Nullable.null)
-  let (currentAuthToken, setCurrentAuthToken) = useState(() => None)
   let (openedTab, setOpenedTab) = React.useState(() => #inspector)
 
   let upstreamActions = action.upstreamActionIds->Belt.Array.keepMap(upstreamActionId => {
     let upstreamAction = actionNameIdPairs->Belt.Array.getBy(((id, _)) => id == upstreamActionId)
 
-    upstreamAction->Belt.Option.map(((actionId, actionName)) => {
-      <article key={actionId ++ upstreamActionId} className="m-2">
+    upstreamAction->Belt.Option.map(((_, upstreamActionName)) => {
+      <article key={action.id ++ upstreamActionId} className="m-2">
         <div className={"flex justify-between items-center cursor-pointer p-1 rounded-sm"}>
           <span
             className="font-semibold text-sm font-mono pl-2"
             style={ReactDOMStyle.make(~color=Comps.colors["green-4"], ())}
-            onClick={_ => onInspectAction(~actionId)}>
-            {actionName->string}
+            onClick={_ => onInspectAction(~actionId=upstreamActionId)}>
+            {upstreamActionName->string}
           </span>
           <Comps.Button
             className="og-secodary-button"
             onClick={event => {
               event->ReactEvent.Mouse.stopPropagation
               event->ReactEvent.Mouse.preventDefault
-              onDeleteEdge(~targetRequestId=actionId, ~dependencyId=upstreamActionId)
+              let _result: RescriptRelay.Disposable.t = removeDependencyId(
+                ~variables={
+                  input: {
+                    actionId: action.id,
+                    removeActionDependencyIds: [upstreamActionId],
+                  },
+                },
+                (),
+              )
             }}>
             <Icons.Trash color={Comps.colors["gray-4"]} className="inline mr-2" />
             {"Remove Dependency"->string}
@@ -105,8 +142,11 @@ let make = (
         {action.actionVariables->Belt.Array.length > 0
           ? <Comps.CollapsableSection title={"Variable Settings"->React.string}>
               {action.actionVariables
+              ->Belt.SortArray.stableSortBy((a, b) => String.compare(a.name, b.name))
               ->Belt.Array.map(variable => {
-                <VariableInspector variableRef={variable.fragmentRefs} />
+                <VariableInspector
+                  key={variable.id} variableRef={variable.fragmentRefs} actionId={action.id}
+                />
               })
               ->array}
             </Comps.CollapsableSection>
@@ -173,7 +213,7 @@ let make = (
       </>
     | #form =>
       <Comps.CollapsableSection title={"Execute block"->string}>
-        {null}
+        <ActionForm schema={schema} actionRef={action.fragmentRefs} onExecuteAction />
         <Comps.Pre>
           {Some({"cachedResult": "nothing here"})
           ->Belt.Option.mapWithDefault("Nothing", json =>
@@ -183,5 +223,6 @@ let make = (
         </Comps.Pre>
       </Comps.CollapsableSection>
     }}
+    <Comps.Pre> {action->tsdef(~schema)->string} </Comps.Pre>
   </div>
 }

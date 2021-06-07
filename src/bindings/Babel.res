@@ -31,8 +31,8 @@ module Insight = {
     runId: int,
   }
 
-  type runner = transformResult => array<evaluationRecord>
-  type asyncRunner = transformResult => Js.Promise.t<array<evaluationRecord>>
+  type runner = (. transformResult) => array<evaluationRecord>
+  type asyncRunner = (. transformResult) => Js.Promise.t<array<evaluationRecord>>
   type recorder
   type recordStore
 
@@ -109,7 +109,9 @@ function error(...args) {
 
 globalThis.console = {log, info, debug, warn, error};`
 
-  let wasmQuickJSRunner: asyncRunner = transformResult => {
+  let wasmQuickJSRunner: asyncRunner = (. transformResult) => {
+    Js.log("Wasm eval: ")
+    Js.log(transformResult.code)
     let rs: array<evaluationRecord> = []
 
     let recorder = createRecorder(r => {
@@ -165,7 +167,9 @@ globalThis.console = {log, info, debug, warn, error};`
             > =
               Js.Json.parseExn(value)->Obj.magic
 
-            let temp = Obj.magic(recorder)(
+            Js.log2("Recorder fn called!", json)
+
+            let temp = Obj.magic(recorder)(.
               json.value,
               json.source,
               json.line,
@@ -182,6 +186,7 @@ globalThis.console = {log, info, debug, warn, error};`
             ->Js.Nullable.toOption
             ->Belt.Option.forEach(temp => {
               let _length = rs->Js.Array2.push(temp->Obj.magic)
+              Js.log3("Fill temp: ", rs, temp)
             })
             vm->VM.undefined
           })
@@ -218,7 +223,7 @@ let serializedRecord = JSON.stringify({
     }, _)
   }
 
-  let exampleRunner: runner = transformResult => {
+  let exampleRunner: runner = (. transformResult) => {
     let rs: array<evaluationRecord> = []
 
     let {code} = transformResult
@@ -271,8 +276,8 @@ let serializedRecord = JSON.stringify({
 
     // 2. run code, collect run records
     try {
-      transformResult->Belt.Result.map(transformResult => {
-        let r = runner(transformResult)
+      transformResult->Belt.Result.mapU((. transformResult) => {
+        let r = runner(. transformResult)
 
         // r->Belt.Array.forEach(record => store->addRecord(record))
         r
@@ -310,7 +315,8 @@ let serializedRecord = JSON.stringify({
     // 2. run code, collect run records
     try {
       transformResult->Belt.Result.map(transformResult => {
-        let r = runner(transformResult)
+        let r = runner(. transformResult)
+        Js.log2("Runner result: ", r)
 
         // r->Belt.Array.forEach(record => store->addRecord(record))
         r
@@ -326,3 +332,9 @@ let serializedRecord = JSON.stringify({
     }
   }
 }
+
+let insight: ref<Insight.insight> = ref({
+  Insight.store: Insight.createRecordStore(),
+  latestRunId: 0,
+  previousRunId: -1,
+})

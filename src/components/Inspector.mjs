@@ -11,27 +11,26 @@ import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as ReactSpring from "react-spring";
 import * as ChainInspector from "./ChainInspector.mjs";
 import * as ActionInspector from "./ActionInspector.mjs";
-import * as GraphQLFormJs from "../GraphQLForm.js";
 import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as RequestValueCache from "../RequestValueCache.mjs";
 import * as Hooks from "react-relay/hooks";
 import * as ReactHotkeysHook from "react-hotkeys-hook";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
-import * as Inspector_oneGraphAppPackageChain_graphql from "../__generated__/Inspector_oneGraphAppPackageChain_graphql.mjs";
+import * as Inspector_chain_graphql from "../__generated__/Inspector_chain_graphql.mjs";
 import * as Inspector_SubInspector_packageChain_graphql from "../__generated__/Inspector_SubInspector_packageChain_graphql.mjs";
 
 function use(fRef) {
-  var data = Hooks.useFragment(Inspector_oneGraphAppPackageChain_graphql.node, fRef);
-  return RescriptRelay_Internal.internal_useConvertedValue(Inspector_oneGraphAppPackageChain_graphql.Internal.convertFragment, data);
+  var data = Hooks.useFragment(Inspector_chain_graphql.node, fRef);
+  return RescriptRelay_Internal.internal_useConvertedValue(Inspector_chain_graphql.Internal.convertFragment, data);
 }
 
 function useOpt(opt_fRef) {
   var fr = opt_fRef !== undefined ? Caml_option.some(Caml_option.valFromOption(opt_fRef)) : undefined;
-  var nullableFragmentData = Hooks.useFragment(Inspector_oneGraphAppPackageChain_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
+  var nullableFragmentData = Hooks.useFragment(Inspector_chain_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
   var data = (nullableFragmentData == null) ? undefined : Caml_option.some(nullableFragmentData);
   return RescriptRelay_Internal.internal_useConvertedValue((function (rawFragment) {
                 if (rawFragment !== undefined) {
-                  return Inspector_oneGraphAppPackageChain_graphql.Internal.convertFragment(rawFragment);
+                  return Inspector_chain_graphql.Internal.convertFragment(rawFragment);
                 }
                 
               }), data);
@@ -42,10 +41,6 @@ var OneGraphAppPackageChainFragment = {
   use: use,
   useOpt: useOpt
 };
-
-function formInput(prim0, prim1, prim2, prim3) {
-  return GraphQLFormJs.formInput(prim0, prim1, prim2, prim3);
-}
 
 function forceablySetInputValue(node, value) {
   var helper = (function(node, value) {
@@ -105,8 +100,8 @@ function Inspector$SubInspector(Props) {
   var onInspectAction = Props.onInspectAction;
   var onInspectActionCode = Props.onInspectActionCode;
   var requestValueCache = Props.requestValueCache;
-  var onDeleteEdge = Props.onDeleteEdge;
   var fragmentRefs = Props.subInspectorRef;
+  var onExecuteAction = Props.onExecuteAction;
   var subInspectorRef = use$1(fragmentRefs);
   ReactHotkeysHook.useHotkeys("esc", (function ($$event, _handler) {
           $$event.preventDefault();
@@ -153,9 +148,9 @@ function Inspector$SubInspector(Props) {
                         actionRef: action.fragmentRefs,
                         schema: schema,
                         actionNameIdPairs: actionNameIdPairs,
-                        onDeleteEdge: onDeleteEdge,
                         onInspectAction: onInspectAction,
-                        onInspectActionCode: onInspectActionCode
+                        onInspectActionCode: onInspectActionCode,
+                        onExecuteAction: onExecuteAction
                       });
           }));
   }
@@ -220,12 +215,11 @@ function Inspector(Props) {
   var onLogin = Props.onLogin;
   var onInspectActionCode = Props.onInspectActionCode;
   var requestValueCache = Props.requestValueCache;
-  var onDeleteEdge = Props.onDeleteEdge;
   var onInspectAction = Props.onInspectAction;
   var oneGraphAuth = Props.oneGraphAuth;
   var onClose = Props.onClose;
-  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
   var fragmentRefs = Props.fragmentRefs;
+  var onExecuteAction = Props.onExecuteAction;
   var chainRef = use(fragmentRefs);
   var subInspectorRef = React.useRef(undefined);
   var transitions = ReactSpring.useTransition(typeof inspected === "number" ? false : true, undefined, {
@@ -260,7 +254,6 @@ function Inspector(Props) {
                   }
                 }, React.createElement(ChainInspector.make, {
                       chainExecutionResults: chainExecutionResults,
-                      onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
                       onLogin: onLogin,
                       onInspectAction: onInspectAction,
                       oneGraphAuth: oneGraphAuth,
@@ -280,8 +273,8 @@ function Inspector(Props) {
                                         onInspectAction: onInspectAction,
                                         onInspectActionCode: onInspectActionCode,
                                         requestValueCache: requestValueCache,
-                                        onDeleteEdge: onDeleteEdge,
-                                        subInspectorRef: chainRef.fragmentRefs
+                                        subInspectorRef: chainRef.fragmentRefs,
+                                        onExecuteAction: onExecuteAction
                                       })
                                 });
                     } else {
@@ -294,7 +287,6 @@ var make = Inspector;
 
 export {
   OneGraphAppPackageChainFragment ,
-  formInput ,
   forceablySetInputValue ,
   transformAndExecuteChain ,
   SubInspectorFragment ,

@@ -1,15 +1,13 @@
 module OneGraphStudioChainActionFragment = %relay(`
-  fragment NodeLabel_oneGraphStudioChainAction on OneGraphStudioChainAction {
+  fragment NodeLabel_action on OneGraphStudioChainAction {
     id
     name
     services
   }
 `)
 
-type state = {isOpen: bool}
-
 @react.component
-let make = (~actionRef, ~onEditAction, ~onDragStart, ~onPotentialVariableSourceConnect) => {
+let make = (~actionRef, ~onEditAction) => {
   let action: OneGraphStudioChainActionFragment.Types.fragment = OneGraphStudioChainActionFragment.use(
     actionRef,
   )
@@ -58,29 +56,29 @@ let make = (~actionRef, ~onEditAction, ~onDragStart, ~onPotentialVariableSourceC
 
   let domRef = React.useRef(Js.Nullable.null)
 
-  //   let className = switch (connectionDrag, #query, mouseHover) {
-  //   | (ConnectionContext.StartedSource({sourceRequest}), _, true)
-  //   | (CompletedPendingVariable({sourceRequest}), _, true)
-  //     if Some(sourceRequest) != action => "node-drop drag-target drop-ready"
-  //   | (ConnectionContext.StartedSource({sourceRequest}), _, _)
-  //   | (CompletedPendingVariable({sourceRequest}), _, _)
-  //     if Some(sourceRequest) != action => "node-drop drag-target"
+  let className = switch (connectionDrag.value, #query, mouseHover) {
+  | (ConnectionContext.StartedSource({sourceActionId}), _, true)
+  | (CompletedPendingVariable({sourceActionId}), _, true)
+    if sourceActionId != action.id => "node-drop drag-target drop-ready"
+  | (ConnectionContext.StartedSource({sourceActionId}), _, _)
+  | (CompletedPendingVariable({sourceActionId}), _, _)
+    if sourceActionId != action.id => "node-drop drag-target"
 
-  //   | (ConnectionContext.StartedSource({sourceRequest}), _, _)
-  //   | (Completed({sourceRequest}), _, _)
-  //     if Some(sourceRequest) == action => "node-drop drag-source no-drop"
-  //   | (ConnectionContext.StartedSource({sourceRequest}), _, _)
-  //   | (CompletedPendingVariable({sourceRequest}), _, _)
-  //     if Some(sourceRequest) == action => "node-drop drag-source no-drop"
+  | (ConnectionContext.StartedSource({sourceActionId}), _, _)
+  | (Completed({sourceActionId}), _, _)
+    if sourceActionId == action.id => "node-drop drag-source no-drop"
+  | (ConnectionContext.StartedSource({sourceActionId}), _, _)
+  | (CompletedPendingVariable({sourceActionId}), _, _)
+    if sourceActionId == action.id => "node-drop drag-source no-drop"
 
-  //   | (ConnectionContext.StartedTarget(_), #fragment, _) => ""
-  //   | (ConnectionContext.StartedTarget({target: Variable({targetRequest})}), _, _)
-  //     if Some(targetRequest) == action => " node-drop drag-source no-drop"
-  //   | (ConnectionContext.StartedTarget(_), _, true) => " node-drop drag-target drop-ready"
-  //   | (ConnectionContext.StartedTarget(_), _, false) => " node-drop drag-target"
-  //   | _ => ""
-  //   }
-  let className = ""
+  | (ConnectionContext.StartedTarget(_), #fragment, _) => ""
+  | (ConnectionContext.StartedTarget({target: Variable({actionId})}), _, _)
+    if actionId == action.id => " node-drop drag-source no-drop"
+  | (ConnectionContext.StartedTarget(_), _, true) => " node-drop drag-target drop-ready"
+  | (ConnectionContext.StartedTarget(_), _, false) => " node-drop drag-target"
+  | _ => ""
+  }
+
   <div
     ref={ReactDOM.Ref.domRef(domRef)}
     className={"flex align-middle items-center min-w-max flex-row items-stretch " ++ className}
@@ -96,35 +94,42 @@ let make = (~actionRef, ~onEditAction, ~onDragStart, ~onPotentialVariableSourceC
       | true =>
         event->ReactEvent.Mouse.preventDefault
         event->ReactEvent.Mouse.stopPropagation
-        onDragStart(~event, ~request=action, ~domRef=domRef.current)
+        let newConnectionDrag =
+          domRef.current
+          ->Js.Nullable.toOption
+          ->Belt.Option.mapWithDefault(ConnectionContext.Empty, domRef => StartedSource({
+            sourceActionId: action.id,
+            sourceDom: domRef,
+          }))
+        connectionDrag.onDragStart(~connectionDrag=newConnectionDrag)
       }
     }}
-    // onMouseUp={event => {
-    //   let clientX = event->ReactEvent.Mouse.clientX
-    //   let clientY = event->ReactEvent.Mouse.clientY
-    //   let mouseClientPosition = (clientX, clientY)
+    onMouseUp={event => {
+      let clientX = event->ReactEvent.Mouse.clientX
+      let clientY = event->ReactEvent.Mouse.clientY
+      let mouseClientPosition = (clientX, clientY)
 
-    //   switch connectionDrag {
-    //   | StartedSource({sourceRequest} as dragInfo) if sourceRequest != request =>
-    //     let connectionDrag = ConnectionContext.CompletedPendingVariable({
-    //       sourceRequest: dragInfo.sourceRequest,
-    //       sourceDom: dragInfo.sourceDom,
-    //       windowPosition: mouseClientPosition,
-    //       targetRequest: request,
-    //     })
-    //     onPotentialVariableSourceConnect(~connectionDrag)
+      switch connectionDrag.value {
+      | StartedSource({sourceActionId} as dragInfo) if sourceActionId != action.id =>
+        let newConnectionDrag = ConnectionContext.CompletedPendingVariable({
+          sourceActionId: dragInfo.sourceActionId,
+          sourceDom: dragInfo.sourceDom,
+          windowPosition: mouseClientPosition,
+          targetActionId: action.id,
+        })
+        connectionDrag.onPotentialVariableSourceConnect(~connectionDrag=newConnectionDrag)
 
-    //   | StartedTarget(dragInfo) =>
-    //     let connectionDrag = ConnectionContext.Completed({
-    //       sourceRequest: request,
-    //       sourceDom: dragInfo.sourceDom,
-    //       windowPosition: mouseClientPosition,
-    //       target: dragInfo.target,
-    //     })
-    //     onPotentialVariableSourceConnect(~connectionDrag)
-    //   | _ => ()
-    //   }
-    // }}
+      | StartedTarget(dragInfo) =>
+        let newConnectionDrag = ConnectionContext.Completed({
+          sourceActionId: action.id,
+          sourceDom: dragInfo.sourceDom,
+          windowPosition: mouseClientPosition,
+          target: dragInfo.target,
+        })
+        connectionDrag.onPotentialVariableSourceConnect(~connectionDrag=newConnectionDrag)
+      | _ => ()
+      }
+    }}
     onContextMenu={event => {
       ()
     }}>

@@ -1,20 +1,21 @@
-module OneGraphAppFragment = %relay(`
+module Fragment = %relay(`
   fragment PackageList_oneGraphApp on OneGraphApp {
     packages {
-      ...PackageViewer_oneGraphAppPackage
+      id
+      ...PackageViewer_package
     }
   }
 `)
 
 @react.component
 let make = (~oneGraphApp, ~authTokensRef, ~schema) => {
-  let oneGraphApp = OneGraphAppFragment.use(oneGraphApp)
+  let oneGraphApp = Fragment.use(oneGraphApp)
 
   open React
   <>
     {oneGraphApp.packages
     ->Belt.Array.map(package => {
-      <li>
+      <li key={package.id}>
         <PackageViewer
           onCreateChain={i => Js.log2("OnCreateChain", i)}
           onInspectChain={i => Js.log2("onInspectChain", i)}

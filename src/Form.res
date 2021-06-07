@@ -27,7 +27,7 @@ module Main = {
             typ: exposedVariable.upstreamType->GraphQLJs.parseType->Obj.magic,
           }
 
-          Inspector.formInput(schema, def, setFormVariables, Inspector.formInputOptions())
+          GraphQLForm.formInput(schema, def, setFormVariables, GraphQLForm.formInputOptions())
         })
 
         inputs->React.array
@@ -58,7 +58,7 @@ module Main = {
             let targetChain = compiledOperation.chains->Belt.Array.get(0)->Belt.Option.getUnsafe
             let variables = Some(formVariables->Obj.magic)
 
-            OneGraphRe.basicFetchOneGraphPersistedQuery(
+            OneGraphRe.basicFetchOneGraphPersistedQuery(.
               ~appId,
               ~accessToken=None,
               ~docId=chainId,

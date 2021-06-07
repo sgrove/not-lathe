@@ -5,20 +5,20 @@ import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as Hooks from "react-relay/hooks";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
-import * as ComputedVariableInspector_oneGraphAppPackageChainActionVariable_graphql from "../__generated__/ComputedVariableInspector_oneGraphAppPackageChainActionVariable_graphql.mjs";
+import * as ComputedVariableInspector_chainActionVariable_graphql from "../__generated__/ComputedVariableInspector_chainActionVariable_graphql.mjs";
 
 function use(fRef) {
-  var data = Hooks.useFragment(ComputedVariableInspector_oneGraphAppPackageChainActionVariable_graphql.node, fRef);
-  return RescriptRelay_Internal.internal_useConvertedValue(ComputedVariableInspector_oneGraphAppPackageChainActionVariable_graphql.Internal.convertFragment, data);
+  var data = Hooks.useFragment(ComputedVariableInspector_chainActionVariable_graphql.node, fRef);
+  return RescriptRelay_Internal.internal_useConvertedValue(ComputedVariableInspector_chainActionVariable_graphql.Internal.convertFragment, data);
 }
 
 function useOpt(opt_fRef) {
   var fr = opt_fRef !== undefined ? Caml_option.some(Caml_option.valFromOption(opt_fRef)) : undefined;
-  var nullableFragmentData = Hooks.useFragment(ComputedVariableInspector_oneGraphAppPackageChainActionVariable_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
+  var nullableFragmentData = Hooks.useFragment(ComputedVariableInspector_chainActionVariable_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
   var data = (nullableFragmentData == null) ? undefined : Caml_option.some(nullableFragmentData);
   return RescriptRelay_Internal.internal_useConvertedValue((function (rawFragment) {
                 if (rawFragment !== undefined) {
-                  return ComputedVariableInspector_oneGraphAppPackageChainActionVariable_graphql.Internal.convertFragment(rawFragment);
+                  return ComputedVariableInspector_chainActionVariable_graphql.Internal.convertFragment(rawFragment);
                 }
                 
               }), data);

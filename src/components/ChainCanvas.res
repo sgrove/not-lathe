@@ -1,13 +1,14 @@
-module OneGraphAppPackageChainFragment = %relay(`
-  fragment ChainCanvas_oneGraphAppPackageChain on OneGraphAppPackageChain {
+module Fragment = %relay(`
+  fragment ChainCanvas_chain on OneGraphAppPackageChain {
     id
     actions {
       id
       name
       description
-      graphQLOperation
+      graphqlOperation
+      graphqlOperationKind
       upstreamActionIds
-      ...NodeLabel_oneGraphStudioChainAction
+      ...NodeLabel_action
     }
   }
 `)
@@ -29,8 +30,28 @@ module FragmentNodeComponent = {
   external make: (~data: 'a) => React.element = "default"
 }
 
+module MouseCursorNodeComponent = {
+  @react.component @module("./MouseCursorNode.js")
+  external make: (~data: 'a) => React.element = "default"
+}
+
+module FlowRemoteConnector = {
+  @react.component @module("./FlowRemoteConnector.js")
+  external make: (
+    ~id: string,
+    ~sourceX: float,
+    ~sourceY: float,
+    ~targetX: float,
+    ~targetY: float,
+    ~style: ReactDOMStyle.t=?,
+    ~data: 'data=?,
+    ~arrowHeadType: 'arrowHeadType=?,
+    ~markerEndId: string=?,
+  ) => React.element = "default"
+}
+
 type graphNode = {
-  action: OneGraphAppPackageChainFragment.Types.fragment_actions,
+  action: Fragment.Types.fragment_actions,
   level: int,
   left: float,
 }
@@ -50,8 +71,9 @@ let emptyGraphLevel = level => {
 }
 
 let diagramFromApi = (
-  actions: array<OneGraphAppPackageChainFragment.Types.fragment_actions>,
+  actions: array<Fragment.Types.fragment_actions>,
   ~onEditAction,
+  ~sharedBlockPositions: option<Yjs.Document.Map.t>,
 ): //   ~onDragStart,
 //   ~schema,
 //   ~onPotentialVariableSourceConnect,
@@ -77,13 +99,12 @@ diagram => {
   let fragmentNodes =
     actions
     ->Belt.Array.keep(action => {
-      false
+      action.graphqlOperationKind === #FRAGMENT
     })
     ->Belt.SortArray.stableSortBy((a, b) =>
       Js.String2.localeCompare(a.name, b.name)->Belt.Float.toInt
     )
     ->Belt.Array.mapWithIndex((idx, block) => {
-      open React
       let nodeTitleWidth = block.name->Js.String2.length->float_of_int *. 7.2
       let nodePadding = 105.
 
@@ -94,7 +115,7 @@ diagram => {
         ~typ=#fragment,
         ~id=block.id,
         ~data={
-          label: {"Hi there!"->string},
+          label: {"Hi there!"->React.string},
         },
         ~position={x: x, y: nodeHeight *. idx->float_of_int +. 10. +. 30.},
         ~draggable=false,
@@ -125,15 +146,13 @@ diagram => {
   }
 
   let operationBlocks = actions->Belt.Array.keep(action => {
-    true
+    action.graphqlOperationKind !== #FRAGMENT
   })
-
-  Js.log2("operationBlocks: ", operationBlocks)
 
   let levels = Js.Dict.empty()
   let graphLevels = Js.Dict.empty()
 
-  let rec findReqLevel = (action: OneGraphAppPackageChainFragment.Types.fragment_actions) => {
+  let rec findReqLevel = (action: Fragment.Types.fragment_actions) => {
     let level = levels->Js.Dict.get(action.id)
 
     switch level {
@@ -189,11 +208,8 @@ diagram => {
 
   operationBlocks->Belt.Array.forEach(action => {
     let level = findReqLevel(action)
-    Js.log3("Req level for action: ", action, level)
     levels->Js.Dict.set(action.id, level)
   })
-
-  Js.log2("Graph Levels: ", graphLevels)
 
   let totalWidth =
     graphLevels
@@ -207,10 +223,6 @@ diagram => {
     ->Belt.Array.map(graphLevel =>
       graphLevel.nodes->Belt.Array.map(node => {
         let action = node.action
-        let block = action.graphQLOperation
-
-        // let variables = block->Card.getFirstVariables
-        // let hasVariables = variables->Belt.Array.length > 0
 
         let typ = switch true {
         | true => #default
@@ -225,25 +237,22 @@ diagram => {
 
         let x = furthestLeft +. node.left
 
+        let existingPosition = sharedBlockPositions->Belt.Option.flatMap(positions => {
+          positions->Yjs.Document.Map.get(action.id)->Js.Undefined.toOption
+        })
+
+        let position = existingPosition->Belt.Option.getWithDefault({
+          ReactFlow.Node.x: x,
+          y: 100. +. (nodeHeight +. 10.0) *. level->float_of_int,
+        })
+
         let node = ReactFlow.Node.t(
           ~typ,
           ~id=action.id,
           ~data={
-            label: <NodeLabel
-              onEditAction
-              actionRef={action.fragmentRefs}
-              onDragStart={(
-                ~event as _: ReactEvent.Mouse.t,
-                ~request as _: NodeLabel.OneGraphStudioChainActionFragment.Types.fragment,
-                ~domRef as _: Js.Nullable.t<Dom.element>,
-              ) => ()}
-              onPotentialVariableSourceConnect={_ => ()}
-            />,
+            label: <NodeLabel onEditAction actionRef={action.fragmentRefs} />,
           },
-          ~position={
-            x: x,
-            y: 100. +. (nodeHeight +. 10.0) *. level->float_of_int,
-          },
+          ~position,
           ~draggable=true,
           ~connectable=true,
           ~style=nodeStyle,
@@ -312,155 +321,202 @@ diagram => {
 }
 
 @react.component
-let make = (~removeEdge, ~removeRequest, ~trace, ~chainRef, ~onActionInspected, ~onEditAction) => {
-  let chain = OneGraphAppPackageChainFragment.use(chainRef)
-  let diagram = diagramFromApi(chain.actions, ~onEditAction)
+let make = (~chainRef, ~onActionInspected, ~onEditAction, ~onSelectionCleared, ~onConnect) => {
+  let chain = Fragment.use(chainRef)
+  open React
+  let collaborationContext = useContext(CollaborationContext.context)
+  let sharedBlockPositions = collaborationContext.getSharedMap(~channelId=chain.id, ~id="positions")
+  let diagram = chain.actions->diagramFromApi(~onEditAction, ~sharedBlockPositions)
+  let {project} = ReactFlow.useZoomPanHelper()
 
-  <ReactFlow
-    nodeTypes={
-      "fragment": FragmentNodeComponent.make,
-    }
-    style={ReactDOMStyle.make(
-      ~borderWidth="1px",
-      ~borderStyle="solid",
-      ~borderColor=Comps.colors["gray-10"],
-      (),
-    )}
-    onElementsRemove={elements => {
-      ()
-      //   setState(oldState => {
-      //     let newChain = elements->Belt.Array.reduce(oldState.chain, (accChain, element) => {
-      //       let typ = switch (
-      //         Obj.magic(element)["source"]->Js.Undefined.toOption,
-      //         Obj.magic(element)["target"]->Js.Undefined.toOption,
-      //       ) {
-      //       | (Some(source), Some(target)) => #edge(source, target)
-      //       | _ => #node(Obj.magic(element)["id"])
-      //       }
+  let connectorLines = []
+  let mouseCursors = []
 
-      //       let newChain = switch typ {
-      //       | #edge(source, targetRequestId) =>
-      //         let newChain = removeEdge(accChain, ~dependencyId=source, ~targetRequestId)
-      //         newChain
-      //       | #node(source) =>
-      //         let targetRequest = accChain.requests->Belt.Array.getBy(request => {
-      //           request.operation.id == source
-      //         })
+  collaborationContext.getSharedChannelState(~id=chain.id)->Belt.Option.forEach(((
+    localClientId,
+    states,
+  )) => {
+    let entries = Obj.magic(states)["entries"](.)->Js.Array.from
 
-      //         let newChain =
-      //           targetRequest
-      //           ->Belt.Option.map(targetRequest => removeRequest(accChain, targetRequest))
-      //           ->Belt.Option.getWithDefault(accChain)
-      //         newChain
-      //       }
+    entries->Belt.Array.forEach(((
+      clientId: Yjs.Awareness.clientId,
+      presence: CollaborationContext.presence,
+    )) =>
+      switch (
+        clientId == localClientId,
+        Js.Undefined.toOption(presence.position),
+        Js.Undefined.toOption(presence.connectSourceActionId),
+      ) {
+      | (true, _, _)
+      | (_, None, _) => ()
+      | (false, Some(mousePosition), connectSourceActionId) =>
+        let mouseElementId = j`cursor-${clientId->Obj.magic}`
+        let mouseCursor = ReactFlow.Node.t(
+          ~typ=#mouseCursor,
+          ~id=mouseElementId,
+          ~data={
+            label: <div
+              className="presence-mouse" style={ReactDOMStyle.make(~color=presence.color, ())}>
+              <div>
+                <Icons.MouseCursor
+                  className="inline-block" color=presence.color width="16px" height="16px"
+                />
+                {presence.audioVolumeLevel
+                ->Js.Undefined.toOption
+                ->Belt.Option.mapWithDefault(React.null, level =>
+                  <Icons.Volume.Auto
+                    className="inline-block" color=presence.color width="16px" height="16px" level
+                  />
+                )}
+              </div>
+              <div className="pl-2">
+                <span className="pl-2"> {presence.name->React.string} </span>
+              </div>
+            </div>,
+          },
+          ~position={
+            x: mousePosition.x,
+            y: mousePosition.y,
+          },
+          ~draggable=false,
+          ~connectable=true,
+          ~selectable=false,
+          ~className="node-label",
+          (),
+        )
 
-      //       newChain
-      //     })
+        connectSourceActionId->Belt.Option.forEach(connectSourceActionId => {
+          let connectorLine = ReactFlow.Edge.t(
+            ~typ=#straight,
+            ~id=j`edges-connect-line-${clientId->Obj.magic}`,
+            ~source=connectSourceActionId,
+            ~target=mouseElementId,
+            ~style={ReactDOMStyle.make(~stroke=presence.color, ~strokeWidth="3px", ())},
+            (),
+          )
+          let _: int = connectorLines->Js.Array2.push(connectorLine)
+        })
 
-      //     let diagram = diagramFromChain(newChain)
-
-      //     {
-      //       ...oldState,
-      //       inspected: Nothing({chain: newChain, trace: None}),
-      //       chain: newChain,
-      //       diagram: diagram,
-      //     }
-      //   })
-    }}
-    elements={diagram.elements}
-    zoomOnScroll=false
-    onPaneClick={_ => {
-      ()
-      //   setState(oldState => {
-      //     ...oldState,
-      //     inspected: Nothing({chain: oldState.chain, trace: trace}),
-      //   })
-    }}
-    onPaneContextMenu={event => {
-      // ReactEvent.Mouse.preventDefault(event)
-      ()
-    }}
-    onNodeContextMenu={(_event, _node) => {
-      ()
-    }}
-    panOnScroll=true
-    onConnect={info => {
-      let source = info["source"]
-      let target = info["target"]
-
-      let sourceRequest = chain.actions->Belt.Array.getBy(action => {
-        action.id == source
-      })
-
-      let targetRequest = chain.actions->Belt.Array.getBy(action => {
-        action.id == target
-      })
-
-      switch (sourceRequest, targetRequest) {
-      | (None, _)
-      | (_, None) =>
-        Js.Console.warn("Couldn't find source or target request to connect")
-      | (Some(source), Some(target)) => // setState(oldState => {
-        //   let newRequests = oldState.chain.requests->Belt.Array.map(request => {
-        //     switch target.id == request.id {
-        //     | false => request
-        //     | true =>
-        //       let varDeps = request.variableDependencies->Belt.Array.map(varDep => {
-        //         let dependency = switch varDep.dependency {
-        //         | ArgumentDependency(argDep) =>
-        //           let newArgDep = {
-        //             ...argDep,
-        //             fromRequestIds: argDep.fromRequestIds
-        //             ->Belt.Array.concat([source.id])
-        //             ->Utils.String.distinctStrings,
-        //           }
-
-        //           Chain.ArgumentDependency(newArgDep)
-        //         | other => other
-        //         }
-        //         let varDep = {...varDep, dependency: dependency}
-
-        //         varDep
-        //       })
-
-        //       {
-        //         ...request,
-        //         variableDependencies: varDeps,
-        //         dependencyRequestIds: request.dependencyRequestIds
-        //         ->Belt.Array.concat([source.id])
-        //         ->Utils.String.distinctStrings,
-        //       }
-        //     }
-        //   })
-
-        //   let sortedRequests = Chain.toposortRequests(newRequests)
-
-        //   switch sortedRequests {
-        //   | Error(#circularDependencyDetected) => oldState
-        //   | Ok(sortedRequests) =>
-        //     let newChain = {...oldState.chain, requests: sortedRequests}
-
-        //     let diagram = diagramFromChain(newChain)
-
-        //     {...oldState, chain: newChain, diagram: diagram}
-        //   }
-        // })
-        ()
+        let _: int = mouseCursors->Js.Array2.push(mouseCursor)
       }
-    }}
-    onElementClick={(_, node) => {
-      let id = node->ReactFlow.Node.idGet
+    )
+  })
 
-      onActionInspected(id)
+  let elements = Belt.Array.concatMany([
+    diagram.elements,
+    connectorLines->Obj.magic,
+    mouseCursors->Obj.magic,
+  ])
+
+  let diagram = {
+    ...diagram,
+    elements: elements,
+  }
+
+  <div
+    onMouseMove={event => {
+      let boundingRect = Obj.magic(
+        ReactEvent.Mouse.currentTarget(event),
+      )["getBoundingClientRect"](.)
+      let left: int = boundingRect["left"]
+      let top: int = boundingRect["top"]
+      let screenPosition = {
+        ReactFlow.x: (event->ReactEvent.Mouse.clientX - left)->float_of_int,
+        y: (event->ReactEvent.Mouse.clientY - top)->float_of_int,
+      }
+
+      let projectedPosition = project(. screenPosition)
+
+      collaborationContext.updateLocalPosition(~channelId=chain.id, ~position=projectedPosition)
     }}
-    connectionLineType=#smoothstep>
-    <ReactFlow.Controls showZoom=false showFitView=true showInteractive=false />
-    <ReactFlow.Background
-      variant=#lines
-      gap={20}
-      size={1}
-      color={Comps.colors["gray-1"]}
-      style={ReactDOMStyle.make(~backgroundColor="rgb(31, 33, 37)", ())}
-    />
-  </ReactFlow>
+    style={ReactDOMStyle.make(~width="100%", ~height="100%", ())}>
+    <ReactFlow
+      nodeTypes={
+        "fragment": FragmentNodeComponent.make,
+        "mouseCursor": MouseCursorNodeComponent.make,
+      }
+      edgeTypes={
+        "remote": FlowRemoteConnector.make,
+      }
+      style={ReactDOMStyle.make(
+        ~borderWidth="1px",
+        ~borderStyle="solid",
+        ~borderColor=Comps.colors["gray-10"],
+        (),
+      )}
+      elements={diagram.elements}
+      zoomOnScroll=false
+      onPaneClick={_ => {
+        onSelectionCleared()
+      }}
+      onPaneContextMenu={event => {
+        ReactEvent.Mouse.preventDefault(event)
+      }}
+      onNodeContextMenu={(_event, _node) => {
+        ()
+      }}
+      panOnScroll=true
+      onConnectStart={(event, node) => {
+        let boundingRect = Obj.magic(
+          ReactEvent.Mouse.currentTarget(event),
+        )["getBoundingClientRect"](.)
+        let left: int = boundingRect["left"]
+        let top: int = boundingRect["top"]
+        let screenPosition = {
+          ReactFlow.x: (event->ReactEvent.Mouse.clientX - left)->float_of_int,
+          y: (event->ReactEvent.Mouse.clientY - top)->float_of_int,
+        }
+
+        Js.log3("Connect start: ", event, node)
+
+        let projectedPosition = project(. screenPosition)
+
+        collaborationContext.updateConnectSourceActionId(
+          ~channelId=chain.id,
+          ~sourceActionId=Some(node["nodeId"]),
+        )
+      }}
+      onConnectEnd={(_event, _node) => {
+        collaborationContext.updateConnectSourceActionId(~channelId=chain.id, ~sourceActionId=None)
+      }}
+      onConnect={info => {
+        let sourceAction = chain.actions->Belt.Array.getBy(action => {
+          action.id == info["source"]
+        })
+
+        let targetAction = chain.actions->Belt.Array.getBy(action => {
+          action.id == info["target"]
+        })
+
+        switch (sourceAction, targetAction) {
+        | (None, _)
+        | (_, None) =>
+          Js.Console.warn("Couldn't find source or target request to connect")
+        | (Some(source), Some(target)) =>
+          onConnect(~sourceActionId=source.id, ~targetActionId=target.id)
+        }
+      }}
+      onElementClick={(_, node) => {
+        node->ReactFlow.Node.idGet->onActionInspected
+      }}
+      onNodeDrag={(_event, node) => {
+        switch sharedBlockPositions {
+        | None => ()
+        | Some(sharedBlockPositions) =>
+          let id = node->ReactFlow.Node.idGet
+          let position = node->ReactFlow.Node.positionGet
+          sharedBlockPositions->Yjs.Document.Map.set(id, position)
+        }
+      }}
+      connectionLineType=#smoothstep>
+      <ReactFlow.Controls showZoom=false showFitView=true showInteractive=false />
+      <ReactFlow.Background
+        variant=#lines
+        gap={20}
+        size={1}
+        color={Comps.colors["gray-1"]}
+        style={ReactDOMStyle.make(~backgroundColor="rgb(31, 33, 37)", ())}
+      />
+    </ReactFlow>
+  </div>
 }

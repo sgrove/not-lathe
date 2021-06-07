@@ -6,11 +6,13 @@ import * as Curry from "rescript/lib/es6/curry.js";
 import * as React from "react";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
+import * as RelayRuntime from "relay-runtime";
 import * as Belt_SetString from "rescript/lib/es6/belt_SetString.js";
 import * as ConnectionContext from "./ConnectionContext.mjs";
 import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as Hooks from "react-relay/hooks";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
+import * as VariableInspector_OneGraphMutation_graphql from "../__generated__/VariableInspector_OneGraphMutation_graphql.mjs";
 import * as VariableInspector_oneGraphStudioChainActionVariable_graphql from "../__generated__/VariableInspector_oneGraphStudioChainActionVariable_graphql.mjs";
 
 function use(fRef) {
@@ -30,45 +32,162 @@ function useOpt(opt_fRef) {
               }), data);
 }
 
-var OneGraphStudioChainActionVariableFragment = {
+var Fragment = {
   Types: undefined,
   use: use,
   useOpt: useOpt
 };
 
-function VariableInspector(Props) {
-  var variableRef = Props.variableRef;
-  var variable = use(variableRef);
-  var match = React.useState(function () {
-        
-      });
-  var setPotentialConnection = match[1];
-  var potentialConnection = match[0];
-  var connectionDrag = React.useContext(ConnectionContext.context);
-  var match$1 = variable.computeMethod;
-  var match$2 = variable.computeMethod;
-  return React.createElement("article", {
-              key: variable.name,
-              className: "m-2 variable-settings " + (
-                Belt_SetString.has(potentialConnection, variable.name) ? " drop-ready" : ""
-              ),
-              id: "inspector-variable-" + variable.name,
-              onMouseDown: (function ($$event) {
-                  if ($$event.altKey) {
-                    $$event.preventDefault();
-                    $$event.stopPropagation();
-                    if (typeof connectionDrag === "number") {
-                      return Curry._1(setPotentialConnection, (function (s) {
-                                    return Belt_SetString.add(s, variable.name);
-                                  }));
-                    } else {
-                      return ;
-                    }
+function commitMutation(environment, variables, optimisticUpdater, optimisticResponse, updater, onCompleted, onError, uploadables, param) {
+  return RelayRuntime.commitMutation(environment, {
+              mutation: VariableInspector_OneGraphMutation_graphql.node,
+              variables: VariableInspector_OneGraphMutation_graphql.Internal.convertVariables(variables),
+              onCompleted: (function (res, err) {
+                  if (onCompleted !== undefined) {
+                    return Curry._2(onCompleted, VariableInspector_OneGraphMutation_graphql.Internal.convertResponse(res), (err == null) ? undefined : Caml_option.some(err));
                   }
                   
                 }),
+              onError: (function (err) {
+                  if (onError !== undefined) {
+                    return Curry._1(onError, (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              optimisticResponse: optimisticResponse !== undefined ? VariableInspector_OneGraphMutation_graphql.Internal.convertWrapRawResponse(optimisticResponse) : undefined,
+              optimisticUpdater: optimisticUpdater,
+              updater: updater !== undefined ? (function (store, r) {
+                    return Curry._2(updater, store, VariableInspector_OneGraphMutation_graphql.Internal.convertResponse(r));
+                  }) : undefined,
+              uploadables: uploadables
+            });
+}
+
+function use$1(param) {
+  var match = Hooks.useMutation(VariableInspector_OneGraphMutation_graphql.node);
+  var mutate = match[0];
+  return [
+          React.useMemo((function () {
+                  return function (param, param$1, param$2, param$3, param$4, param$5, param$6, param$7, param$8) {
+                    return Curry._1(mutate, {
+                                onError: param,
+                                onCompleted: param$1 !== undefined ? (function (r, errors) {
+                                      return Curry._2(param$1, VariableInspector_OneGraphMutation_graphql.Internal.convertResponse(r), (errors == null) ? undefined : Caml_option.some(errors));
+                                    }) : undefined,
+                                onUnsubscribe: param$2,
+                                optimisticResponse: param$3 !== undefined ? VariableInspector_OneGraphMutation_graphql.Internal.convertWrapRawResponse(param$3) : undefined,
+                                optimisticUpdater: param$4,
+                                updater: param$5 !== undefined ? (function (store, r) {
+                                      return Curry._2(param$5, store, VariableInspector_OneGraphMutation_graphql.Internal.convertResponse(r));
+                                    }) : undefined,
+                                variables: VariableInspector_OneGraphMutation_graphql.Internal.convertVariables(param$6),
+                                uploadables: param$7
+                              });
+                  };
+                }), [mutate]),
+          match[1]
+        ];
+}
+
+var UpdateVariableMutation_make_oneGraphUpdateChainActionVariableInput = VariableInspector_OneGraphMutation_graphql.Utils.make_oneGraphUpdateChainActionVariableInput;
+
+var UpdateVariableMutation_makeVariables = VariableInspector_OneGraphMutation_graphql.Utils.makeVariables;
+
+var UpdateVariableMutation_make_response_oneGraph_updateChainActionVariable_variable = VariableInspector_OneGraphMutation_graphql.Utils.make_response_oneGraph_updateChainActionVariable_variable;
+
+var UpdateVariableMutation_make_response_oneGraph_updateChainActionVariable = VariableInspector_OneGraphMutation_graphql.Utils.make_response_oneGraph_updateChainActionVariable;
+
+var UpdateVariableMutation_make_response_oneGraph = VariableInspector_OneGraphMutation_graphql.Utils.make_response_oneGraph;
+
+var UpdateVariableMutation_makeOptimisticResponse = VariableInspector_OneGraphMutation_graphql.Utils.makeOptimisticResponse;
+
+var UpdateVariableMutation = {
+  make_oneGraphUpdateChainActionVariableInput: UpdateVariableMutation_make_oneGraphUpdateChainActionVariableInput,
+  makeVariables: UpdateVariableMutation_makeVariables,
+  make_response_oneGraph_updateChainActionVariable_variable: UpdateVariableMutation_make_response_oneGraph_updateChainActionVariable_variable,
+  make_response_oneGraph_updateChainActionVariable: UpdateVariableMutation_make_response_oneGraph_updateChainActionVariable,
+  make_response_oneGraph: UpdateVariableMutation_make_response_oneGraph,
+  makeOptimisticResponse: UpdateVariableMutation_makeOptimisticResponse,
+  Types: undefined,
+  commitMutation: commitMutation,
+  use: use$1
+};
+
+function VariableInspector(Props) {
+  var variableRef = Props.variableRef;
+  var actionId = Props.actionId;
+  var variable = use(variableRef);
+  var inputVariable_probePath = variable.probePath;
+  var inputVariable_maxRecur = variable.maxRecur;
+  var inputVariable_ifList = variable.ifList;
+  var inputVariable_ifMissing = variable.ifMissing;
+  var inputVariable_graphqlType = variable.graphqlType;
+  var inputVariable_method = variable.computeMethod;
+  var inputVariable_description = variable.description;
+  var inputVariable_name = variable.name;
+  var inputVariable_id = variable.id;
+  var match = use$1(undefined);
+  var mutate = match[0];
+  var match$1 = React.useState(function () {
+        
+      });
+  var setPotentialConnection = match$1[1];
+  var potentialConnection = match$1[0];
+  var connectionDrag = React.useContext(ConnectionContext.context);
+  var match$2 = connectionDrag.value;
+  var dragClassName;
+  if (typeof match$2 === "number") {
+    dragClassName = "";
+  } else {
+    switch (match$2.TAG | 0) {
+      case /* StartedSource */0 :
+          dragClassName = "drag-target";
+          break;
+      case /* StartedTarget */1 :
+          var match$3 = match$2.target;
+          dragClassName = match$3.TAG === /* Variable */0 && match$3._0.variableId === variable.id ? "drag-source" : "";
+          break;
+      default:
+        dragClassName = "";
+    }
+  }
+  var match$4 = variable.computeMethod;
+  var match$5 = variable.computeMethod;
+  return React.createElement("article", {
+              key: variable.name,
+              className: "m-2 variable-settings " + dragClassName + (
+                Belt_SetString.has(potentialConnection, variable.name) ? " drop-ready" : ""
+              ),
+              id: "inspector-variable-" + variable.name,
+              disabled: true,
+              onMouseDown: (function ($$event) {
+                  if (!$$event.altKey) {
+                    return ;
+                  }
+                  $$event.preventDefault();
+                  $$event.stopPropagation();
+                  var match = connectionDrag.value;
+                  if (typeof match !== "number") {
+                    return ;
+                  }
+                  var sourceDom = $$event.target;
+                  return Curry._1(connectionDrag.onDragStart, {
+                              TAG: 1,
+                              target: {
+                                TAG: 0,
+                                _0: {
+                                  actionId: actionId,
+                                  variableId: variable.id
+                                },
+                                [Symbol.for("name")]: "Variable"
+                              },
+                              sourceDom: sourceDom,
+                              [Symbol.for("name")]: "StartedTarget"
+                            });
+                }),
               onMouseEnter: (function ($$event) {
-                  if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                  var match = connectionDrag.value;
+                  if (typeof match === "number" || match.TAG !== /* StartedSource */0) {
                     return ;
                   } else {
                     return Curry._1(setPotentialConnection, (function (s) {
@@ -77,10 +196,11 @@ function VariableInspector(Props) {
                   }
                 }),
               onMouseLeave: (function ($$event) {
-                  if (typeof connectionDrag === "number") {
+                  var match = connectionDrag.value;
+                  if (typeof match === "number") {
                     return ;
                   }
-                  switch (connectionDrag.TAG | 0) {
+                  switch (match.TAG | 0) {
                     case /* StartedSource */0 :
                     case /* StartedTarget */1 :
                         break;
@@ -92,18 +212,47 @@ function VariableInspector(Props) {
                               }));
                 }),
               onMouseUp: (function ($$event) {
+                  var clientX = $$event.clientX;
+                  var clientY = $$event.clientY;
+                  var mouseClientPosition = [
+                    clientX,
+                    clientY
+                  ];
                   Curry._1(setPotentialConnection, (function (s) {
                           return Belt_SetString.remove(s, variable.name);
                         }));
+                  var match = connectionDrag.value;
+                  if (typeof match === "number") {
+                    return ;
+                  }
+                  if (match.TAG !== /* StartedSource */0) {
+                    return ;
+                  }
+                  var newConnectionDrag_0 = match.sourceActionId;
+                  var newConnectionDrag_1 = match.sourceDom;
+                  var newConnectionDrag_2 = {
+                    TAG: 0,
+                    _0: {
+                      actionId: actionId,
+                      variableId: variable.id
+                    },
+                    [Symbol.for("name")]: "Variable"
+                  };
+                  var newConnectionDrag = {
+                    TAG: 3,
+                    sourceActionId: newConnectionDrag_0,
+                    sourceDom: newConnectionDrag_1,
+                    target: newConnectionDrag_2,
+                    windowPosition: mouseClientPosition,
+                    [Symbol.for("name")]: "Completed"
+                  };
+                  Curry._1(connectionDrag.onPotentialVariableSourceConnect, newConnectionDrag);
                   
                 })
             }, React.createElement("div", {
                   className: "flex justify-between items-center cursor-pointer p-1  text-gray-200 rounded-t-sm" + (
                     Belt_SetString.has(potentialConnection, variable.name) ? " border-blue-900" : ""
-                  ),
-                  onClick: (function (param) {
-                      
-                    })
+                  )
                 }, React.createElement("div", {
                       className: " font-semibold text-sm font-mono inline-block flex-grow",
                       style: {
@@ -116,19 +265,55 @@ function VariableInspector(Props) {
                           }
                         }, ": " + variable.graphqlType)), React.createElement(Comps.Select.make, {
                       children: null,
+                      onChange: (function ($$event) {
+                          var value = $$event.target.value;
+                          var newVariable_probePath = inputVariable_probePath;
+                          var newVariable_maxRecur = inputVariable_maxRecur;
+                          var newVariable_ifList = inputVariable_ifList;
+                          var newVariable_ifMissing = inputVariable_ifMissing;
+                          var newVariable_graphqlType = inputVariable_graphqlType;
+                          var newVariable_description = inputVariable_description;
+                          var newVariable_name = inputVariable_name;
+                          var newVariable_id = inputVariable_id;
+                          var newVariable = {
+                            probePath: newVariable_probePath,
+                            maxRecur: newVariable_maxRecur,
+                            ifList: newVariable_ifList,
+                            ifMissing: newVariable_ifMissing,
+                            graphqlType: newVariable_graphqlType,
+                            method: value,
+                            description: newVariable_description,
+                            name: newVariable_name,
+                            id: newVariable_id
+                          };
+                          Curry.app(mutate, [
+                                undefined,
+                                undefined,
+                                undefined,
+                                undefined,
+                                undefined,
+                                undefined,
+                                {
+                                  variable: newVariable
+                                },
+                                undefined,
+                                undefined
+                              ]);
+                          
+                        }),
                       style: {
                         paddingRight: "40px"
                       },
-                      value: Belt_Option.getWithDefault(match$1 === "COMPUTED" ? "compute" : (
-                              match$1 === "DIRECT" ? "direct" : undefined
+                      value: Belt_Option.getWithDefault(match$4 === "COMPUTED" ? "COMPUTED" : (
+                              match$4 === "DIRECT" ? "DIRECT" : undefined
                             ), "")
                     }, React.createElement("option", {
                           value: "variable"
                         }, "Variable Input"), React.createElement("option", {
-                          value: "computed"
+                          value: "COMPUTED"
                         }, "Computed Value"), React.createElement("option", {
                           disabled: true,
-                          value: "direct"
+                          value: "DIRECT"
                         }, "Direct Connection"))), React.createElement("label", {
                   className: "m-0"
                 }, React.createElement("div", {
@@ -144,7 +329,43 @@ function VariableInspector(Props) {
                         }, "ifMissing:"), React.createElement(Comps.Select.make, {
                           children: null,
                           onChange: (function ($$event) {
-                              Chain.ifMissingOfString($$event.target.value);
+                              var ifMissing = Chain.ifMissingOfString($$event.target.value);
+                              if (ifMissing.TAG !== /* Ok */0) {
+                                return ;
+                              }
+                              var newVariable_probePath = inputVariable_probePath;
+                              var newVariable_maxRecur = inputVariable_maxRecur;
+                              var newVariable_ifList = inputVariable_ifList;
+                              var newVariable_ifMissing = ifMissing._0;
+                              var newVariable_graphqlType = inputVariable_graphqlType;
+                              var newVariable_method = inputVariable_method;
+                              var newVariable_description = inputVariable_description;
+                              var newVariable_name = inputVariable_name;
+                              var newVariable_id = inputVariable_id;
+                              var newVariable = {
+                                probePath: newVariable_probePath,
+                                maxRecur: newVariable_maxRecur,
+                                ifList: newVariable_ifList,
+                                ifMissing: newVariable_ifMissing,
+                                graphqlType: newVariable_graphqlType,
+                                method: newVariable_method,
+                                description: newVariable_description,
+                                name: newVariable_name,
+                                id: newVariable_id
+                              };
+                              Curry.app(mutate, [
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    {
+                                      variable: newVariable
+                                    },
+                                    undefined,
+                                    undefined
+                                  ]);
                               
                             }),
                           style: {
@@ -171,7 +392,39 @@ function VariableInspector(Props) {
                         }, "ifList:"), React.createElement(Comps.Select.make, {
                           children: null,
                           onChange: (function ($$event) {
-                              Chain.ifListOfString($$event.target.value);
+                              var ifList = $$event.target.value;
+                              var newVariable_probePath = inputVariable_probePath;
+                              var newVariable_maxRecur = inputVariable_maxRecur;
+                              var newVariable_ifMissing = inputVariable_ifMissing;
+                              var newVariable_graphqlType = inputVariable_graphqlType;
+                              var newVariable_method = inputVariable_method;
+                              var newVariable_description = inputVariable_description;
+                              var newVariable_name = inputVariable_name;
+                              var newVariable_id = inputVariable_id;
+                              var newVariable = {
+                                probePath: newVariable_probePath,
+                                maxRecur: newVariable_maxRecur,
+                                ifList: ifList,
+                                ifMissing: newVariable_ifMissing,
+                                graphqlType: newVariable_graphqlType,
+                                method: newVariable_method,
+                                description: newVariable_description,
+                                name: newVariable_name,
+                                id: newVariable_id
+                              };
+                              Curry.app(mutate, [
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    undefined,
+                                    {
+                                      variable: newVariable
+                                    },
+                                    undefined,
+                                    undefined
+                                  ]);
                               
                             }),
                           style: {
@@ -180,22 +433,23 @@ function VariableInspector(Props) {
                           },
                           value: variable.ifList
                         }, React.createElement("option", {
-                              value: Chain.stringOfIfList("FIRST")
+                              value: "FIRST"
                             }, "First item"), React.createElement("option", {
-                              value: Chain.stringOfIfList("LAST")
+                              value: "LAST"
                             }, "Last item"), React.createElement("option", {
-                              value: Chain.stringOfIfList("ALL")
+                              value: "ALL"
                             }, "All items as an array"), React.createElement("option", {
-                              value: Chain.stringOfIfList("EACH")
-                            }, "Run once for each item")))), match$2 === "COMPUTED" ? null : (
-                match$2 === "DIRECT" ? variable.probePath.join("->") : "Unknown Variable Type"
+                              value: "EACH"
+                            }, "Run once for each item")))), match$5 === "COMPUTED" ? null : (
+                match$5 === "DIRECT" ? variable.probePath.join("->") : "Unknown Variable Type"
               ));
 }
 
 var make = VariableInspector;
 
 export {
-  OneGraphStudioChainActionVariableFragment ,
+  Fragment ,
+  UpdateVariableMutation ,
   make ,
   
 }

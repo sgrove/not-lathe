@@ -26,7 +26,7 @@ function useOpt(opt_fRef) {
               }), data);
 }
 
-var OneGraphAppFragment = {
+var Fragment = {
   Types: undefined,
   use: use,
   useOpt: useOpt
@@ -38,7 +38,9 @@ function PackageList(Props) {
   var schema = Props.schema;
   var oneGraphApp$1 = use(oneGraphApp);
   return React.createElement(React.Fragment, undefined, Belt_Array.map(oneGraphApp$1.packages, (function ($$package) {
-                    return React.createElement("li", undefined, React.createElement(PackageViewer.make, {
+                    return React.createElement("li", {
+                                key: $$package.id
+                              }, React.createElement(PackageViewer.make, {
                                     schema: schema,
                                     onCreateChain: (function (i) {
                                         console.log("OnCreateChain", i);
@@ -77,7 +79,7 @@ function PackageList(Props) {
 var make = PackageList;
 
 export {
-  OneGraphAppFragment ,
+  Fragment ,
   make ,
   
 }

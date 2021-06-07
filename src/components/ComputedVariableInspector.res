@@ -1,5 +1,5 @@
 module OneGraphAppPackageChainVariableFragment = %relay(`
-  fragment ComputedVariableInspector_oneGraphAppPackageChainActionVariable on OneGraphStudioChainActionVariable {
+  fragment ComputedVariableInspector_chainActionVariable on OneGraphStudioChainActionVariable {
     id
   }
 `)

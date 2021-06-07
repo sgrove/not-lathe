@@ -38,7 +38,7 @@ type ComputeType {
 
 @module("./OneGraph.js")
 external fetchOneGraph: (
-  OneGraphAuth.t,
+  . OneGraphAuth.t,
   string,
   option<string>,
   option<Js.Json.t>,
@@ -73,7 +73,7 @@ let make = (~block, ~schema as _, ~ports=?, ~onVariableInspected, ~onBlockInspec
 
     // let submitForm = _ => {
     //   auth
-    //   ->fetchOneGraph(block.body, None, Some(formVariables))
+    //   ->fetchOneGraph(. block.body, None, Some(formVariables))
     //   ->Js.Promise.then_((result: Js.Json.t) => {
     //     let missing = OneGraphAuth.findMissingAuthServices(auth, Some(result))
 

@@ -318,16 +318,16 @@ function ActionSearch(Props) {
                                       var kind;
                                       switch (match) {
                                         case "compute" :
-                                            kind = "compute";
+                                            kind = "COMPUTE";
                                             break;
                                         case "mutation" :
-                                            kind = "mutation";
+                                            kind = "MUTATION";
                                             break;
                                         case "query" :
-                                            kind = "query";
+                                            kind = "QUERY";
                                             break;
                                         case "subscription" :
-                                            kind = "subscription";
+                                            kind = "SUBSCRIPTION";
                                             break;
                                         default:
                                           kind = undefined;
@@ -370,7 +370,8 @@ function ActionSearch(Props) {
                                                                                   };
                                                                           }));
                                                             }));
-                                              })
+                                              }),
+                                            key: action.id
                                           });
                               }))))));
 }

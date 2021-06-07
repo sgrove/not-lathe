@@ -14,12 +14,7 @@ module InspectorOverviewFragment = %relay(`
 `)
 
 @react.component
-let make = (
-  ~fragmentRefs,
-  ~onPotentialVariableSourceConnect,
-  ~onInspectAction: (~actionId: string) => unit,
-  ~onDeleteAction,
-) => {
+let make = (~fragmentRefs, ~onInspectAction: (~actionId: string) => unit, ~onDeleteAction) => {
   open Comps
 
   let chain = InspectorOverviewFragment.use(fragmentRefs)
@@ -30,9 +25,9 @@ let make = (
 
   let actions = chain.actions->Belt.Array.map(action => {
     let dragClassName =
-      switch connectionDrag {
-      | ConnectionContext.StartedSource({sourceRequest})
-        if sourceRequest.id != action.id => "node-drop drag-target"
+      switch connectionDrag.value {
+      | ConnectionContext.StartedSource({sourceActionId})
+        if sourceActionId != action.id => "node-drop drag-target"
       | _ => ""
       } ++ {
         potentialConnection->Belt.Set.String.has(action.id) ? " drop-ready" : ""
@@ -42,13 +37,13 @@ let make = (
       key={action.id}
       className={"mx-2 " ++ dragClassName}
       onMouseEnter={event => {
-        switch connectionDrag {
+        switch connectionDrag.value {
         | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.add(action.id))
         | _ => ()
         }
       }}
       onMouseLeave={event => {
-        switch connectionDrag {
+        switch connectionDrag.value {
         | StartedSource(_) => setPotentialConnection(s => s->Belt.Set.String.remove(action.id))
         | _ => ()
         }
@@ -58,18 +53,16 @@ let make = (
         let clientY = event->ReactEvent.Mouse.clientY
         let mouseClientPosition = (clientX, clientY)
         setPotentialConnection(s => s->Belt.Set.String.remove(action.id))
-        switch connectionDrag {
-        | StartedSource({
-            sourceRequest,
-            sourceDom,
-          }) => // let connectionDrag = ConnectionContext.CompletedPendingVariable({
-          //   sourceRequest: sourceRequest,
-          //   targetRequest: action,
-          //   windowPosition: mouseClientPosition,
-          //   sourceDom: sourceDom,
-          // })
+        switch connectionDrag.value {
+        | StartedSource({sourceActionId, sourceDom}) =>
+          let newConnectionDrag = ConnectionContext.CompletedPendingVariable({
+            sourceActionId: sourceActionId,
+            targetActionId: action.id,
+            windowPosition: mouseClientPosition,
+            sourceDom: sourceDom,
+          })
 
-          // onPotentialVariableSourceConnect(~connectionDrag)
+          connectionDrag.onPotentialVariableSourceConnect(~connectionDrag=newConnectionDrag)
           ()
         | _ => ()
         }

@@ -1,7 +1,7 @@
 type element
 
 module Node = {
-  type nodeType = [#default | #input | #output | #fragment | #operation]
+  type nodeType = [#default | #input | #output | #fragment | #operation | #mouseCursor]
 
   type position = {
     x: float,
@@ -48,6 +48,7 @@ module Edge = {
       | #straight
       | #step
       | #smoothstep
+      | #remote
     ],
   }
 }
@@ -120,6 +121,9 @@ external make: (
   ~onLoad: reactFlowInstance => unit=?,
   ~connectionLineType: connectionLineType=?,
   ~onPaneClick: ReactEvent.Mouse.t => unit=?,
+  ~onNodeDragStart: (ReactEvent.Mouse.t, Node.t) => unit=?,
+  ~onNodeDrag: (ReactEvent.Mouse.t, Node.t) => unit=?,
+  ~onNodeDragStop: (ReactEvent.Mouse.t, Node.t) => unit=?,
   ~onConnect: {
     "source": string,
     "sourceHandle": option<string>,
@@ -127,6 +131,7 @@ external make: (
     "targetHandle": option<string>,
   } => unit=?,
   ~onConnectStart: ('event, {"nodeId": string, "handleType": string}) => unit=?,
+  ~onConnectEnd: ('event, {"nodeId": string, "handleType": string}) => unit=?,
   // Interaction
   //  This applies to all nodes. You can also change the behavior of a specific node with the draggable node option. If this option is set to false and you have clickable elements inside your node, you need to set pointer-events
   ~nodesDraggable: bool=?,
@@ -153,12 +158,18 @@ external make: (
   ~onNodeContextMenu: (ReactEvent.Mouse.t, Node.t) => unit=?,
   ~onPaneContextMenu: ReactEvent.Mouse.t => unit=?,
   ~children: React.element=?,
-  ~nodeTypes: 'a=?,
+  ~nodeTypes: 'nodeTypes=?,
+  ~edgeTypes: 'edgeTypes=?,
 ) => React.element = "default"
 
 type fitViewOptions = {padding: float, includeHiddenNodes: bool}
 
 type rect = {x: float, y: float, width: float, height: float}
+
+type position = {
+  x: float,
+  y: float,
+}
 
 type zoomPanHelper = {
   fitView: fitViewOptions => unit,
@@ -167,6 +178,7 @@ type zoomPanHelper = {
   zoomTo: float => unit,
   setCenter: (float, float, option<float>) => unit,
   fitBounds: (rect, option<float>) => unit,
+  project: (. position) => position,
   initialized: bool,
 }
 

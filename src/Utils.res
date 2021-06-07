@@ -91,13 +91,13 @@ module Window = {
 
   let addEventListener = (~event: string, ~handler): unit => {
     %external(window)->Belt.Option.forEach((window: Dom.window) =>
-      Obj.magic(window)["addEventListener"](event, handler)
+      Obj.magic(window)["addEventListener"](. event, handler)
     )
   }
 
   let removeEventListener = (~event: string, ~handler): unit => {
     %external(window)->Belt.Option.forEach((window: Dom.window) =>
-      Obj.magic(window)["removeEventListener"](event, handler)
+      Obj.magic(window)["removeEventListener"](. event, handler)
     )
   }
 }
@@ -166,4 +166,93 @@ return [...(new Set(arr))]
   ) => string = %raw(`function replaceRange(s, start, end, substitute) {
     return s.substring(0, start) + substitute + s.substring(end);
 }`)
+
+  let _hashToHslColor = %raw("function getBackgroundColor(stringInput) {
+    let stringUniqueHash = [...stringInput].reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    return `hsl(${stringUniqueHash % 360}, 95%, 35%)`;
+  }")
+
+  let hashToHslColor = (string: string): string => {
+    _hashToHslColor(string)
+  }
+}
+
+module Audio = {
+  type audioHtmlElement
+  type destination
+
+  module AudioContext = {
+    type t
+    @new external createStandardAudioContext: unit => t = "AudioContext"
+    @new external createWebkitAudioContext: unit => t = "webkitAudioContext"
+    @new external createMozAudioContext: unit => t = "mozAudioContext"
+
+    let create: unit => option<t> = () => {
+      switch (
+        %external(\"AudioContext"),
+        %external(webkitAudioContext),
+        %external(mozAudioContext),
+      ) {
+      | (None, None, None) => None
+      | (Some(_), _, _) => createStandardAudioContext()->Some
+      | (_, Some(_), _) => createWebkitAudioContext()->Some
+      | (_, _, Some(_)) => createMozAudioContext()->Some
+      }
+    }
+
+    @send external connect: t => unit = "connect"
+    @get external destination: t => destination = "destination"
+  }
+
+  @new external createAudio: (. unit) => audioHtmlElement = "Audio"
+
+  module Analyser = {
+    type t
+
+    @send
+    external createScriptProcessor: (AudioContext.t, int, int, int) => t = "createScriptProcessor"
+    @send external connectDestination: (t, destination) => unit = "connect"
+    @set external setOnAudioProcess: (t, 'onAudioProcessHandler) => unit = "onaudioprocess"
+  }
+
+  module Source = {
+    type t
+
+    @send
+    external createMediaElementSource: (AudioContext.t, audioHtmlElement) => t =
+      "createMediaElementSource"
+    @send
+    external createMediaStreamSource: (AudioContext.t, 'audioStream) => t =
+      "createMediaStreamSource"
+
+    @send external connectAnalyser: (t, Analyser.t) => unit = "connect"
+    @send external connectDestination: (t, destination) => unit = "connect"
+  }
+
+  let monitorAudio = (~audio, ~onAudioProcess) => {
+    switch AudioContext.create() {
+    | None => ()
+    | Some(audioContext) =>
+      let analyser = audioContext->Analyser.createScriptProcessor(1024, 1, 1)
+      let source = audioContext->Source.createMediaStreamSource(audio)
+      source->Source.connectAnalyser(analyser)
+      // source->Source.connectDestination(audioContext->AudioContext.destination)
+      analyser->Analyser.connectDestination(audioContext->AudioContext.destination)
+      analyser->Analyser.setOnAudioProcess(onAudioProcess)
+    }
+  }
+
+  let getUserAudio = (~onSuccess, ~onError) => {
+    Navigator.MediaDevices.getUserAudio()->Belt.Option.forEach(promise =>
+      promise->Js.Promise.then_(stream => {
+        onSuccess(. ~stream)
+        Js.Promise.resolve()
+      }, _)->Js.Promise.catch(error => {
+        onError(. ~error)
+        Js.Promise.resolve()
+      }, _)->ignore
+    )
+  }
 }

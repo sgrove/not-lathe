@@ -1,5 +1,5 @@
 module OneGraphChainViewerFragment = %relay(`
-  fragment ChainViewer_oneGraphAppPackageChain on OneGraphAppPackageChain {
+  fragment ChainViewer_chain on OneGraphAppPackageChain {
     id
     name
     description
@@ -15,7 +15,7 @@ module OneGraphChainViewerFragment = %relay(`
       id
       name
       description
-      graphQLOperation
+      graphqlOperation
       privacy
       script {
         filename
@@ -25,6 +25,39 @@ module OneGraphChainViewerFragment = %relay(`
       }
     }
   }`)
+
+module Subscription = %relay(`
+subscription ChainViewer_Subscription($chainId: String!) {
+  oneGraph {
+    studioChainUpdate(input: { chainId: $chainId }) {
+      chain {
+        name
+        description
+        libraryScript {
+          filename
+          language
+          concurrentSource
+          textualSource
+        }
+        createdAt
+        updatedAt
+        actions {
+          id
+          name
+          description
+          graphqlOperation
+          privacy
+          script {
+            filename
+            language
+            concurrentSource
+            textualSource
+          }
+        }
+      }
+    }
+  }
+}`)
 
 @react.component
 let make = (

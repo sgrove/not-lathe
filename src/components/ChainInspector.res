@@ -4,7 +4,7 @@ module Fragment = %relay(`
       actions {
         id
         name
-        graphQLOperationKind
+        graphqlOperationKind
         ...ActionInspector_oneGraphStudioChainAction
       }
       ...InspectorOverview_oneGraphAppPackageChain
@@ -14,21 +14,17 @@ module Fragment = %relay(`
 @react.component
 let make = (
   ~chainExecutionResults: option<Js.Json.t>,
-  ~onPotentialVariableSourceConnect,
   ~onLogin: string => unit,
   ~onInspectAction: (~actionId: string) => unit,
   ~oneGraphAuth,
   ~onClose,
   ~nothingRef as fragmentRefs,
 ) => {
-  let chainRef = Fragment.use(fragmentRefs)
+  let chain = Fragment.use(fragmentRefs)
 
   open React
 
-  let connectionDrag = useContext(ConnectionContext.context)
-  let (potentialConnection, setPotentialConnection) = React.useState(() => Belt.Set.String.empty)
-
-  let webhookUrl = Compiler.Exports.webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
+  // let webhookUrl = Compiler.Exports.webhookUrlForAppId(~appId=oneGraphAuth->OneGraphAuth.appId)
   // let compiledOperation = chain->Chain.compileOperationDoc(~schema, ~webhookUrl)
 
   let missingAuthServices =
@@ -36,36 +32,33 @@ let make = (
     ->Belt.Option.map(ChainResultsHelpers.findMissingAuthServicesFromChainResult)
     ->Belt.Option.getWithDefault([])
 
-  let authButtons = missingAuthServices->Belt.Array.map(service => {
-    <Comps.Button
-      key={service}
-      onClick={_ => {
-        onLogin(service)
-      }}>
-      {("Log into " ++ service)->React.string}
-    </Comps.Button>
-  })
+  // let authButtons = missingAuthServices->Belt.Array.map(service => {
+  //   <Comps.Button
+  //     key={service}
+  //     onClick={_ => {
+  //       onLogin(service)
+  //     }}>
+  //     {("Log into " ++ service)->React.string}
+  //   </Comps.Button>
+  // })
 
   // let targetChain = compiledOperation.chains->Belt.Array.get(0)
 
   let (formVariables, setFormVariables) = React.useState(() => Js.Dict.empty())
-  let (openedTab, setOpenedTab) = React.useState(() => #inspector)
+  let (openedTab, setOpenedTab) = React.useState(() => #chat)
   let (rawJsonVariables, setRawJsonVariables) = React.useState(() => "")
 
   let isSubscription =
-    chainRef.actions->Belt.Array.some(request => request.graphQLOperationKind == #SUBSCRIPTION)
+    chain.actions->Belt.Array.some(request => request.graphqlOperationKind == #SUBSCRIPTION)
 
-  let isChainViable = chainRef.actions->Belt.Array.length > 0
+  let isChainViable = chain.actions->Belt.Array.length > 0
 
   let (currentAuthToken, setCurrentAuthToken) = useState(() => None)
 
   let inspectorTab =
     <>
       <InspectorOverview
-        fragmentRefs={chainRef.fragmentRefs}
-        onPotentialVariableSourceConnect
-        onInspectAction
-        onDeleteAction={_ => ()}
+        fragmentRefs={chain.fragmentRefs} onInspectAction onDeleteAction={_ => ()}
       />
       <br />
       {
@@ -86,9 +79,9 @@ let make = (
       //   : <Comps.Button onClick={_ => {onSaveChain(chain)}}>
       //       {"Save Changes"->string}
       //     </Comps.Button>}
-      <Comps.Button onClick={_ => {onClose()}}> {"Cancel changes and exit"->string} </Comps.Button>
+      <Comps.Button onClick={_ => {onClose()}}> {"Exit"->string} </Comps.Button>
       <Comps.CollapsableSection defaultOpen=false title={"Internal Debug info"->React.string}>
-        <Comps.Pre selectAll=true> {chainRef->Debug.Relay.stringify->React.string} </Comps.Pre>
+        <Comps.Pre selectAll=true> {chain->Debug.Relay.stringify->React.string} </Comps.Pre>
       </Comps.CollapsableSection>
       // <Comps.CollapsableSection defaultOpen=false title={"Compiled Executable Chain"->React.string}>
       //   <Comps.Pre selectAll=true>
@@ -111,48 +104,38 @@ let make = (
       style={ReactDOMStyle.make(~borderColor=Comps.colors["gray-1"], ())}>
       <button
         onClick={_ => {
-          setOpenedTab(_ => #inspector)
+          setOpenedTab(_ => #general)
         }}
         className={"flex justify-center flex-grow cursor-pointer p-1 outline-none " ++ {
-          openedTab == #inspector ? " inspector-tab-active" : " inspector-tab-inactive"
+          openedTab == #general ? " inspector-tab-active" : " inspector-tab-inactive"
         }}>
         <Icons.Link
           className=""
           width="24px"
           height="24px"
-          color={openedTab == #inspector ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
+          color={openedTab == #general ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
         />
         <span className="mx-2"> {"Chain"->React.string} </span>
       </button>
       <button
         onClick={_ => {
-          setOpenedTab(_ => #form)
+          setOpenedTab(_ => #chat)
         }}
         className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " ++ {
-          openedTab == #form ? " inspector-tab-active" : " inspector-tab-inactive"
+          openedTab == #chat ? " inspector-tab-active" : " inspector-tab-inactive"
         }}>
-        <Icons.List
+        <Icons.Chats
           width="24px"
           height="24px"
-          color={openedTab == #form ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
+          color={openedTab == #chat ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
         />
-        <span className="mx-2"> {"Try Chain"->React.string} </span>
-      </button>
-      <button
-        onClick={_ => {
-          setOpenedTab(_ => #save)
-        }}
-        className={"flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " ++ {
-          openedTab == #save ? " inspector-tab-active" : " inspector-tab-inactive"
-        }}>
-        <Icons.OpenInNew
-          width="24px"
-          height="24px"
-          color={openedTab == #save ? Comps.colors["blue-1"] : Comps.colors["gray-6"]}
-        />
-        <span className="mx-2"> {"Export"->React.string} </span>
+        <span className="mx-2"> {"Chat"->React.string} </span>
       </button>
     </div>
-    inspectorTab
+    {switch openedTab {
+    | #general => inspectorTab
+    | #chat => <ChannelChat channelId={chain.id} />
+    }}
+    <Comps.Pre> {"tst"->string} </Comps.Pre>
   </>
 }

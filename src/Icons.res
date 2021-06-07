@@ -1009,19 +1009,21 @@ let iconTemplates = {
 
 module Icon = {
   @react.component
-  let make = (~className=?, ~color="white", ~width="24", ~height="24", ~icon, ~onClick=?) => {
+  let make = (
+    ~className=?,
+    ~color="white",
+    ~width="24",
+    ~height="24",
+    ~fill="none",
+    ~icon,
+    ~onClick=?,
+  ) => {
     <svg
-      ?className
-      width
-      height
-      viewBox="0 0 100 100"
-      fill="none"
-      vectorEffect="non-scaling-stroke"
-      ?onClick>
+      ?className width height viewBox="0 0 100 100" fill vectorEffect="non-scaling-stroke" ?onClick>
       <circle cx="256" cy="378.5" r="25" fill=color />
       {icon["paths"]
-      ->Js.Array2.map(path => {
-        <path d=path fill=color />
+      ->Belt.Array.mapWithIndex((idx, path) => {
+        <path key={idx->string_of_int} d=path fill=color />
       })
       ->React.array}
     </svg>
@@ -1029,6 +1031,13 @@ module Icon = {
 }
 
 module Volume = {
+  module Mute = {
+    @react.component
+    let make = (~className=?, ~color=?, ~width=?, ~height=?) => {
+      <Icon ?className ?color ?width ?height icon={iconTemplates["soundMute"]} />
+    }
+  }
+
   module Off = {
     @react.component
     let make = (~className=?, ~color=?, ~width=?, ~height=?) => {
@@ -1039,14 +1048,14 @@ module Volume = {
   module Min = {
     @react.component
     let make = (~className=?, ~color=?, ~width=?, ~height=?) => {
-      <Icon ?className ?color ?width ?height icon={iconTemplates["soundOff"]} />
+      <Icon ?className ?color ?width ?height icon={iconTemplates["soundMin"]} />
     }
   }
 
   module Max = {
     @react.component
     let make = (~className=?, ~color=?, ~width=?, ~height=?) => {
-      <Icon ?className ?color ?width ?height icon={iconTemplates["soundOff"]} />
+      <Icon ?className ?color ?width ?height icon={iconTemplates["soundMax"]} />
     }
   }
 
@@ -1061,5 +1070,19 @@ module Volume = {
       }
       <Icon ?className ?color ?width ?height icon={icon} ?onClick />
     }
+  }
+}
+
+module MouseCursor = {
+  @react.component
+  let make = (~className=?, ~color=?, ~width=?, ~height=?) => {
+    <Icon ?className ?color ?width ?height icon={iconTemplates["cursor"]} />
+  }
+}
+
+module Chats = {
+  @react.component
+  let make = (~className=?, ~color=?, ~width=?, ~height=?) => {
+    <Icon ?className ?color ?width ?height icon={iconTemplates["chats"]} />
   }
 }

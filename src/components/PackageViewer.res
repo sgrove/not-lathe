@@ -1,12 +1,12 @@
 module PackageFragment = %relay(`
-  fragment PackageViewer_oneGraphAppPackage on OneGraphAppPackage {
+  fragment PackageViewer_package on OneGraphAppPackage {
     description
     id
     name
     version
     chains {
-      ...ChainViewer_oneGraphAppPackageChain
-      ...ChainEditor_oneGraphAppPackageChain
+      ...ChainViewer_chain
+      ...ChainEditor_chain
       id
       name
       authToken {
@@ -19,6 +19,24 @@ module PackageFragment = %relay(`
     }
   }
   `)
+
+module CreateChainMutation = %relay(`
+  mutation PackageViewer_createChainMutation($input: OneGraphCreateChainInput!) {
+    oneGraph {
+      createChain(input: $input) {
+        chain {
+          id
+          ...ChainViewer_chain
+          ...ChainEditor_chain
+        }
+        package {
+          id
+          ...PackageViewer_package
+        }
+      }
+    }
+  }
+`)
 
 module AuthTokensFragment = %relay(`
   fragment PackageViewer_authTokens on OneGraphUser {
@@ -48,59 +66,23 @@ type state = {view: view}
 
 module EditorTemp = {
   @react.component
-  let make = (~schema, ~chain: PackageViewer_oneGraphAppPackage_graphql.Types.fragment_chains) => {
+  let make = (~schema, ~chain: PackageViewer_package_graphql.Types.fragment_chains) => {
     let config: Config.Studio.t = {
-      oneGraphAppId: "",
+      oneGraphAppId: RelayEnv.appId,
       persistQueryToken: "",
       chainAccessToken: None,
     }
-
     <ChainEditor
       config
       schema
       chainRefs=chain.fragmentRefs
-      localStorageChain=Package.DevTimeJson.spotifyChain
       trace=None
       helpOpen=false
-      onSaveChain={(newChain: Chain.t) => {
-        ()
-        // setState(oldState => {
-        //   newChain->Chain.saveToLocalStorage
-
-        //   let inspected = switch oldState.inspected {
-        //   | Edit({trace}) => Edit({chain: newChain, trace: trace})
-        //   | _ => Edit({chain: newChain, trace: None})
-        //   }
-        //   {
-        //     ...oldState,
-        //     package: {
-        //       ...oldState.package,
-        //       chains: oldState.package.chains->Belt.Array.map(oldChain => {
-        //         oldChain.id == newChain.id ? newChain : oldChain
-        //       }),
-        //     },
-        //     inspected: inspected,
-        //   }
-        // })
-      }}
       onClose={() => {
         ()
         // setState(oldState => {
         //   ...oldState,
         //   inspected: Package,
-        // })
-      }}
-      onSaveAndClose={newChain => {
-        ()
-        // setState(oldState => {
-        //   ...oldState,
-        //   inspected: Package,
-        //   package: {
-        //     ...oldState.package,
-        //     chains: oldState.package.chains->Belt.Array.map(oldChain => {
-        //       oldChain == chain ? newChain : oldChain
-        //     }),
-        //   },
         // })
       }}
     />
@@ -126,14 +108,12 @@ let make = (
     let oneGraphUser = AuthTokensFragment.use(authTokensRef)
     oneGraphUser.personalTokens->Belt.Option.getWithDefault([])
   })
+  let (createChain, isCreatingChain) = CreateChainMutation.use()
 
   open React
 
   let (state, setState) = useState(() => {
-    view: switch package.chains {
-    | [] => Nothing
-    | chains => Chain(chains[0].id)
-    },
+    view: chains->Belt.Array.get(0)->Belt.Option.mapWithDefault(Nothing, chain => Chain(chain.id)),
   })
 
   let nav =
@@ -278,8 +258,27 @@ let make = (
                   ->Belt.Option.mapWithDefault("", name => name->Js.String2.trim) {
                   | "" => ()
                   | other =>
-                    let chain = Chain.makeEmptyChain(other)
-                    onCreateChain(chain)
+                    let result: RescriptRelay.Disposable.t = createChain(
+                      ~variables={
+                        input: {
+                          packageId: package.id,
+                          name: other,
+                          description: None,
+                        },
+                      },
+                      ~onCompleted=(results, errors) => {
+                        Js.log3("Results: ", results, errors)
+                        results.oneGraph.createChain->Belt.Option.forEach(result => {
+                          setState(oldState => {
+                            ...oldState,
+                            view: Chain(result.chain.id),
+                          })
+                        })
+                      },
+                      (),
+                    )
+
+                    result->ignore
                   }
                 }}>
                 <Icons.Plus className="inline-block " color={Comps.colors["gray-4"]} />
@@ -334,7 +333,10 @@ let make = (
                         <span
                           className="font-medium cursor-pointer mr-2"
                           onClick={_ => {
-                            onEditChain(~chain, ~trace=None)
+                            setState(oldState => {
+                              ...oldState,
+                              view: Chain(chain.id),
+                            })
                           }}>
                           {chain.name->string}
                         </span>

@@ -41,7 +41,7 @@ let fetchQuery: RescriptRelay.Network.fetchFunctionPromise = (
       ~headers=Fetch.HeadersInit.make({
         "content-type": "application/json",
         "accept": "application/json",
-        "Authorization": "Bearer eH7zBV9qnXx1NDX_Bo94WyHRVK2qCuVc6LYN38ye7bA",
+        "Authorization": "Bearer in8zsPB1njMm_BO2MOwsc2GSHCro9pvK4hUGqnpNVbM",
         // authHeader->Belt.Option.getWithDefault(""),
       }),
       (),
@@ -58,7 +58,10 @@ let fetchQuery: RescriptRelay.Network.fetchFunctionPromise = (
 module OneGraphSubscriptionClient = {
   type t
 
-  type subscriptionClientOptions = {oneGraphAuth: OneGraphAuth.t}
+  type subscriptionClientOptions = {
+    oneGraphAuth: OneGraphAuth.t,
+    host: string,
+  }
 
   @module("onegraph-subscription-client") @new("SubscriptionClient")
   external make: (string, subscriptionClientOptions) => t = "SubscriptionClient"
@@ -70,7 +73,7 @@ module OneGraphSubscriptionClient = {
 
 let oneGraphSubscriptionClient =
   auth->Belt.Option.map(oneGraphAuth =>
-    OneGraphSubscriptionClient.make(appId, {oneGraphAuth: oneGraphAuth})
+    OneGraphSubscriptionClient.make(appId, {oneGraphAuth: oneGraphAuth, host: "serve.onegraph.io"})
   )
 
 /* Subscriptions to OneGraph can also work server-side with some addition packages, but we just disable them in SSR for now. */

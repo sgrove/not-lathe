@@ -22,7 +22,7 @@ module Types = {
   type rec fragment_actions = {
     id: string,
     name: string,
-    graphQLOperationKind: enum_OneGraphStudioChainActionOperationKindEnum,
+    graphqlOperationKind: enum_OneGraphStudioChainActionOperationKindEnum,
     fragmentRefs: RescriptRelay.fragmentRefs<[ | #ActionInspector_oneGraphStudioChainAction]>
   }
   type fragment = {
@@ -100,7 +100,7 @@ return {
           "alias": null,
           "args": null,
           "kind": "ScalarField",
-          "name": "graphQLOperationKind",
+          "name": "graphqlOperationKind",
           "storageKey": null
         },
         {

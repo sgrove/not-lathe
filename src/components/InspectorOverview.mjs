@@ -49,8 +49,9 @@ function InspectorOverview(Props) {
   var setPotentialConnection = match[1];
   var potentialConnection = match[0];
   var actions = Belt_Array.map(chain.actions, (function (action) {
+          var match = connectionDrag.value;
           var tmp;
-          tmp = typeof connectionDrag === "number" || !(connectionDrag.TAG === /* StartedSource */0 && connectionDrag.sourceRequest.id !== action.id) ? "" : "node-drop drag-target";
+          tmp = typeof match === "number" || !(match.TAG === /* StartedSource */0 && match.sourceActionId !== action.id) ? "" : "node-drop drag-target";
           var dragClassName = tmp + (
             Belt_SetString.has(potentialConnection, action.id) ? " drop-ready" : ""
           );
@@ -58,7 +59,8 @@ function InspectorOverview(Props) {
                       key: action.id,
                       className: "mx-2 " + dragClassName,
                       onMouseEnter: (function ($$event) {
-                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                          var match = connectionDrag.value;
+                          if (typeof match === "number" || match.TAG !== /* StartedSource */0) {
                             return ;
                           } else {
                             return Curry._1(setPotentialConnection, (function (s) {
@@ -67,7 +69,8 @@ function InspectorOverview(Props) {
                           }
                         }),
                       onMouseLeave: (function ($$event) {
-                          if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* StartedSource */0) {
+                          var match = connectionDrag.value;
+                          if (typeof match === "number" || match.TAG !== /* StartedSource */0) {
                             return ;
                           } else {
                             return Curry._1(setPotentialConnection, (function (s) {
@@ -76,9 +79,34 @@ function InspectorOverview(Props) {
                           }
                         }),
                       onMouseUp: (function ($$event) {
+                          var clientX = $$event.clientX;
+                          var clientY = $$event.clientY;
+                          var mouseClientPosition = [
+                            clientX,
+                            clientY
+                          ];
                           Curry._1(setPotentialConnection, (function (s) {
                                   return Belt_SetString.remove(s, action.id);
                                 }));
+                          var match = connectionDrag.value;
+                          if (typeof match === "number") {
+                            return ;
+                          }
+                          if (match.TAG !== /* StartedSource */0) {
+                            return ;
+                          }
+                          var newConnectionDrag_0 = match.sourceActionId;
+                          var newConnectionDrag_1 = match.sourceDom;
+                          var newConnectionDrag_2 = action.id;
+                          var newConnectionDrag = {
+                            TAG: 2,
+                            sourceActionId: newConnectionDrag_0,
+                            sourceDom: newConnectionDrag_1,
+                            targetActionId: newConnectionDrag_2,
+                            windowPosition: mouseClientPosition,
+                            [Symbol.for("name")]: "CompletedPendingVariable"
+                          };
+                          Curry._1(connectionDrag.onPotentialVariableSourceConnect, newConnectionDrag);
                           
                         })
                     }, React.createElement("div", {

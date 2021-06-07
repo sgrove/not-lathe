@@ -31,3 +31,27 @@ let useLeadingDebounce = (value, delay) => {
 
   debouncedValue
 }
+
+let useThrottle = (callback: unit => unit, interval: int) => {
+  open React
+  // State and setters for debounced value
+  let (pendingFire, setPendingFire) = useState(() => false)
+
+  useEffect3(() => {
+    // Update debounced value after delay
+    let handler = Js.Global.setTimeout(() => {
+      callback()
+      setPendingFire(_ => false)
+    }, interval)
+    // Cancel the timeout if value changes (also on delay change or unmount)
+    // This is how we prevent debounced value from updating if value is changed ...
+    // .. within the delay period. Timeout gets cleared and restarted.
+    Some(
+      () => {
+        Js.Global.clearTimeout(handler)
+      },
+    )
+  }, (pendingFire, callback, interval)) // Only re-call effect if value or delay changes
+
+  () => setPendingFire(_ => true)
+}

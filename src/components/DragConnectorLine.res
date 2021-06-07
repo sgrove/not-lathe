@@ -1,3 +1,48 @@
+module Line = {
+  @react.component
+  let make = (~startX, ~startY, ~endX, ~endY, ~onMouseMove=?, ~highColor) => {
+    <div
+      className="absolute w-full h-full pointer-events-none"
+      style={ReactDOMStyle.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}
+      ?onMouseMove>
+      <svg
+        className="relative w-full h-full pointer-events-none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={ReactDOMStyle.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}>
+        <filter id="blurMe"> <feGaussianBlur in_="SourceGraphic" stdDeviation="5" /> </filter>
+        <marker
+          id="connectMarker" markerHeight="4" markerWidth="2" orient="auto" refX="0.1" refY="2">
+          <path fill="green" d="M0 0v4l2-2z" />
+        </marker>
+        <line
+          className="pointer-events-none"
+          style={ReactDOMStyle.make(~cursor="none", ())}
+          stroke={highColor}
+          strokeWidth="3"
+          markerEnd="url(#connectMarker)"
+          x1={startX->string_of_int}
+          y1={startY->string_of_int}
+          x2={endX->string_of_int}
+          y2={endY->string_of_int}
+        />
+        <line
+          style={ReactDOMStyle.make(~cursor="none", ())}
+          stroke={Comps.colors["green-3"]}
+          strokeWidth="3"
+          className="moving-path pointer-events-none"
+          markerEnd="url(#connectMarker)"
+          // filter="url(#blurMe)"
+          strokeDasharray={"50"}
+          x1={startX->string_of_int}
+          y1={startY->string_of_int}
+          x2={endX->string_of_int}
+          y2={endY->string_of_int}
+        />
+      </svg>
+    </div>
+  }
+}
+
 type state = {mousePosition: (int, int)}
 
 @send external getBoundingClientRect: Dom.element => Dom.domRect = "getBoundingClientRect"
@@ -55,46 +100,16 @@ let make = (~source, ~onDragEnd, ~invert) => {
   | true => (mouseX - nudge, mouseY - nudge, anchorX, anchorY)
   }
 
-  <div
-    className="absolute w-full h-full pointer-events-none"
-    style={ReactDOMStyle.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}
+  <Line
     onMouseMove={event => {
       let x = event->ReactEvent.Mouse.clientX
       let y = event->ReactEvent.Mouse.clientY
       setState(_oldState => {mousePosition: (x, y)})
-    }}>
-    <svg
-      className="relative w-full h-full pointer-events-none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={ReactDOMStyle.make(~top="0px", ~left="0px", ~zIndex="9999", ~cursor="none", ())}>
-      <filter id="blurMe"> <feGaussianBlur in_="SourceGraphic" stdDeviation="5" /> </filter>
-      <marker id="connectMarker" markerHeight="4" markerWidth="2" orient="auto" refX="0.1" refY="2">
-        <path fill="green" d="M0 0v4l2-2z" />
-      </marker>
-      <line
-        className="pointer-events-none"
-        style={ReactDOMStyle.make(~cursor="none", ())}
-        stroke={Comps.colors["green-6"]}
-        strokeWidth="3"
-        markerEnd="url(#connectMarker)"
-        x1={startX->string_of_int}
-        y1={startY->string_of_int}
-        x2={endX->string_of_int}
-        y2={endY->string_of_int}
-      />
-      <line
-        style={ReactDOMStyle.make(~cursor="none", ())}
-        stroke={Comps.colors["green-3"]}
-        strokeWidth="3"
-        className="moving-path pointer-events-none"
-        markerEnd="url(#connectMarker)"
-        // filter="url(#blurMe)"
-        strokeDasharray={"50"}
-        x1={startX->string_of_int}
-        y1={startY->string_of_int}
-        x2={endX->string_of_int}
-        y2={endY->string_of_int}
-      />
-    </svg>
-  </div>
+    }}
+    highColor={Comps.colors["green-6"]}
+    startX
+    startY
+    endX
+    endY
+  />
 }

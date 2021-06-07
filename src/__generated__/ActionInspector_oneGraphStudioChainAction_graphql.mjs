@@ -5,7 +5,7 @@ import * as RescriptRelay from "rescript-relay/src/RescriptRelay.mjs";
 
 var Types = {};
 
-var fragmentConverter = {"__root":{"actionVariables":{"f":""},"description":{"n":""}}};
+var fragmentConverter = {"__root":{"":{"f":""},"actionVariables":{"f":""},"description":{"n":""}}};
 
 function convertFragment(v) {
   return RescriptRelay.convertObj(v, fragmentConverter, undefined, undefined);
@@ -19,26 +19,29 @@ var Internal = {
 
 var Utils = {};
 
-var node = {
+var node = ((function(){
+var v0 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+},
+v1 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "name",
+  "storageKey": null
+};
+return {
   "argumentDefinitions": [],
   "kind": "Fragment",
   "metadata": null,
   "name": "ActionInspector_oneGraphStudioChainAction",
   "selections": [
-    {
-      "alias": null,
-      "args": null,
-      "kind": "ScalarField",
-      "name": "id",
-      "storageKey": null
-    },
-    {
-      "alias": null,
-      "args": null,
-      "kind": "ScalarField",
-      "name": "name",
-      "storageKey": null
-    },
+    (v0/*: any*/),
+    (v1/*: any*/),
     {
       "alias": null,
       "args": null,
@@ -57,7 +60,7 @@ var node = {
       "alias": null,
       "args": null,
       "kind": "ScalarField",
-      "name": "graphQLOperation",
+      "name": "graphqlOperation",
       "storageKey": null
     },
     {
@@ -68,6 +71,8 @@ var node = {
       "name": "variables",
       "plural": true,
       "selections": [
+        (v0/*: any*/),
+        (v1/*: any*/),
         {
           "args": null,
           "kind": "FragmentSpread",
@@ -75,11 +80,17 @@ var node = {
         }
       ],
       "storageKey": null
+    },
+    {
+      "args": null,
+      "kind": "FragmentSpread",
+      "name": "ActionForm_oneGraphStudioChainAction"
     }
   ],
   "type": "OneGraphStudioChainAction",
   "abstractKey": null
 };
+})());
 
 export {
   Types ,
@@ -88,4 +99,4 @@ export {
   node ,
   
 }
-/* RescriptRelay Not a pure module */
+/* node Not a pure module */

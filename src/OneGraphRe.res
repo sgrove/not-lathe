@@ -1,6 +1,6 @@
 @module("./OneGraph.js")
 external fetchOneGraph: (
-  OneGraphAuth.t,
+  . OneGraphAuth.t,
   string,
   option<string>,
   option<Js.Json.t>,
@@ -8,7 +8,7 @@ external fetchOneGraph: (
 
 @module("./OneGraph.js")
 external persistQuery: (
-  ~appId: string,
+  . ~appId: string,
   ~persistQueryToken: string,
   ~queryToPersist: string,
   ~freeVariables: array<string>,
@@ -19,7 +19,7 @@ external persistQuery: (
 
 @module("./OneGraph.js")
 external publishNpmPackage: (
-  ~auth: OneGraphAuth.t,
+  . ~auth: OneGraphAuth.t,
   ~variables: {
     "npmAuth": option<string>,
     "gitHubOAuthToken": option<string>,
@@ -40,7 +40,7 @@ external publishNpmPackage: (
 
 @module("./OneGraph.js")
 external basicFetchOneGraphPersistedQuery: (
-  ~appId: string,
+  . ~appId: string,
   ~accessToken: option<OneGraphAuth.t>,
   ~docId: string,
   ~variables: option<Js.Json.t>,
@@ -49,7 +49,7 @@ external basicFetchOneGraphPersistedQuery: (
 
 @module("./OneGraph.js")
 external fetchOneGraphPersistedQuery: (
-  ~oneGraphAuth: option<OneGraphAuth.t>,
+  . ~oneGraphAuth: option<OneGraphAuth.t>,
   ~docId: string,
   ~operationName: option<string>,
   ~variables: option<Js.Json.t>,
@@ -69,8 +69,8 @@ module GitHub = {
     | Nextjs => "Next.js"
     }
 
-  let _guessProjecType: (
-    ~owner: string,
+  let _guessProjectType: (
+    . ~owner: string,
     ~name: string,
   ) => Js.Promise.t<string> = %raw(`async function listRepositories(owner, name) {
 let resp = await fetch("https://serve.onegraph.com/graphql?app_id=993a3e2d-de45-44fa-bff4-0c58c6150cbf",
@@ -96,8 +96,8 @@ console.log(owner, name, value, res)
 return value
 }`)
 
-  let guessProjecType = (~owner, ~name) => {
-    _guessProjecType(~owner, ~name)->Js.Promise.then_(result => {
+  let guessProjectType = (~owner, ~name) => {
+    _guessProjectType(. ~owner, ~name)->Js.Promise.then_(result => {
       let typ = switch result {
       | "next.js" => Nextjs
       | "netlify/next.js" => Netlify(#nextjs)

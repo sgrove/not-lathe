@@ -1,35 +1,15 @@
 module OneGraphAppPackageChainFragment = %relay(`
-  fragment Inspector_oneGraphAppPackageChain on OneGraphAppPackageChain {
+  fragment Inspector_chain on OneGraphAppPackageChain {
     id
     actions {
       id
       name
-      graphQLOperationKind
+      graphqlOperationKind
     }
     ...Inspector_SubInspector_packageChain
     ...ChainInspector_packageChain
   }
 `)
-
-@deriving(abstract)
-type formInputOptions = {
-  @optional
-  labelClassname: string,
-  @optional
-  inputClassName: string,
-  @optional
-  defaultValue: Js.Json.t,
-  @optional
-  onMouseUp: ReactEvent.Mouse.t => unit,
-}
-
-@module("../GraphQLForm.js")
-external formInput: (
-  GraphQLJs.schema,
-  GraphQLJs.variableDefinition,
-  'setFormVariablesFn,
-  formInputOptions,
-) => React.element = "formInput"
 
 let forceablySetInputValue = (node, value) => {
   let helper = %raw(`function(node, value) {
@@ -70,7 +50,7 @@ let transformAndExecuteChain = (chain, ~schema, ~oneGraphAuth, ~variables) => {
 
   let targetChain = compiled.chains->Belt.Array.getUnsafe(0)
 
-  let promise = OneGraphRe.fetchOneGraph(
+  let promise = OneGraphRe.fetchOneGraph(.
     oneGraphAuth,
     compiled.operationDoc,
     Some(targetChain.operationName),
@@ -116,7 +96,7 @@ module SubInspectorFragment = %relay(`
     actions {
       id
       name
-      graphQLOperationKind
+      graphqlOperationKind
       ...ActionInspector_oneGraphStudioChainAction
     }
   }
@@ -131,8 +111,8 @@ module SubInspector = {
     ~onInspectAction: (~actionId: string) => unit,
     ~onInspectActionCode: (~actionId: string) => unit,
     ~requestValueCache: RequestValueCache.t,
-    ~onDeleteEdge,
     ~subInspectorRef as fragmentRefs,
+    ~onExecuteAction,
   ) => {
     let subInspectorRef = SubInspectorFragment.use(fragmentRefs)
     open React
@@ -190,8 +170,8 @@ module SubInspector = {
               schema
               onInspectAction
               actionNameIdPairs
-              onDeleteEdge
               onInspectActionCode
+              onExecuteAction
             />
           )
         }}
@@ -237,12 +217,12 @@ let make = (
   ~onLogin: string => unit,
   ~onInspectActionCode: (~actionId: string) => unit,
   ~requestValueCache,
-  ~onDeleteEdge,
   ~onInspectAction: (~actionId: string) => unit,
   ~oneGraphAuth,
   ~onClose,
   ~onPotentialVariableSourceConnect,
   ~fragmentRefs,
+  ~onExecuteAction,
 ) => {
   let chainRef = OneGraphAppPackageChainFragment.use(fragmentRefs)
 
@@ -297,7 +277,6 @@ let make = (
         onInspectAction
         oneGraphAuth
         onClose
-        onPotentialVariableSourceConnect
         nothingRef={chainRef.fragmentRefs}
       />
     </div>
@@ -320,7 +299,7 @@ let make = (
               schema
               onInspectActionCode
               requestValueCache
-              onDeleteEdge
+              onExecuteAction
             />
           </ReactSpring.Animated>
         }

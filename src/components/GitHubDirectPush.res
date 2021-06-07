@@ -40,9 +40,9 @@ let make = (~schema, ~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
   React.useEffect0(() => {
     Debug.assignToWindowForDeveloperDebug(
       ~name="guessGitHubProject",
-      OneGraphRe.GitHub.guessProjecType,
+      OneGraphRe.GitHub.guessProjectType,
     )
-    OneGraphRe.basicFetchOneGraphPersistedQuery(
+    OneGraphRe.basicFetchOneGraphPersistedQuery(.
       ~appId="993a3e2d-de45-44fa-bff4-0c58c6150cbf",
       ~accessToken=None,
       ~docId="fc839e0e-982b-43fc-b59b-3c080e17480a",
@@ -95,7 +95,7 @@ let make = (~schema, ~chain: Chain.t, ~savedChainId, ~oneGraphAuth) => {
             repo->Belt.Option.forEach(repo => {
               switch repo.node.nameWithOwner->Js.String2.split("/") {
               | [owner, name] =>
-                OneGraphRe.GitHub.guessProjecType(~owner, ~name)->Js.Promise.then_(result => {
+                OneGraphRe.GitHub.guessProjectType(~owner, ~name)->Js.Promise.then_(result => {
                   setState(oldState => {
                     ...oldState,
                     repoProjectGuess: Some(result),

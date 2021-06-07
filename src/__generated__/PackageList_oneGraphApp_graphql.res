@@ -4,7 +4,8 @@ module Types = {
   @@ocaml.warning("-30")
   
   type rec fragment_packages = {
-    fragmentRefs: RescriptRelay.fragmentRefs<[ | #PackageViewer_oneGraphAppPackage]>
+    id: string,
+    fragmentRefs: RescriptRelay.fragmentRefs<[ | #PackageViewer_package]>
   }
   type fragment = {
     packages: array<fragment_packages>,
@@ -54,9 +55,16 @@ let node: operationType = %raw(json` {
       "plural": true,
       "selections": [
         {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "id",
+          "storageKey": null
+        },
+        {
           "args": null,
           "kind": "FragmentSpread",
-          "name": "PackageViewer_oneGraphAppPackage"
+          "name": "PackageViewer_package"
         }
       ],
       "storageKey": null

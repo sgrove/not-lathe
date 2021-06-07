@@ -41,8 +41,37 @@ function useLeadingDebounce(value, delay) {
   return match[0];
 }
 
+function useThrottle(callback, interval) {
+  var match = React.useState(function () {
+        return false;
+      });
+  var setPendingFire = match[1];
+  React.useEffect((function () {
+          var handler = setTimeout((function (param) {
+                  Curry._1(callback, undefined);
+                  return Curry._1(setPendingFire, (function (param) {
+                                return false;
+                              }));
+                }), interval);
+          return (function (param) {
+                    clearTimeout(handler);
+                    
+                  });
+        }), [
+        match[0],
+        callback,
+        interval
+      ]);
+  return function (param) {
+    return Curry._1(setPendingFire, (function (param) {
+                  return true;
+                }));
+  };
+}
+
 export {
   useLeadingDebounce ,
+  useThrottle ,
   
 }
 /* react Not a pure module */

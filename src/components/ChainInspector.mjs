@@ -5,11 +5,10 @@ import * as Curry from "rescript/lib/es6/curry.js";
 import * as Debug from "../Debug.mjs";
 import * as Icons from "../Icons.mjs";
 import * as React from "react";
-import * as Compiler from "../lib/Compiler.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
-import * as ConnectionContext from "./ConnectionContext.mjs";
+import * as ChannelChat from "./ChannelChat.mjs";
 import * as InspectorOverview from "./InspectorOverview.mjs";
 import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as Hooks from "react-relay/hooks";
@@ -42,49 +41,31 @@ var Fragment = {
 
 function ChainInspector(Props) {
   var chainExecutionResults = Props.chainExecutionResults;
-  var onPotentialVariableSourceConnect = Props.onPotentialVariableSourceConnect;
-  var onLogin = Props.onLogin;
   var onInspectAction = Props.onInspectAction;
-  var oneGraphAuth = Props.oneGraphAuth;
   var onClose = Props.onClose;
   var fragmentRefs = Props.nothingRef;
-  var chainRef = use(fragmentRefs);
-  React.useContext(ConnectionContext.context);
-  React.useState(function () {
-        
-      });
-  Compiler.Exports.webhookUrlForAppId(oneGraphAuth.appId);
-  var missingAuthServices = Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, ChainResultsHelpers.findMissingAuthServicesFromChainResult), []);
-  Belt_Array.map(missingAuthServices, (function (service) {
-          return React.createElement(Comps.Button.make, {
-                      onClick: (function (param) {
-                          return Curry._1(onLogin, service);
-                        }),
-                      children: "Log into " + service,
-                      key: service
-                    });
-        }));
+  var chain = use(fragmentRefs);
+  Belt_Option.getWithDefault(Belt_Option.map(chainExecutionResults, ChainResultsHelpers.findMissingAuthServicesFromChainResult), []);
   React.useState(function () {
         return {};
       });
   var match = React.useState(function () {
-        return "inspector";
+        return "chat";
       });
   var setOpenedTab = match[1];
   var openedTab = match[0];
   React.useState(function () {
         return "";
       });
-  Belt_Array.some(chainRef.actions, (function (request) {
-          return request.graphQLOperationKind === "SUBSCRIPTION";
+  Belt_Array.some(chain.actions, (function (request) {
+          return request.graphqlOperationKind === "SUBSCRIPTION";
         }));
-  var isChainViable = chainRef.actions.length !== 0;
+  var isChainViable = chain.actions.length !== 0;
   React.useState(function () {
         
       });
   var inspectorTab = React.createElement(React.Fragment, undefined, React.createElement(InspectorOverview.make, {
-            fragmentRefs: chainRef.fragmentRefs,
-            onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+            fragmentRefs: chain.fragmentRefs,
             onInspectAction: onInspectAction,
             onDeleteAction: (function (param) {
                 
@@ -103,12 +84,12 @@ function ChainInspector(Props) {
             onClick: (function (param) {
                 return Curry._1(onClose, undefined);
               }),
-            children: "Cancel changes and exit"
+            children: "Exit"
           }), React.createElement(Comps.CollapsableSection.make, {
             title: "Internal Debug info",
             defaultOpen: false,
             children: React.createElement(Comps.Pre.make, {
-                  children: Debug.Relay.stringify(chainRef),
+                  children: Debug.Relay.stringify(chain),
                   selectAll: true
                 })
           }));
@@ -119,51 +100,40 @@ function ChainInspector(Props) {
                   }
                 }, React.createElement("button", {
                       className: "flex justify-center flex-grow cursor-pointer p-1 outline-none " + (
-                        openedTab === "inspector" ? " inspector-tab-active" : " inspector-tab-inactive"
+                        openedTab === "general" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
-                                        return "inspector";
+                                        return "general";
                                       }));
                         })
                     }, React.createElement(Icons.Link.make, {
                           className: "",
-                          color: openedTab === "inspector" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
+                          color: openedTab === "general" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
                           width: "24px",
                           height: "24px"
                         }), React.createElement("span", {
                           className: "mx-2"
                         }, "Chain")), React.createElement("button", {
                       className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " + (
-                        openedTab === "form" ? " inspector-tab-active" : " inspector-tab-inactive"
+                        openedTab === "chat" ? " inspector-tab-active" : " inspector-tab-inactive"
                       ),
                       onClick: (function (param) {
                           return Curry._1(setOpenedTab, (function (param) {
-                                        return "form";
+                                        return "chat";
                                       }));
                         })
-                    }, React.createElement(Icons.List.make, {
-                          color: openedTab === "form" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
+                    }, React.createElement(Icons.Chats.make, {
+                          color: openedTab === "chat" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
                           width: "24px",
                           height: "24px"
                         }), React.createElement("span", {
                           className: "mx-2"
-                        }, "Try Chain")), React.createElement("button", {
-                      className: "flex justify-center flex-grow cursor-pointer p-1 rounded-sm outline-none " + (
-                        openedTab === "save" ? " inspector-tab-active" : " inspector-tab-inactive"
-                      ),
-                      onClick: (function (param) {
-                          return Curry._1(setOpenedTab, (function (param) {
-                                        return "save";
-                                      }));
-                        })
-                    }, React.createElement(Icons.OpenInNew.make, {
-                          color: openedTab === "save" ? Comps.colors["blue-1"] : Comps.colors["gray-6"],
-                          width: "24px",
-                          height: "24px"
-                        }), React.createElement("span", {
-                          className: "mx-2"
-                        }, "Export"))), inspectorTab);
+                        }, "Chat"))), openedTab === "general" ? inspectorTab : React.createElement(ChannelChat.make, {
+                    channelId: chain.id
+                  }), React.createElement(Comps.Pre.make, {
+                  children: "tst"
+                }));
 }
 
 var make = ChainInspector;

@@ -45,3 +45,15 @@ module Relay = {
 })`)(a)
   }
 }
+
+module Navigator = {
+  let appVersion = (. ()): option<string> => {
+    %external(navigator)->Belt.Option.map(navigator => navigator["appVersion"])
+  }
+
+  let isChrome = () => {
+    appVersion(.)->Belt.Option.mapWithDefault(false, version =>
+      version->Js.String2.indexOf("Chrome") > -1
+    )
+  }
+}

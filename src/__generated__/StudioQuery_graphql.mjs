@@ -13,13 +13,13 @@ var Types = {
   makeRefetchVariables: makeRefetchVariables
 };
 
-var wrapResponseConverter = {"__root":{"me_oneGraph_personalTokens":{"n":""},"oneGraph_studio_actions_description":{"n":""},"oneGraph_app":{"f":""},"me_oneGraph_personalTokens_name":{"n":""},"me_oneGraph":{"f":"","n":""}}};
+var wrapResponseConverter = {"__root":{"oneGraph_app":{"f":""},"me_oneGraph":{"f":"","n":""}}};
 
 function convertWrapResponse(v) {
   return RescriptRelay.convertObj(v, wrapResponseConverter, undefined, null);
 }
 
-var responseConverter = {"__root":{"me_oneGraph_personalTokens":{"n":""},"oneGraph_studio_actions_description":{"n":""},"oneGraph_app":{"f":""},"me_oneGraph_personalTokens_name":{"n":""},"me_oneGraph":{"f":"","n":""}}};
+var responseConverter = {"__root":{"oneGraph_app":{"f":""},"me_oneGraph":{"f":"","n":""}}};
 
 function convertResponse(v) {
   return RescriptRelay.convertObj(v, responseConverter, undefined, undefined);
@@ -81,79 +81,17 @@ v3 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
-  "name": "name",
+  "name": "description",
   "storageKey": null
 },
 v4 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
-  "name": "description",
+  "name": "name",
   "storageKey": null
 },
-v5 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "graphQLOperation",
-  "storageKey": null
-},
-v6 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "privacy",
-  "storageKey": null
-},
-v7 = {
-  "alias": null,
-  "args": null,
-  "concreteType": "OneGraphStudio",
-  "kind": "LinkedField",
-  "name": "studio",
-  "plural": false,
-  "selections": [
-    {
-      "alias": null,
-      "args": null,
-      "concreteType": "OneGraphStudioChainAction",
-      "kind": "LinkedField",
-      "name": "actions",
-      "plural": true,
-      "selections": [
-        (v2/*: any*/),
-        (v3/*: any*/),
-        (v4/*: any*/),
-        (v5/*: any*/),
-        (v6/*: any*/)
-      ],
-      "storageKey": null
-    }
-  ],
-  "storageKey": null
-},
-v8 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "obscuredToken",
-  "storageKey": null
-},
-v9 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "expireDate",
-  "storageKey": null
-},
-v10 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "appId",
-  "storageKey": null
-},
-v11 = [
+v5 = [
   {
     "alias": null,
     "args": null,
@@ -183,7 +121,14 @@ v11 = [
     "storageKey": null
   },
   (v2/*: any*/)
-];
+],
+v6 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "obscuredToken",
+  "storageKey": null
+};
 return {
   "fragment": {
     "argumentDefinitions": (v0/*: any*/),
@@ -207,9 +152,6 @@ return {
             "name": "app",
             "plural": false,
             "selections": [
-              (v2/*: any*/),
-              (v3/*: any*/),
-              (v4/*: any*/),
               {
                 "args": null,
                 "kind": "FragmentSpread",
@@ -217,8 +159,7 @@ return {
               }
             ],
             "storageKey": null
-          },
-          (v7/*: any*/)
+          }
         ],
         "storageKey": null
       },
@@ -238,21 +179,6 @@ return {
             "name": "oneGraph",
             "plural": false,
             "selections": [
-              {
-                "alias": null,
-                "args": null,
-                "concreteType": "OneGraphAccessToken",
-                "kind": "LinkedField",
-                "name": "personalTokens",
-                "plural": true,
-                "selections": [
-                  (v8/*: any*/),
-                  (v9/*: any*/),
-                  (v3/*: any*/),
-                  (v10/*: any*/)
-                ],
-                "storageKey": null
-              },
               {
                 "args": null,
                 "kind": "FragmentSpread",
@@ -290,9 +216,6 @@ return {
             "name": "app",
             "plural": false,
             "selections": [
-              (v2/*: any*/),
-              (v3/*: any*/),
-              (v4/*: any*/),
               {
                 "alias": null,
                 "args": null,
@@ -301,9 +224,9 @@ return {
                 "name": "packages",
                 "plural": true,
                 "selections": [
-                  (v4/*: any*/),
                   (v2/*: any*/),
                   (v3/*: any*/),
+                  (v4/*: any*/),
                   {
                     "alias": null,
                     "args": null,
@@ -320,8 +243,8 @@ return {
                     "plural": true,
                     "selections": [
                       (v2/*: any*/),
-                      (v3/*: any*/),
                       (v4/*: any*/),
+                      (v3/*: any*/),
                       {
                         "alias": null,
                         "args": null,
@@ -329,7 +252,7 @@ return {
                         "kind": "LinkedField",
                         "name": "libraryScript",
                         "plural": false,
-                        "selections": (v11/*: any*/),
+                        "selections": (v5/*: any*/),
                         "storageKey": null
                       },
                       {
@@ -355,10 +278,22 @@ return {
                         "plural": true,
                         "selections": [
                           (v2/*: any*/),
-                          (v3/*: any*/),
                           (v4/*: any*/),
-                          (v5/*: any*/),
-                          (v6/*: any*/),
+                          (v3/*: any*/),
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "graphqlOperation",
+                            "storageKey": null
+                          },
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "privacy",
+                            "storageKey": null
+                          },
                           {
                             "alias": null,
                             "args": null,
@@ -366,14 +301,14 @@ return {
                             "kind": "LinkedField",
                             "name": "script",
                             "plural": false,
-                            "selections": (v11/*: any*/),
+                            "selections": (v5/*: any*/),
                             "storageKey": null
                           },
                           {
                             "alias": null,
                             "args": null,
                             "kind": "ScalarField",
-                            "name": "services",
+                            "name": "graphqlOperationKind",
                             "storageKey": null
                           },
                           {
@@ -387,7 +322,7 @@ return {
                             "alias": null,
                             "args": null,
                             "kind": "ScalarField",
-                            "name": "graphQLOperationKind",
+                            "name": "services",
                             "storageKey": null
                           },
                           {
@@ -399,7 +334,7 @@ return {
                             "plural": true,
                             "selections": [
                               (v2/*: any*/),
-                              (v3/*: any*/),
+                              (v4/*: any*/),
                               {
                                 "alias": null,
                                 "args": null,
@@ -407,7 +342,7 @@ return {
                                 "name": "graphqlType",
                                 "storageKey": null
                               },
-                              (v4/*: any*/),
+                              (v3/*: any*/),
                               {
                                 "alias": null,
                                 "args": null,
@@ -457,8 +392,8 @@ return {
                         "name": "authToken",
                         "plural": false,
                         "selections": [
-                          (v8/*: any*/),
-                          (v3/*: any*/),
+                          (v6/*: any*/),
+                          (v4/*: any*/),
                           {
                             "alias": null,
                             "args": null,
@@ -488,8 +423,7 @@ return {
               }
             ],
             "storageKey": null
-          },
-          (v7/*: any*/)
+          }
         ],
         "storageKey": null
       },
@@ -517,15 +451,27 @@ return {
                 "name": "personalTokens",
                 "plural": true,
                 "selections": [
-                  (v8/*: any*/),
-                  (v9/*: any*/),
-                  (v3/*: any*/),
-                  (v10/*: any*/),
                   {
                     "alias": null,
                     "args": null,
                     "kind": "ScalarField",
                     "name": "token",
+                    "storageKey": null
+                  },
+                  (v6/*: any*/),
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "expireDate",
+                    "storageKey": null
+                  },
+                  (v4/*: any*/),
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "appId",
                     "storageKey": null
                   }
                 ],
@@ -540,12 +486,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "feb1ba1a48eba6c6b8c785c1d6700920",
+    "cacheID": "8a684ac85ef03a19ae1f5a21ba875f6f",
     "id": null,
     "metadata": {},
     "name": "StudioQuery",
     "operationKind": "query",
-    "text": "query StudioQuery(\n  $appId: String!\n) {\n  oneGraph {\n    app(id: $appId) {\n      id\n      name\n      description\n      ...PackageList_oneGraphApp\n    }\n    studio {\n      actions {\n        id\n        name\n        description\n        graphQLOperation\n        privacy\n      }\n    }\n  }\n  me {\n    oneGraph {\n      personalTokens {\n        obscuredToken\n        expireDate\n        name\n        appId\n      }\n      ...PackageViewer_authTokens\n    }\n  }\n}\n\nfragment ActionGraphQLEditor_oneGraphStudioChainAction on OneGraphStudioChainAction {\n  id\n  name\n  description\n  graphQLOperation\n  services\n}\n\nfragment ActionInspector_oneGraphStudioChainAction on OneGraphStudioChainAction {\n  id\n  name\n  description\n  upstreamActionIds\n  graphQLOperation\n  actionVariables: variables {\n    ...VariableInspector_oneGraphStudioChainActionVariable\n  }\n}\n\nfragment ChainCanvas_oneGraphAppPackageChain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    description\n    graphQLOperation\n    upstreamActionIds\n    ...NodeLabel_oneGraphStudioChainAction\n  }\n}\n\nfragment ChainEditor_oneGraphAppPackageChain on OneGraphAppPackageChain {\n  id\n  name\n  description\n  libraryScript {\n    id\n    filename\n    language\n    concurrentSource\n    textualSource\n    ...ScriptEditor_source\n  }\n  createdAt\n  updatedAt\n  actions {\n    id\n    name\n    description\n    graphQLOperation\n    privacy\n    script {\n      id\n      filename\n      language\n      concurrentSource\n      textualSource\n      ...ScriptEditor_source\n    }\n    ...ActionGraphQLEditor_oneGraphStudioChainAction\n  }\n  ...ChainCanvas_oneGraphAppPackageChain\n  ...Inspector_oneGraphAppPackageChain\n}\n\nfragment ChainInspector_packageChain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    graphQLOperationKind\n    ...ActionInspector_oneGraphStudioChainAction\n  }\n  ...InspectorOverview_oneGraphAppPackageChain\n}\n\nfragment ChainViewer_oneGraphAppPackageChain on OneGraphAppPackageChain {\n  id\n  name\n  description\n  libraryScript {\n    filename\n    language\n    concurrentSource\n    textualSource\n  }\n  createdAt\n  updatedAt\n  actions {\n    id\n    name\n    description\n    graphQLOperation\n    privacy\n    script {\n      filename\n      language\n      concurrentSource\n      textualSource\n    }\n  }\n}\n\nfragment ComputedVariableInspector_oneGraphAppPackageChainActionVariable on OneGraphStudioChainActionVariable {\n  id\n}\n\nfragment InspectorOverview_oneGraphAppPackageChain on OneGraphAppPackageChain {\n  id\n  description\n  actions {\n    id\n    name\n    upstreamActionIds\n    actionVariables: variables {\n      ...VariableInspector_oneGraphStudioChainActionVariable\n    }\n  }\n}\n\nfragment Inspector_SubInspector_packageChain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    graphQLOperationKind\n    ...ActionInspector_oneGraphStudioChainAction\n  }\n}\n\nfragment Inspector_oneGraphAppPackageChain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    graphQLOperationKind\n  }\n  ...Inspector_SubInspector_packageChain\n  ...ChainInspector_packageChain\n}\n\nfragment NodeLabel_oneGraphStudioChainAction on OneGraphStudioChainAction {\n  id\n  name\n  services\n}\n\nfragment PackageList_oneGraphApp on OneGraphApp {\n  packages {\n    ...PackageViewer_oneGraphAppPackage\n  }\n}\n\nfragment PackageViewer_authTokens on OneGraphUser {\n  personalTokens {\n    token\n    obscuredToken\n    expireDate\n    name\n    appId\n  }\n}\n\nfragment PackageViewer_oneGraphAppPackage on OneGraphAppPackage {\n  description\n  id\n  name\n  version\n  chains {\n    ...ChainViewer_oneGraphAppPackageChain\n    ...ChainEditor_oneGraphAppPackageChain\n    id\n    name\n    authToken {\n      obscuredToken\n      name\n      userAuths {\n        service\n      }\n    }\n  }\n}\n\nfragment ScriptEditor_source on OneGraphSourceFile {\n  id\n  filename\n  language\n  concurrentSource\n  textualSource\n}\n\nfragment VariableInspector_oneGraphStudioChainActionVariable on OneGraphStudioChainActionVariable {\n  id\n  name\n  graphqlType\n  description\n  ifList\n  ifMissing\n  maxRecur\n  computeMethod: method\n  probePath\n  ...ComputedVariableInspector_oneGraphAppPackageChainActionVariable\n}\n"
+    "text": "query StudioQuery(\n  $appId: String!\n) {\n  oneGraph {\n    app(id: $appId) {\n      ...PackageList_oneGraphApp\n    }\n  }\n  me {\n    oneGraph {\n      ...PackageViewer_authTokens\n    }\n  }\n}\n\nfragment ActionForm_oneGraphStudioChainAction on OneGraphStudioChainAction {\n  id\n  name\n  actionVariables: variables {\n    id\n    name\n    graphqlType\n  }\n}\n\nfragment ActionGraphQLEditor_chainAction on OneGraphStudioChainAction {\n  id\n  name\n  description\n  graphqlOperation\n  services\n}\n\nfragment ActionInspector_oneGraphStudioChainAction on OneGraphStudioChainAction {\n  id\n  name\n  description\n  upstreamActionIds\n  graphqlOperation\n  actionVariables: variables {\n    id\n    name\n    ...VariableInspector_oneGraphStudioChainActionVariable\n  }\n  ...ActionForm_oneGraphStudioChainAction\n}\n\nfragment ChainCanvas_chain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    description\n    graphqlOperation\n    graphqlOperationKind\n    upstreamActionIds\n    ...NodeLabel_action\n  }\n}\n\nfragment ChainEditor_chain on OneGraphAppPackageChain {\n  id\n  name\n  description\n  libraryScript {\n    id\n    filename\n    language\n    concurrentSource\n    textualSource\n    ...ScriptEditor_source\n  }\n  createdAt\n  updatedAt\n  actions {\n    id\n    name\n    description\n    graphqlOperation\n    graphqlOperationKind\n    privacy\n    upstreamActionIds\n    services\n    script {\n      id\n      filename\n      language\n      concurrentSource\n      textualSource\n      ...ScriptEditor_source\n    }\n    ...ActionGraphQLEditor_chainAction\n  }\n  ...ChainCanvas_chain\n  ...Inspector_chain\n  ...ConnectionVisualizer_chainActions\n  ...Compiler_chain\n}\n\nfragment ChainInspector_packageChain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    graphqlOperationKind\n    ...ActionInspector_oneGraphStudioChainAction\n  }\n  ...InspectorOverview_oneGraphAppPackageChain\n}\n\nfragment ChainViewer_chain on OneGraphAppPackageChain {\n  id\n  name\n  description\n  libraryScript {\n    filename\n    language\n    concurrentSource\n    textualSource\n  }\n  createdAt\n  updatedAt\n  actions {\n    id\n    name\n    description\n    graphqlOperation\n    privacy\n    script {\n      filename\n      language\n      concurrentSource\n      textualSource\n    }\n  }\n}\n\nfragment Compiler_chain on OneGraphAppPackageChain {\n  id\n  name\n  description\n  libraryScript {\n    id\n    filename\n    language\n    textualSource\n  }\n  actions {\n    id\n    name\n    graphqlOperationKind\n    graphqlOperation\n    script {\n      id\n      filename\n      language\n      textualSource\n    }\n    actionVariables: variables {\n      id\n      name\n      computeMethod: method\n      graphqlType\n    }\n  }\n}\n\nfragment ComputedVariableInspector_chainActionVariable on OneGraphStudioChainActionVariable {\n  id\n}\n\nfragment ConnectionVisualizer_chainActions on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    upstreamActionIds\n    actionVariables: variables {\n      id\n      name\n      graphqlType\n    }\n  }\n}\n\nfragment InspectorOverview_oneGraphAppPackageChain on OneGraphAppPackageChain {\n  id\n  description\n  actions {\n    id\n    name\n    upstreamActionIds\n    actionVariables: variables {\n      ...VariableInspector_oneGraphStudioChainActionVariable\n    }\n  }\n}\n\nfragment Inspector_SubInspector_packageChain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    graphqlOperationKind\n    ...ActionInspector_oneGraphStudioChainAction\n  }\n}\n\nfragment Inspector_chain on OneGraphAppPackageChain {\n  id\n  actions {\n    id\n    name\n    graphqlOperationKind\n  }\n  ...Inspector_SubInspector_packageChain\n  ...ChainInspector_packageChain\n}\n\nfragment NodeLabel_action on OneGraphStudioChainAction {\n  id\n  name\n  services\n}\n\nfragment PackageList_oneGraphApp on OneGraphApp {\n  packages {\n    id\n    ...PackageViewer_package\n  }\n}\n\nfragment PackageViewer_authTokens on OneGraphUser {\n  personalTokens {\n    token\n    obscuredToken\n    expireDate\n    name\n    appId\n  }\n}\n\nfragment PackageViewer_package on OneGraphAppPackage {\n  description\n  id\n  name\n  version\n  chains {\n    ...ChainViewer_chain\n    ...ChainEditor_chain\n    id\n    name\n    authToken {\n      obscuredToken\n      name\n      userAuths {\n        service\n      }\n    }\n  }\n}\n\nfragment ScriptEditor_source on OneGraphSourceFile {\n  id\n  filename\n  language\n  concurrentSource\n  textualSource\n}\n\nfragment VariableInspector_oneGraphStudioChainActionVariable on OneGraphStudioChainActionVariable {\n  id\n  name\n  graphqlType\n  description\n  ifList\n  ifMissing\n  maxRecur\n  computeMethod: method\n  probePath\n  ...ComputedVariableInspector_chainActionVariable\n}\n"
   }
 };
 })());

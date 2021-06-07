@@ -34,9 +34,16 @@ var node = {
       "plural": true,
       "selections": [
         {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "id",
+          "storageKey": null
+        },
+        {
           "args": null,
           "kind": "FragmentSpread",
-          "name": "PackageViewer_oneGraphAppPackage"
+          "name": "PackageViewer_package"
         }
       ],
       "storageKey": null

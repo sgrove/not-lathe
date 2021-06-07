@@ -82,13 +82,7 @@ export class MonacoBinding {
    * @param {Set<monaco.editor.IStandaloneCodeEditor>} [editors]
    * @param {Awareness?} [awareness]
    */
-  constructor(
-    optimisticInitialText,
-    ytext,
-    monacoModel,
-    editors = new Set(),
-    awareness = null
-  ) {
+  constructor(ytext, monacoModel, editors = new Set(), awareness = null) {
     this.doc = /** @type {Y.Doc} */ (ytext.doc);
     this.ytext = ytext;
     this.monacoModel = monacoModel;
@@ -144,13 +138,13 @@ export class MonacoBinding {
                 if (anchorAbs.index < headAbs.index) {
                   start = monacoModel.getPositionAt(anchorAbs.index);
                   end = monacoModel.getPositionAt(headAbs.index);
-                  afterContentClassName = "yRemoteSelectionHead";
+                  afterContentClassName = "yRemoteSelectionHead-" + clientID;
                   beforeContentClassName = null;
                 } else {
                   start = monacoModel.getPositionAt(headAbs.index);
                   end = monacoModel.getPositionAt(anchorAbs.index);
                   afterContentClassName = null;
-                  beforeContentClassName = "yRemoteSelectionHead";
+                  beforeContentClassName = "yRemoteSelectionHead-" + clientID;
                 }
 
                 newDecorations.push({
@@ -161,7 +155,7 @@ export class MonacoBinding {
                     end.column
                   ),
                   options: {
-                    className: "yRemoteSelection",
+                    className: "yRemoteSelection-" + clientID,
                     afterContentClassName,
                     beforeContentClassName,
                   },

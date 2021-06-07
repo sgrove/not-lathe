@@ -4,33 +4,30 @@ import * as Yjs from "yjs";
 import * as Card from "../Card.mjs";
 import * as Help from "./Help.mjs";
 import * as Uuid from "uuid";
-import * as Acorn from "../bindings/Acorn.mjs";
 import * as Chain from "../Chain.mjs";
 import * as Comps from "./Comps.mjs";
 import * as Curry from "rescript/lib/es6/curry.js";
 import * as Debug from "../Debug.mjs";
 import * as Icons from "../Icons.mjs";
-import * as Acorn$1 from "acorn";
 import * as React from "react";
 import * as Graphql from "graphql";
-import * as Caml_obj from "rescript/lib/es6/caml_obj.js";
 import * as Compiler from "../lib/Compiler.mjs";
+import * as RelayEnv from "../RelayEnv.mjs";
 import * as Prettier from "prettier";
 import * as GraphQLJs from "../bindings/GraphQLJs.mjs";
 import * as Inspector from "./Inspector.mjs";
 import * as Belt_Array from "rescript/lib/es6/belt_Array.js";
+import * as Caml_array from "rescript/lib/es6/caml_array.js";
 import * as OneGraphRe from "../OneGraphRe.mjs";
-import * as TypeScript from "../bindings/TypeScript.mjs";
-import * as Typescript from "typescript";
 import * as Belt_Option from "rescript/lib/es6/belt_Option.js";
-import * as Belt_Result from "rescript/lib/es6/belt_Result.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as ChainCanvas from "./ChainCanvas.mjs";
-import * as SharedRooms from "./SharedRooms.mjs";
 import * as ActionSearch from "./ActionSearch.mjs";
 import * as GraphQLUtils from "../bindings/GraphQLUtils.mjs";
 import * as OneGraphAuth from "../bindings/OneGraphAuth.mjs";
 import * as ScriptEditor from "./ScriptEditor.mjs";
+import * as RescriptRelay from "rescript-relay/src/RescriptRelay.mjs";
+import * as RelayRuntime from "relay-runtime";
 import * as ConnectionContext from "./ConnectionContext.mjs";
 import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as RequestValueCache from "../RequestValueCache.mjs";
@@ -39,24 +36,29 @@ import * as Caml_js_exceptions from "rescript/lib/es6/caml_js_exceptions.js";
 import ReactResizePanel from "react-resize-panel";
 import * as ActionGraphQLEditor from "./ActionGraphQLEditor.mjs";
 import * as ReactFlowRenderer from "react-flow-renderer";
+import * as CollaborationContext from "./CollaborationContext.mjs";
+import * as ConnectionVisualizer from "./ConnectionVisualizer.mjs";
 import ParserBabel from "prettier/parser-babel";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
+import * as ChainEditor_chain_graphql from "../__generated__/ChainEditor_chain_graphql.mjs";
 import * as RequestValueCacheProvider from "./RequestValueCacheProvider.mjs";
-import * as ChainEditor_oneGraphAppPackageChain_graphql from "../__generated__/ChainEditor_oneGraphAppPackageChain_graphql.mjs";
-import * as RecordStore from "@insightdotjs-hackers/platform/lib/core/RecordStore";
+import * as ChainEditorSubscription_graphql from "../__generated__/ChainEditorSubscription_graphql.mjs";
+import * as ChainEditor_createChainActionMutation_graphql from "../__generated__/ChainEditor_createChainActionMutation_graphql.mjs";
+import * as ChainEditor_updateChainActionMutation_graphql from "../__generated__/ChainEditor_updateChainActionMutation_graphql.mjs";
+import * as ChainEditor_AddActionDependencyIdsMutation_graphql from "../__generated__/ChainEditor_AddActionDependencyIdsMutation_graphql.mjs";
 
 function use(fRef) {
-  var data = Hooks.useFragment(ChainEditor_oneGraphAppPackageChain_graphql.node, fRef);
-  return RescriptRelay_Internal.internal_useConvertedValue(ChainEditor_oneGraphAppPackageChain_graphql.Internal.convertFragment, data);
+  var data = Hooks.useFragment(ChainEditor_chain_graphql.node, fRef);
+  return RescriptRelay_Internal.internal_useConvertedValue(ChainEditor_chain_graphql.Internal.convertFragment, data);
 }
 
 function useOpt(opt_fRef) {
   var fr = opt_fRef !== undefined ? Caml_option.some(Caml_option.valFromOption(opt_fRef)) : undefined;
-  var nullableFragmentData = Hooks.useFragment(ChainEditor_oneGraphAppPackageChain_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
+  var nullableFragmentData = Hooks.useFragment(ChainEditor_chain_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
   var data = (nullableFragmentData == null) ? undefined : Caml_option.some(nullableFragmentData);
   return RescriptRelay_Internal.internal_useConvertedValue((function (rawFragment) {
                 if (rawFragment !== undefined) {
-                  return ChainEditor_oneGraphAppPackageChain_graphql.Internal.convertFragment(rawFragment);
+                  return ChainEditor_chain_graphql.Internal.convertFragment(rawFragment);
                 }
                 
               }), data);
@@ -68,35 +70,267 @@ var Fragment = {
   useOpt: useOpt
 };
 
-function namedGraphQLScalarTypeScriptType(typ) {
-  switch (typ) {
-    case "Float" :
-    case "Int" :
-        return "number";
-    case "JSON" :
-        return "any";
-    case "ID" :
-    case "String" :
-        return "string";
-    default:
-      return typ;
+function subscribe(environment, variables, onCompleted, onError, onNext, updater, param) {
+  var tmp = {
+    subscription: ChainEditorSubscription_graphql.node,
+    variables: ChainEditorSubscription_graphql.Internal.convertVariables(variables)
+  };
+  if (onCompleted !== undefined) {
+    tmp.onCompleted = Caml_option.valFromOption(onCompleted);
   }
+  if (onError !== undefined) {
+    tmp.onError = Caml_option.valFromOption(onError);
+  }
+  var tmp$1 = onNext !== undefined ? (function (r) {
+        return Curry._1(onNext, ChainEditorSubscription_graphql.Internal.convertResponse(r));
+      }) : undefined;
+  if (tmp$1 !== undefined) {
+    tmp.onNext = Caml_option.valFromOption(tmp$1);
+  }
+  var tmp$2 = updater !== undefined ? (function (store, r) {
+        return Curry._2(updater, store, ChainEditorSubscription_graphql.Internal.convertResponse(r));
+      }) : undefined;
+  if (tmp$2 !== undefined) {
+    tmp.updater = Caml_option.valFromOption(tmp$2);
+  }
+  return RelayRuntime.requestSubscription(environment, tmp);
 }
 
-function compileChain(schema, chain) {
-  try {
-    var compiled = Chain.compileAsObj(chain);
-    var parsedOperationDoc = Graphql.parse(compiled.operationDoc);
-    var mockedVariables = GraphQLJs.Mock.mockOperationDocVariables(schema, parsedOperationDoc);
-    return {
-            compiled: compiled,
-            variables: mockedVariables
-          };
-  }
-  catch (_ex){
-    return ;
-  }
+var Subscription_makeVariables = ChainEditorSubscription_graphql.Utils.makeVariables;
+
+var Subscription = {
+  makeVariables: Subscription_makeVariables,
+  Types: undefined,
+  subscribe: subscribe
+};
+
+function commitMutation(environment, variables, optimisticUpdater, optimisticResponse, updater, onCompleted, onError, uploadables, param) {
+  return RelayRuntime.commitMutation(environment, {
+              mutation: ChainEditor_AddActionDependencyIdsMutation_graphql.node,
+              variables: ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertVariables(variables),
+              onCompleted: (function (res, err) {
+                  if (onCompleted !== undefined) {
+                    return Curry._2(onCompleted, ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertResponse(res), (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              onError: (function (err) {
+                  if (onError !== undefined) {
+                    return Curry._1(onError, (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              optimisticResponse: optimisticResponse !== undefined ? ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertWrapRawResponse(optimisticResponse) : undefined,
+              optimisticUpdater: optimisticUpdater,
+              updater: updater !== undefined ? (function (store, r) {
+                    return Curry._2(updater, store, ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertResponse(r));
+                  }) : undefined,
+              uploadables: uploadables
+            });
 }
+
+function use$1(param) {
+  var match = Hooks.useMutation(ChainEditor_AddActionDependencyIdsMutation_graphql.node);
+  var mutate = match[0];
+  return [
+          React.useMemo((function () {
+                  return function (param, param$1, param$2, param$3, param$4, param$5, param$6, param$7, param$8) {
+                    return Curry._1(mutate, {
+                                onError: param,
+                                onCompleted: param$1 !== undefined ? (function (r, errors) {
+                                      return Curry._2(param$1, ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertResponse(r), (errors == null) ? undefined : Caml_option.some(errors));
+                                    }) : undefined,
+                                onUnsubscribe: param$2,
+                                optimisticResponse: param$3 !== undefined ? ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertWrapRawResponse(param$3) : undefined,
+                                optimisticUpdater: param$4,
+                                updater: param$5 !== undefined ? (function (store, r) {
+                                      return Curry._2(param$5, store, ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertResponse(r));
+                                    }) : undefined,
+                                variables: ChainEditor_AddActionDependencyIdsMutation_graphql.Internal.convertVariables(param$6),
+                                uploadables: param$7
+                              });
+                  };
+                }), [mutate]),
+          match[1]
+        ];
+}
+
+var AddActionDependencyIds_make_oneGraphAddActionDependencyIdsInput = ChainEditor_AddActionDependencyIdsMutation_graphql.Utils.make_oneGraphAddActionDependencyIdsInput;
+
+var AddActionDependencyIds_makeVariables = ChainEditor_AddActionDependencyIdsMutation_graphql.Utils.makeVariables;
+
+var AddActionDependencyIds_make_response_oneGraph_addActionDependencyIds_action = ChainEditor_AddActionDependencyIdsMutation_graphql.Utils.make_response_oneGraph_addActionDependencyIds_action;
+
+var AddActionDependencyIds_make_response_oneGraph_addActionDependencyIds = ChainEditor_AddActionDependencyIdsMutation_graphql.Utils.make_response_oneGraph_addActionDependencyIds;
+
+var AddActionDependencyIds_make_response_oneGraph = ChainEditor_AddActionDependencyIdsMutation_graphql.Utils.make_response_oneGraph;
+
+var AddActionDependencyIds_makeOptimisticResponse = ChainEditor_AddActionDependencyIdsMutation_graphql.Utils.makeOptimisticResponse;
+
+var AddActionDependencyIds = {
+  make_oneGraphAddActionDependencyIdsInput: AddActionDependencyIds_make_oneGraphAddActionDependencyIdsInput,
+  makeVariables: AddActionDependencyIds_makeVariables,
+  make_response_oneGraph_addActionDependencyIds_action: AddActionDependencyIds_make_response_oneGraph_addActionDependencyIds_action,
+  make_response_oneGraph_addActionDependencyIds: AddActionDependencyIds_make_response_oneGraph_addActionDependencyIds,
+  make_response_oneGraph: AddActionDependencyIds_make_response_oneGraph,
+  makeOptimisticResponse: AddActionDependencyIds_makeOptimisticResponse,
+  Types: undefined,
+  commitMutation: commitMutation,
+  use: use$1
+};
+
+function commitMutation$1(environment, variables, optimisticUpdater, optimisticResponse, updater, onCompleted, onError, uploadables, param) {
+  return RelayRuntime.commitMutation(environment, {
+              mutation: ChainEditor_createChainActionMutation_graphql.node,
+              variables: ChainEditor_createChainActionMutation_graphql.Internal.convertVariables(variables),
+              onCompleted: (function (res, err) {
+                  if (onCompleted !== undefined) {
+                    return Curry._2(onCompleted, ChainEditor_createChainActionMutation_graphql.Internal.convertResponse(res), (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              onError: (function (err) {
+                  if (onError !== undefined) {
+                    return Curry._1(onError, (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              optimisticResponse: optimisticResponse !== undefined ? ChainEditor_createChainActionMutation_graphql.Internal.convertWrapRawResponse(optimisticResponse) : undefined,
+              optimisticUpdater: optimisticUpdater,
+              updater: updater !== undefined ? (function (store, r) {
+                    return Curry._2(updater, store, ChainEditor_createChainActionMutation_graphql.Internal.convertResponse(r));
+                  }) : undefined,
+              uploadables: uploadables
+            });
+}
+
+function use$2(param) {
+  var match = Hooks.useMutation(ChainEditor_createChainActionMutation_graphql.node);
+  var mutate = match[0];
+  return [
+          React.useMemo((function () {
+                  return function (param, param$1, param$2, param$3, param$4, param$5, param$6, param$7, param$8) {
+                    return Curry._1(mutate, {
+                                onError: param,
+                                onCompleted: param$1 !== undefined ? (function (r, errors) {
+                                      return Curry._2(param$1, ChainEditor_createChainActionMutation_graphql.Internal.convertResponse(r), (errors == null) ? undefined : Caml_option.some(errors));
+                                    }) : undefined,
+                                onUnsubscribe: param$2,
+                                optimisticResponse: param$3 !== undefined ? ChainEditor_createChainActionMutation_graphql.Internal.convertWrapRawResponse(param$3) : undefined,
+                                optimisticUpdater: param$4,
+                                updater: param$5 !== undefined ? (function (store, r) {
+                                      return Curry._2(param$5, store, ChainEditor_createChainActionMutation_graphql.Internal.convertResponse(r));
+                                    }) : undefined,
+                                variables: ChainEditor_createChainActionMutation_graphql.Internal.convertVariables(param$6),
+                                uploadables: param$7
+                              });
+                  };
+                }), [mutate]),
+          match[1]
+        ];
+}
+
+var CreateChainActionMutation_make_oneGraphCreateChainActionSubVariableInput = ChainEditor_createChainActionMutation_graphql.Utils.make_oneGraphCreateChainActionSubVariableInput;
+
+var CreateChainActionMutation_make_oneGraphCreateChainActionInput = ChainEditor_createChainActionMutation_graphql.Utils.make_oneGraphCreateChainActionInput;
+
+var CreateChainActionMutation_makeVariables = ChainEditor_createChainActionMutation_graphql.Utils.makeVariables;
+
+var CreateChainActionMutation_make_response_oneGraph_createChainAction_chain = ChainEditor_createChainActionMutation_graphql.Utils.make_response_oneGraph_createChainAction_chain;
+
+var CreateChainActionMutation_make_response_oneGraph_createChainAction = ChainEditor_createChainActionMutation_graphql.Utils.make_response_oneGraph_createChainAction;
+
+var CreateChainActionMutation_make_response_oneGraph = ChainEditor_createChainActionMutation_graphql.Utils.make_response_oneGraph;
+
+var CreateChainActionMutation_makeOptimisticResponse = ChainEditor_createChainActionMutation_graphql.Utils.makeOptimisticResponse;
+
+var CreateChainActionMutation = {
+  make_oneGraphCreateChainActionSubVariableInput: CreateChainActionMutation_make_oneGraphCreateChainActionSubVariableInput,
+  make_oneGraphCreateChainActionInput: CreateChainActionMutation_make_oneGraphCreateChainActionInput,
+  makeVariables: CreateChainActionMutation_makeVariables,
+  make_response_oneGraph_createChainAction_chain: CreateChainActionMutation_make_response_oneGraph_createChainAction_chain,
+  make_response_oneGraph_createChainAction: CreateChainActionMutation_make_response_oneGraph_createChainAction,
+  make_response_oneGraph: CreateChainActionMutation_make_response_oneGraph,
+  makeOptimisticResponse: CreateChainActionMutation_makeOptimisticResponse,
+  Types: undefined,
+  commitMutation: commitMutation$1,
+  use: use$2
+};
+
+function commitMutation$2(environment, variables, optimisticUpdater, optimisticResponse, updater, onCompleted, onError, uploadables, param) {
+  return RelayRuntime.commitMutation(environment, {
+              mutation: ChainEditor_updateChainActionMutation_graphql.node,
+              variables: ChainEditor_updateChainActionMutation_graphql.Internal.convertVariables(variables),
+              onCompleted: (function (res, err) {
+                  if (onCompleted !== undefined) {
+                    return Curry._2(onCompleted, ChainEditor_updateChainActionMutation_graphql.Internal.convertResponse(res), (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              onError: (function (err) {
+                  if (onError !== undefined) {
+                    return Curry._1(onError, (err == null) ? undefined : Caml_option.some(err));
+                  }
+                  
+                }),
+              optimisticResponse: optimisticResponse !== undefined ? ChainEditor_updateChainActionMutation_graphql.Internal.convertWrapRawResponse(optimisticResponse) : undefined,
+              optimisticUpdater: optimisticUpdater,
+              updater: updater !== undefined ? (function (store, r) {
+                    return Curry._2(updater, store, ChainEditor_updateChainActionMutation_graphql.Internal.convertResponse(r));
+                  }) : undefined,
+              uploadables: uploadables
+            });
+}
+
+function use$3(param) {
+  var match = Hooks.useMutation(ChainEditor_updateChainActionMutation_graphql.node);
+  var mutate = match[0];
+  return [
+          React.useMemo((function () {
+                  return function (param, param$1, param$2, param$3, param$4, param$5, param$6, param$7, param$8) {
+                    return Curry._1(mutate, {
+                                onError: param,
+                                onCompleted: param$1 !== undefined ? (function (r, errors) {
+                                      return Curry._2(param$1, ChainEditor_updateChainActionMutation_graphql.Internal.convertResponse(r), (errors == null) ? undefined : Caml_option.some(errors));
+                                    }) : undefined,
+                                onUnsubscribe: param$2,
+                                optimisticResponse: param$3 !== undefined ? ChainEditor_updateChainActionMutation_graphql.Internal.convertWrapRawResponse(param$3) : undefined,
+                                optimisticUpdater: param$4,
+                                updater: param$5 !== undefined ? (function (store, r) {
+                                      return Curry._2(param$5, store, ChainEditor_updateChainActionMutation_graphql.Internal.convertResponse(r));
+                                    }) : undefined,
+                                variables: ChainEditor_updateChainActionMutation_graphql.Internal.convertVariables(param$6),
+                                uploadables: param$7
+                              });
+                  };
+                }), [mutate]),
+          match[1]
+        ];
+}
+
+var UpdateChainActionMutation_make_oneGraphUpdateChainActionInput = ChainEditor_updateChainActionMutation_graphql.Utils.make_oneGraphUpdateChainActionInput;
+
+var UpdateChainActionMutation_makeVariables = ChainEditor_updateChainActionMutation_graphql.Utils.makeVariables;
+
+var UpdateChainActionMutation_make_response_oneGraph_updateChainAction_chain = ChainEditor_updateChainActionMutation_graphql.Utils.make_response_oneGraph_updateChainAction_chain;
+
+var UpdateChainActionMutation_make_response_oneGraph_updateChainAction = ChainEditor_updateChainActionMutation_graphql.Utils.make_response_oneGraph_updateChainAction;
+
+var UpdateChainActionMutation_make_response_oneGraph = ChainEditor_updateChainActionMutation_graphql.Utils.make_response_oneGraph;
+
+var UpdateChainActionMutation_makeOptimisticResponse = ChainEditor_updateChainActionMutation_graphql.Utils.makeOptimisticResponse;
+
+var UpdateChainActionMutation = {
+  make_oneGraphUpdateChainActionInput: UpdateChainActionMutation_make_oneGraphUpdateChainActionInput,
+  makeVariables: UpdateChainActionMutation_makeVariables,
+  make_response_oneGraph_updateChainAction_chain: UpdateChainActionMutation_make_response_oneGraph_updateChainAction_chain,
+  make_response_oneGraph_updateChainAction: UpdateChainActionMutation_make_response_oneGraph_updateChainAction,
+  make_response_oneGraph: UpdateChainActionMutation_make_response_oneGraph,
+  makeOptimisticResponse: UpdateChainActionMutation_makeOptimisticResponse,
+  Types: undefined,
+  commitMutation: commitMutation$2,
+  use: use$3
+};
 
 var context = React.createContext(undefined);
 
@@ -116,15 +350,6 @@ var InspectedContextProvider = {
   provider: provider,
   make: ChainEditor$InspectedContextProvider
 };
-
-function emptyGraphLevel(level) {
-  return {
-          nodeCount: 0,
-          width: 0,
-          nodes: [],
-          level: level
-        };
-}
 
 function chainResultToRequestValueCache(chainExecutionResults) {
   return Belt_Array.reduce(chainExecutionResults.data.oneGraph.executeChain.results, {}, (function (acc, next) {
@@ -168,7 +393,7 @@ function persistChain(config, schema, param, chain, onComplete) {
 function ChainEditor$Main(Props) {
   var schema = Props.schema;
   var initialChain = Props.initialChain;
-  var localStorageChain = Props.localStorageChain;
+  var config = Props.config;
   var oneGraphAuth = Props.oneGraphAuth;
   var onClose = Props.onClose;
   var initialTrace = Props.trace;
@@ -177,23 +402,16 @@ function ChainEditor$Main(Props) {
         return [];
       });
   var setMissingAuthServices = match[1];
-  var match$1 = React.useState(function () {
-        var scriptFunctions;
-        try {
-          scriptFunctions = Acorn.collectExportedFunctionNames(Acorn$1.parse(localStorageChain.script, {
-                    ecmaVersion: 2020,
-                    sourceType: "module"
-                  }));
-        }
-        catch (exn){
-          scriptFunctions = [];
-        }
+  var match$1 = use$1(undefined);
+  var addDependencyId = match$1[0];
+  var collaborationContext = React.useContext(CollaborationContext.context);
+  var match$2 = React.useState(function () {
         return {
                 card: Card.watchTwitterFollower,
                 schema: schema,
                 chainResult: undefined,
-                scriptFunctions: scriptFunctions,
                 chainExecutionResults: undefined,
+                connectionDragState: /* Empty */0,
                 actions: Card.blocks,
                 inspected: /* Nothing */0,
                 actionEditState: /* Nothing */0,
@@ -206,31 +424,20 @@ function ChainEditor$Main(Props) {
                 savedChainId: undefined,
                 requestValueCache: RequestValueCache.make(undefined),
                 debugUIItems: [],
-                connectionDrag: /* Empty */0,
                 subscriptionClient: undefined,
-                trace: initialTrace,
-                insight: {
-                  store: new RecordStore.RecordStore(),
-                  latestRunId: 0,
-                  previousRunId: -1
-                }
+                trace: initialTrace
               };
       });
-  var setState = match$1[1];
-  var state = match$1[0];
-  React.useEffect((function () {
-          return (function (param) {
-                    
-                  });
-        }), []);
-  var onPotentialVariableSourceConnect = function (connectionDrag) {
+  var setState = match$2[1];
+  var state = match$2[0];
+  var setDragState = function (connectionDrag) {
     return Curry._1(setState, (function (oldState) {
                   return {
                           card: oldState.card,
                           schema: oldState.schema,
                           chainResult: oldState.chainResult,
-                          scriptFunctions: oldState.scriptFunctions,
                           chainExecutionResults: oldState.chainExecutionResults,
+                          connectionDragState: connectionDrag,
                           actions: oldState.actions,
                           inspected: oldState.inspected,
                           actionEditState: oldState.actionEditState,
@@ -239,15 +446,59 @@ function ChainEditor$Main(Props) {
                           savedChainId: oldState.savedChainId,
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
-                          connectionDrag: connectionDrag,
                           subscriptionClient: oldState.subscriptionClient,
-                          trace: oldState.trace,
-                          insight: oldState.insight
+                          trace: oldState.trace
                         };
                 }));
   };
-  var match$2 = ReactFlowRenderer.useZoomPanHelper();
-  var fitView = match$2.fitView;
+  React.useEffect((function () {
+          return (function (param) {
+                    
+                  });
+        }), []);
+  var connectSourceToTargetActions = function (sourceActionId, targetActionId) {
+    Curry.app(addDependencyId, [
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          {
+            input: {
+              addActionDependencyIds: [sourceActionId],
+              actionId: targetActionId
+            }
+          },
+          undefined,
+          undefined
+        ]);
+    
+  };
+  var compilerChain = Compiler.CompilerFragment.use(initialChain.fragmentRefs);
+  console.log("TS def for compiler chain: ", Compiler.typeScriptDefinition(schema, compilerChain), compilerChain);
+  var onPotentialVariableSourceConnect = function (connectionDrag) {
+    console.log("onPotentialVariableSourceConnect, old=>new:  ", state.connectionDragState, connectionDrag);
+    return setDragState(connectionDrag);
+  };
+  var onPotentialActionSourceConnect = function (connectionDrag) {
+    console.log("onPotentialActionSourceConnect, old=>new:  ", state.connectionDragState, connectionDrag);
+    var tmp;
+    if (typeof connectionDrag === "number" || connectionDrag.TAG !== /* Completed */3) {
+      tmp = /* Empty */0;
+    } else {
+      var match = connectionDrag.target;
+      if (match.TAG === /* Action */2) {
+        connectSourceToTargetActions(connectionDrag.sourceActionId, match.targetActionId);
+        tmp = /* Empty */0;
+      } else {
+        tmp = /* Empty */0;
+      }
+    }
+    return setDragState(tmp);
+  };
+  var match$3 = ReactFlowRenderer.useZoomPanHelper();
+  var fitView = match$3.fitView;
   var onInspectAction = function (actionId) {
     var inspected = {
       TAG: 0,
@@ -259,8 +510,8 @@ function ChainEditor$Main(Props) {
                           card: oldState.card,
                           schema: oldState.schema,
                           chainResult: oldState.chainResult,
-                          scriptFunctions: oldState.scriptFunctions,
                           chainExecutionResults: oldState.chainExecutionResults,
+                          connectionDragState: oldState.connectionDragState,
                           actions: oldState.actions,
                           inspected: inspected,
                           actionEditState: oldState.actionEditState,
@@ -269,10 +520,8 @@ function ChainEditor$Main(Props) {
                           savedChainId: oldState.savedChainId,
                           requestValueCache: oldState.requestValueCache,
                           debugUIItems: oldState.debugUIItems,
-                          connectionDrag: oldState.connectionDrag,
                           subscriptionClient: oldState.subscriptionClient,
-                          trace: oldState.trace,
-                          insight: oldState.insight
+                          trace: oldState.trace
                         };
                 }));
   };
@@ -287,145 +536,112 @@ function ChainEditor$Main(Props) {
         }), [initialChain.actions.length]);
   var trace = state.trace;
   var definitionResultData = trace !== undefined ? chainResultToRequestValueCache(trace.trace) : state.requestValueCache;
-  var removeRequest = function (oldChain, targetRequest) {
-    var newRequests = Belt_Array.keepMap(oldChain.requests, (function (request) {
-            if (request.id === targetRequest.id) {
-              return ;
-            }
-            var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
-                    var argDep = varDep.dependency;
-                    var dependency;
-                    switch (argDep.TAG | 0) {
-                      case /* ArgumentDependency */0 :
-                          var argDep$1 = argDep._0;
-                          dependency = {
-                            TAG: 0,
-                            _0: {
-                              functionFromScript: argDep$1.functionFromScript,
-                              maxRecur: argDep$1.maxRecur,
-                              ifMissing: argDep$1.ifMissing,
-                              ifList: argDep$1.ifList,
-                              fromRequestIds: Belt_Array.keep(argDep$1.fromRequestIds, (function (id) {
-                                      return id !== targetRequest.id;
-                                    })),
-                              name: argDep$1.name
-                            },
-                            [Symbol.for("name")]: "ArgumentDependency"
-                          };
-                          break;
-                      case /* Direct */1 :
-                      case /* GraphQLProbe */2 :
-                          dependency = argDep;
-                          break;
-                      
-                    }
-                    return {
-                            name: varDep.name,
-                            dependency: dependency
-                          };
-                  }));
-            return {
-                    id: request.id,
-                    variableDependencies: varDeps,
-                    operation: request.operation,
-                    dependencyRequestIds: Belt_Array.keep(request.dependencyRequestIds, (function (id) {
-                            return id !== targetRequest.id;
-                          }))
-                  };
+  var onExecuteAction = function (actionId, variables, authToken) {
+    console.log("onExecuteAction: ", actionId, variables, authToken);
+    var action = Belt_Array.getBy(initialChain.actions, (function (action) {
+            return action.id === actionId;
           }));
-    var newScript = Belt_Result.getWithDefault(Compiler.ScriptHelpers.deleteRequestFunctionIfEmpty(undefined, oldChain.script, targetRequest, undefined), oldChain.script).trim();
-    return {
-            name: oldChain.name,
-            description: oldChain.description,
-            id: oldChain.id,
-            script: newScript,
-            scriptDependencies: oldChain.scriptDependencies,
-            requests: newRequests,
-            blocks: Belt_Array.keep(oldChain.blocks, (function (oldBlock) {
-                    return Caml_obj.caml_notequal(oldBlock, targetRequest.operation);
-                  })),
-            accessToken: oldChain.accessToken,
-            traceRetentionPolicy: oldChain.traceRetentionPolicy,
-            yjsScript: oldChain.yjsScript
-          };
+    return Belt_Option.forEach(action, (function (action) {
+                  var ast = Graphql.parse(action.graphqlOperation);
+                  var operationName = Caml_array.get(ast.definitions, 0).name.value;
+                  var chainFragments = Belt_Array.keepMap(initialChain.actions, (function (action) {
+                            var match = action.graphqlOperationKind;
+                            if (match === "FRAGMENT") {
+                              return action.graphqlOperation;
+                            }
+                            
+                          })).join("\n\n");
+                  var fullDoc = (action.graphqlOperation + "\n\n" + chainFragments).trim();
+                  console.log("Config oneGraphAuth: ", oneGraphAuth);
+                  var oneGraphAuth$1 = Belt_Option.getWithDefault(Belt_Option.flatMap(authToken, (function (authToken) {
+                              var tempAuth = OneGraphAuth.create({
+                                    appId: config.oneGraphAppId,
+                                    saveAuthToStorage: false
+                                  });
+                              Belt_Option.forEach(tempAuth, (function (tempAuth) {
+                                      var accessToken = {
+                                        accessToken: authToken
+                                      };
+                                      tempAuth.setToken(accessToken);
+                                      
+                                    }));
+                              return tempAuth;
+                            })), oneGraphAuth);
+                  console.log("Used oneGraphAuth: ", oneGraphAuth$1);
+                  var promise = OneGraphRe.fetchOneGraph(oneGraphAuth$1, fullDoc, operationName, Caml_option.some(variables));
+                  promise.then(function (result) {
+                        return Promise.resolve(Curry._1(setState, (function (oldState) {
+                                          RequestValueCache.set(oldState.requestValueCache, actionId, result);
+                                          var newOne = RequestValueCache.copy(oldState.requestValueCache);
+                                          return {
+                                                  card: oldState.card,
+                                                  schema: oldState.schema,
+                                                  chainResult: oldState.chainResult,
+                                                  chainExecutionResults: oldState.chainExecutionResults,
+                                                  connectionDragState: oldState.connectionDragState,
+                                                  actions: oldState.actions,
+                                                  inspected: oldState.inspected,
+                                                  actionEditState: oldState.actionEditState,
+                                                  actionSearchOpen: oldState.actionSearchOpen,
+                                                  scriptEditor: oldState.scriptEditor,
+                                                  savedChainId: oldState.savedChainId,
+                                                  requestValueCache: newOne,
+                                                  debugUIItems: oldState.debugUIItems,
+                                                  subscriptionClient: oldState.subscriptionClient,
+                                                  trace: oldState.trace
+                                                };
+                                        })));
+                      });
+                  
+                }));
   };
-  var removeEdge = function (oldChain, dependencyId, targetRequestId) {
-    var newRequests = Belt_Array.map(oldChain.requests, (function (request) {
-            if (request.id !== targetRequestId) {
-              return request;
-            }
-            var varDeps = Belt_Array.map(request.variableDependencies, (function (varDep) {
-                    var argDep = varDep.dependency;
-                    var dependency;
-                    switch (argDep.TAG | 0) {
-                      case /* ArgumentDependency */0 :
-                          var argDep$1 = argDep._0;
-                          dependency = {
-                            TAG: 0,
-                            _0: {
-                              functionFromScript: argDep$1.functionFromScript,
-                              maxRecur: argDep$1.maxRecur,
-                              ifMissing: argDep$1.ifMissing,
-                              ifList: argDep$1.ifList,
-                              fromRequestIds: Belt_Array.keep(argDep$1.fromRequestIds, (function (id) {
-                                      return id !== dependencyId;
-                                    })),
-                              name: argDep$1.name
-                            },
-                            [Symbol.for("name")]: "ArgumentDependency"
-                          };
-                          break;
-                      case /* Direct */1 :
-                      case /* GraphQLProbe */2 :
-                          dependency = argDep;
-                          break;
-                      
-                    }
-                    return {
-                            name: varDep.name,
-                            dependency: dependency
-                          };
-                  }));
-            return {
-                    id: request.id,
-                    variableDependencies: varDeps,
-                    operation: request.operation,
-                    dependencyRequestIds: Belt_Array.keep(request.dependencyRequestIds, (function (id) {
-                            return id !== dependencyId;
-                          }))
-                  };
+  var match$4 = ScriptEditor.UpdateScriptMutation.use(undefined);
+  var persistScript = match$4[0];
+  var match$5 = use$2(undefined);
+  var createChainAction = match$5[0];
+  var match$6 = use$3(undefined);
+  var updateChainAction = match$6[0];
+  var default_0 = {
+    id: initialChain.libraryScript.id,
+    filename: initialChain.libraryScript.filename,
+    concurrentSource: initialChain.libraryScript.concurrentSource
+  };
+  var default_1 = initialChain.libraryScript.fragmentRefs;
+  var $$default = [
+    default_0,
+    default_1
+  ];
+  var actionId = state.inspected;
+  var match$7;
+  if (typeof actionId === "number" || actionId.TAG !== /* Action */0) {
+    match$7 = $$default;
+  } else {
+    var actionId$1 = actionId._0;
+    match$7 = Belt_Option.mapWithDefault(Belt_Array.getBy(initialChain.actions, (function (action) {
+                return action.id === actionId$1;
+              })), $$default, (function (action) {
+            return [
+                    {
+                      id: action.script.id,
+                      filename: action.script.filename,
+                      concurrentSource: action.script.concurrentSource
+                    },
+                    action.script.fragmentRefs
+                  ];
           }));
-    return {
-            name: oldChain.name,
-            description: oldChain.description,
-            id: oldChain.id,
-            script: oldChain.script,
-            scriptDependencies: oldChain.scriptDependencies,
-            requests: newRequests,
-            blocks: oldChain.blocks,
-            accessToken: oldChain.accessToken,
-            traceRetentionPolicy: oldChain.traceRetentionPolicy,
-            yjsScript: oldChain.yjsScript
-          };
-  };
-  var match$3 = ScriptEditor.UpdateScriptMutation.use(undefined);
-  var persistScript = match$3[0];
+  }
+  var editingSource = match$7[0];
   React.useEffect((function () {
-          var match = initialChain.libraryScript;
-          var exit = 0;
-          if (match !== undefined && match.concurrentSource !== undefined) {
-            console.log("Script source already bootstrapped for " + match.filename);
+          var id = editingSource.id;
+          if (editingSource.concurrentSource !== undefined) {
+            console.log("Script source already bootstrapped for " + editingSource.filename, editingSource);
           } else {
-            exit = 1;
-          }
-          if (exit === 1) {
             console.log("Should initialize empty source");
             var ydocument = new Yjs.Doc();
             var ytext = ydocument.getText("monaco");
             ytext.insert(0, "// Let's get started!");
-            SharedRooms.encodeUint8Array(Yjs.encodeStateAsUpdate(ydocument));
             var persistScript$1 = function (ydocument, onCompleted) {
-              var concurrentSource = SharedRooms.encodeUint8Array(Yjs.encodeStateAsUpdate(ydocument));
+              var concurrentSource = CollaborationContext.encodeUint8Array(Yjs.encodeStateAsUpdate(ydocument));
               var textualSource = ydocument.getText("monaco").toString();
               Debug.assignToWindowForDeveloperDebug("ydoc", ydocument);
               Curry.app(persistScript, [
@@ -441,7 +657,7 @@ function ChainEditor$Main(Props) {
                           concurrentSource: concurrentSource,
                           textualSource: textualSource
                         },
-                        id: "ee423369-0e69-443b-91c2-0b0112da8943"
+                        id: id
                       }
                     },
                     undefined,
@@ -450,104 +666,64 @@ function ChainEditor$Main(Props) {
               
             };
             persistScript$1(ydocument, (function (param, param$1) {
-                    console.log("Bootsrapped contents for file");
+                    console.log("Bootstrapped contents for file");
                     
                   }));
           }
           
-        }), [Belt_Option.map(initialChain.libraryScript, (function (script) {
-                return script.id;
-              }))]);
-  var scriptEditor = Belt_Option.mapWithDefault(initialChain.libraryScript, "Loading script...", (function (script) {
-          var tmp = {
-            schema: state.schema,
-            script: script.fragmentRefs,
-            onChange: (function (newScript) {
-                
-              }),
-            onMount: (function (editor, monaco) {
-                return Curry._1(setState, (function (oldState) {
-                              var init = oldState.scriptEditor;
-                              return {
-                                      card: oldState.card,
-                                      schema: oldState.schema,
-                                      chainResult: oldState.chainResult,
-                                      scriptFunctions: oldState.scriptFunctions,
-                                      chainExecutionResults: oldState.chainExecutionResults,
-                                      actions: oldState.actions,
-                                      inspected: oldState.inspected,
-                                      actionEditState: oldState.actionEditState,
-                                      actionSearchOpen: oldState.actionSearchOpen,
-                                      scriptEditor: {
-                                        isOpen: init.isOpen,
-                                        editor: Caml_option.some(editor),
-                                        monaco: Caml_option.some(monaco)
-                                      },
-                                      savedChainId: oldState.savedChainId,
-                                      requestValueCache: oldState.requestValueCache,
-                                      debugUIItems: oldState.debugUIItems,
-                                      connectionDrag: oldState.connectionDrag,
-                                      subscriptionClient: oldState.subscriptionClient,
-                                      trace: oldState.trace,
-                                      insight: oldState.insight
-                                    };
-                            }));
-              }),
-            onPotentialScriptSourceConnect: (function (sourceRequest, sourceDom, scriptPosition, param) {
-                var y = param[1];
-                var x = param[0];
-                return Curry._1(setState, (function (oldState) {
-                              var connectionDrag_2 = {
-                                TAG: 1,
-                                scriptPosition: scriptPosition,
-                                [Symbol.for("name")]: "Script"
-                              };
-                              var connectionDrag_3 = [
-                                x,
-                                y
-                              ];
-                              var connectionDrag = {
-                                TAG: 3,
-                                sourceRequest: sourceRequest,
-                                sourceDom: sourceDom,
-                                target: connectionDrag_2,
-                                windowPosition: connectionDrag_3,
-                                [Symbol.for("name")]: "Completed"
-                              };
-                              return {
-                                      card: oldState.card,
-                                      schema: oldState.schema,
-                                      chainResult: oldState.chainResult,
-                                      scriptFunctions: oldState.scriptFunctions,
-                                      chainExecutionResults: oldState.chainExecutionResults,
-                                      actions: oldState.actions,
-                                      inspected: oldState.inspected,
-                                      actionEditState: oldState.actionEditState,
-                                      actionSearchOpen: oldState.actionSearchOpen,
-                                      scriptEditor: oldState.scriptEditor,
-                                      savedChainId: oldState.savedChainId,
-                                      requestValueCache: oldState.requestValueCache,
-                                      debugUIItems: oldState.debugUIItems,
-                                      connectionDrag: connectionDrag,
-                                      subscriptionClient: oldState.subscriptionClient,
-                                      trace: oldState.trace,
-                                      insight: oldState.insight
-                                    };
-                            }));
-              }),
-            insight: {
-              TAG: 0,
-              _0: state.insight,
-              [Symbol.for("name")]: "Ok"
-            },
-            chainName: initialChain.name
-          };
-          var tmp$1 = state.scriptEditor.isOpen ? undefined : "none";
-          if (tmp$1 !== undefined) {
-            tmp.className = Caml_option.valFromOption(tmp$1);
+        }), [editingSource.id]);
+  React.useEffect((function () {
+          var concurrentSource = editingSource.concurrentSource;
+          if (concurrentSource !== undefined) {
+            var channel = Curry._2(collaborationContext.getSharedChannel, initialChain.id, concurrentSource);
+            if (channel !== undefined) {
+              console.log("Got shared channel for chain: ", initialChain.id);
+            } else {
+              console.log("No shared channel for ", initialChain.id);
+            }
+          } else {
+            console.log("Unable to get shared channel for chain with empty concurrent source", initialChain.id);
           }
-          return React.createElement(ScriptEditor.make, tmp);
-        }));
+          
+        }), [
+        editingSource.id,
+        editingSource.concurrentSource
+      ]);
+  var tmp = {
+    schema: state.schema,
+    script: match$7[1],
+    onMount: (function (editor, monaco) {
+        return Curry._1(setState, (function (oldState) {
+                      var init = oldState.scriptEditor;
+                      return {
+                              card: oldState.card,
+                              schema: oldState.schema,
+                              chainResult: oldState.chainResult,
+                              chainExecutionResults: oldState.chainExecutionResults,
+                              connectionDragState: oldState.connectionDragState,
+                              actions: oldState.actions,
+                              inspected: oldState.inspected,
+                              actionEditState: oldState.actionEditState,
+                              actionSearchOpen: oldState.actionSearchOpen,
+                              scriptEditor: {
+                                isOpen: init.isOpen,
+                                editor: Caml_option.some(editor),
+                                monaco: Caml_option.some(monaco)
+                              },
+                              savedChainId: oldState.savedChainId,
+                              requestValueCache: oldState.requestValueCache,
+                              debugUIItems: oldState.debugUIItems,
+                              subscriptionClient: oldState.subscriptionClient,
+                              trace: oldState.trace
+                            };
+                    }));
+      })
+  };
+  var tmp$1 = state.scriptEditor.isOpen ? undefined : "none";
+  if (tmp$1 !== undefined) {
+    tmp.className = Caml_option.valFromOption(tmp$1);
+  }
+  var scriptEditor = React.createElement(ScriptEditor.make, tmp);
   var actionSearch = React.createElement(ActionSearch.make, {
         onAdd: (function (param) {
             
@@ -561,13 +737,13 @@ function ChainEditor$Main(Props) {
                                   card: oldState.card,
                                   schema: oldState.schema,
                                   chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
                                   chainExecutionResults: oldState.chainExecutionResults,
+                                  connectionDragState: oldState.connectionDragState,
                                   actions: oldState.actions,
                                   inspected: oldState.inspected,
                                   actionEditState: {
                                     TAG: 0,
-                                    _0: Card.makeBlankBlock(kind),
+                                    _0: ActionGraphQLEditor.makeBlankAction(kind),
                                     [Symbol.for("name")]: "Create"
                                   },
                                   actionSearchOpen: oldState.actionSearchOpen,
@@ -575,10 +751,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
+                                  trace: oldState.trace
                                 };
                         }));
           }),
@@ -588,8 +762,8 @@ function ChainEditor$Main(Props) {
                                   card: oldState.card,
                                   schema: oldState.schema,
                                   chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
                                   chainExecutionResults: oldState.chainExecutionResults,
+                                  connectionDragState: oldState.connectionDragState,
                                   actions: oldState.actions,
                                   inspected: oldState.inspected,
                                   actionEditState: oldState.actionEditState,
@@ -598,10 +772,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
+                                  trace: oldState.trace
                                 };
                         }));
           })
@@ -614,8 +786,8 @@ function ChainEditor$Main(Props) {
                                   card: oldState.card,
                                   schema: oldState.schema,
                                   chainResult: oldState.chainResult,
-                                  scriptFunctions: oldState.scriptFunctions,
                                   chainExecutionResults: oldState.chainExecutionResults,
+                                  connectionDragState: oldState.connectionDragState,
                                   actions: oldState.actions,
                                   inspected: /* Nothing */0,
                                   actionEditState: oldState.actionEditState,
@@ -624,10 +796,8 @@ function ChainEditor$Main(Props) {
                                   savedChainId: oldState.savedChainId,
                                   requestValueCache: oldState.requestValueCache,
                                   debugUIItems: oldState.debugUIItems,
-                                  connectionDrag: oldState.connectionDrag,
                                   subscriptionClient: oldState.subscriptionClient,
-                                  trace: oldState.trace,
-                                  insight: oldState.insight
+                                  trace: oldState.trace
                                 };
                         }));
           }),
@@ -648,65 +818,23 @@ function ChainEditor$Main(Props) {
             
           }),
         onInspectActionCode: (function (actionId) {
-            var request = Belt_Array.getBy(initialChain.actions, (function (action) {
-                    return actionId === action.id;
-                  }));
-            return Belt_Option.forEach(request, (function (request) {
-                          var names = Chain.requestScriptNames(request.name);
-                          var functionName = names.functionName;
-                          var source = Belt_Option.flatMap(initialChain.libraryScript, (function (script) {
-                                  return script.textualSource;
-                                }));
-                          return Belt_Option.forEach(source, (function (source) {
-                                        var sourceFile = Typescript.createSourceFile("main.ts", source, 99, true);
-                                        var pos = TypeScript.findFnPos(sourceFile, functionName);
-                                        return Belt_Option.forEach(pos, (function (param) {
-                                                      var end = param.end;
-                                                      var start = param.start;
-                                                      return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
-                                                                    var model = editor.getModel("file://main.tsx");
-                                                                    var start$1 = model.getPositionAt(start);
-                                                                    var end$1 = model.getPositionAt(end);
-                                                                    editor.revealLineInCenter(start$1.lineNumber, 1);
-                                                                    editor.setSelection({
-                                                                          startLineNumber: start$1.lineNumber,
-                                                                          startColumn: start$1.column,
-                                                                          endLineNumber: end$1.lineNumber,
-                                                                          endColumn: end$1.column
-                                                                        });
-                                                                    
-                                                                  }));
-                                                    }));
-                                      }));
-                        }));
-          }),
-        requestValueCache: state.requestValueCache,
-        onDeleteEdge: (function (targetRequestId, dependencyId) {
+            console.log("Should load up code for action: ", actionId);
             
           }),
+        requestValueCache: state.requestValueCache,
         onInspectAction: onInspectAction,
         oneGraphAuth: oneGraphAuth,
         onClose: onClose,
         onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
-        fragmentRefs: initialChain.fragmentRefs
+        fragmentRefs: initialChain.fragmentRefs,
+        onExecuteAction: onExecuteAction
       });
-  var libraryScript = initialChain.libraryScript;
-  var filename = libraryScript !== undefined ? libraryScript.filename : "Loading script...";
   var action = state.actionEditState;
-  var tmp;
+  var tmp$2;
   if (typeof action === "number") {
-    tmp = null;
-  } else {
-    var action$1;
-    if (typeof action === "number" || action.TAG === /* Create */0) {
-      action$1 = undefined;
-    } else {
-      var actionId = action._0;
-      action$1 = Belt_Array.getBy(initialChain.actions, (function (action) {
-              return action.id === actionId;
-            }));
-    }
-    var editor = React.createElement(ActionGraphQLEditor.make, {
+    tmp$2 = null;
+  } else if (action.TAG === /* Create */0) {
+    var editor = React.createElement(ActionGraphQLEditor.Creator.make, {
           schema: state.schema,
           onClose: (function (param) {
               return Curry._1(setState, (function (oldState) {
@@ -714,8 +842,8 @@ function ChainEditor$Main(Props) {
                                     card: oldState.card,
                                     schema: oldState.schema,
                                     chainResult: oldState.chainResult,
-                                    scriptFunctions: oldState.scriptFunctions,
                                     chainExecutionResults: oldState.chainExecutionResults,
+                                    connectionDragState: oldState.connectionDragState,
                                     actions: oldState.actions,
                                     inspected: oldState.inspected,
                                     actionEditState: /* Nothing */0,
@@ -724,31 +852,179 @@ function ChainEditor$Main(Props) {
                                     savedChainId: oldState.savedChainId,
                                     requestValueCache: oldState.requestValueCache,
                                     debugUIItems: oldState.debugUIItems,
-                                    connectionDrag: oldState.connectionDrag,
                                     subscriptionClient: oldState.subscriptionClient,
-                                    trace: oldState.trace,
-                                    insight: oldState.insight
+                                    trace: oldState.trace
                                   };
                           }));
             }),
-          onSave: (function (initial, superBlock) {
-              
+          onSave: (function (param, modified) {
+              try {
+                var opDoc = Graphql.parse(modified.graphqlOperation);
+                var variables = Belt_Array.map(GraphQLUtils.getOperationVariables(Belt_Array.getExn(opDoc.definitions, 0)), (function (param) {
+                        return {
+                                probePath: [],
+                                method: "COMPUTED",
+                                maxRecur: 0,
+                                ifList: "FIRST",
+                                ifMissing: "ERROR",
+                                graphqlType: param[1],
+                                description: undefined,
+                                name: param[0]
+                              };
+                      }));
+                Curry.app(createChainAction, [
+                      undefined,
+                      (function (param, param$1) {
+                          return Curry._1(setState, (function (oldState) {
+                                        return {
+                                                card: oldState.card,
+                                                schema: oldState.schema,
+                                                chainResult: oldState.chainResult,
+                                                chainExecutionResults: oldState.chainExecutionResults,
+                                                connectionDragState: oldState.connectionDragState,
+                                                actions: oldState.actions,
+                                                inspected: oldState.inspected,
+                                                actionEditState: /* Nothing */0,
+                                                actionSearchOpen: oldState.actionSearchOpen,
+                                                scriptEditor: oldState.scriptEditor,
+                                                savedChainId: oldState.savedChainId,
+                                                requestValueCache: oldState.requestValueCache,
+                                                debugUIItems: oldState.debugUIItems,
+                                                subscriptionClient: oldState.subscriptionClient,
+                                                trace: oldState.trace
+                                              };
+                                      }));
+                        }),
+                      undefined,
+                      undefined,
+                      undefined,
+                      undefined,
+                      {
+                        input: {
+                          variables: variables,
+                          services: [],
+                          graphqlOperationKind: modified.kind,
+                          graphqlOperation: modified.graphqlOperation,
+                          description: undefined,
+                          name: modified.name,
+                          chainId: initialChain.id
+                        }
+                      },
+                      undefined,
+                      undefined
+                    ]);
+                return ;
+              }
+              catch (raw_exn){
+                var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
+                console.warn("Exception trying to create action", exn);
+                return ;
+              }
             }),
-          availableFragments: [],
-          actionRef: Belt_Option.map(action$1, (function (action) {
-                  return action.fragmentRefs;
-                }))
+          availableFragments: []
         });
-    tmp = React.createElement(Comps.Modal.make, {
+    tmp$2 = React.createElement(Comps.Modal.make, {
           children: editor
         });
+  } else {
+    var actionId$2 = action._0;
+    tmp$2 = Belt_Option.mapWithDefault(Belt_Array.getBy(initialChain.actions, (function (action) {
+                return action.id === actionId$2;
+              })), null, (function (action) {
+            var editor = React.createElement(ActionGraphQLEditor.make, {
+                  schema: state.schema,
+                  onClose: (function (param) {
+                      return Curry._1(setState, (function (oldState) {
+                                    return {
+                                            card: oldState.card,
+                                            schema: oldState.schema,
+                                            chainResult: oldState.chainResult,
+                                            chainExecutionResults: oldState.chainExecutionResults,
+                                            connectionDragState: oldState.connectionDragState,
+                                            actions: oldState.actions,
+                                            inspected: oldState.inspected,
+                                            actionEditState: /* Nothing */0,
+                                            actionSearchOpen: oldState.actionSearchOpen,
+                                            scriptEditor: oldState.scriptEditor,
+                                            savedChainId: oldState.savedChainId,
+                                            requestValueCache: oldState.requestValueCache,
+                                            debugUIItems: oldState.debugUIItems,
+                                            subscriptionClient: oldState.subscriptionClient,
+                                            trace: oldState.trace
+                                          };
+                                  }));
+                    }),
+                  onSave: (function (param, modified) {
+                      try {
+                        var opDoc = Graphql.parse(modified.graphqlOperation);
+                        var name = Belt_Option.getWithDefault(Belt_Array.get(GraphQLJs.operationNames(opDoc), 0), "Untitled");
+                        var services = Belt_Array.concatMany(Belt_Array.map(opDoc.definitions, (function (definition) {
+                                    return Belt_Array.map(GraphQLUtils.gatherAllReferencedServices(schema, definition), (function (service) {
+                                                  return service.slug;
+                                                }));
+                                  })));
+                        Curry.app(updateChainAction, [
+                              undefined,
+                              (function (param, param$1) {
+                                  return Curry._1(setState, (function (oldState) {
+                                                return {
+                                                        card: oldState.card,
+                                                        schema: oldState.schema,
+                                                        chainResult: oldState.chainResult,
+                                                        chainExecutionResults: oldState.chainExecutionResults,
+                                                        connectionDragState: oldState.connectionDragState,
+                                                        actions: oldState.actions,
+                                                        inspected: oldState.inspected,
+                                                        actionEditState: /* Nothing */0,
+                                                        actionSearchOpen: oldState.actionSearchOpen,
+                                                        scriptEditor: oldState.scriptEditor,
+                                                        savedChainId: oldState.savedChainId,
+                                                        requestValueCache: oldState.requestValueCache,
+                                                        debugUIItems: oldState.debugUIItems,
+                                                        subscriptionClient: oldState.subscriptionClient,
+                                                        trace: oldState.trace
+                                                      };
+                                              }));
+                                }),
+                              undefined,
+                              undefined,
+                              undefined,
+                              undefined,
+                              {
+                                input: {
+                                  upstreamActionIds: action.upstreamActionIds,
+                                  services: services,
+                                  graphqlOperation: modified.graphqlOperation,
+                                  description: action.description,
+                                  name: name,
+                                  id: actionId$2
+                                }
+                              },
+                              undefined,
+                              undefined
+                            ]);
+                        return ;
+                      }
+                      catch (raw_exn){
+                        var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
+                        console.warn("Error updating action: ", exn);
+                        return ;
+                      }
+                    }),
+                  availableFragments: [],
+                  actionRef: action.fragmentRefs
+                });
+            return React.createElement(Comps.Modal.make, {
+                        children: editor
+                      });
+          }));
   }
-  var tmp$1;
+  var tmp$3;
   if (helpOpen) {
     var connectionsHelp = Belt_Array.keep(Help.videoTutorials, (function (video) {
             return video.category === /* Connections */0;
           }));
-    tmp$1 = React.createElement(Comps.Modal.make, {
+    tmp$3 = React.createElement(Comps.Modal.make, {
           children: React.createElement("div", {
                 className: "w-full h-full m-2 bg-gray-900"
               }, React.createElement("h1", {
@@ -772,7 +1048,7 @@ function ChainEditor$Main(Props) {
                         }))))
         });
   } else {
-    tmp$1 = null;
+    tmp$3 = null;
   }
   return React.createElement("div", {
               style: {
@@ -783,7 +1059,71 @@ function ChainEditor$Main(Props) {
                   children: React.createElement(ChainEditor$InspectedContextProvider, {
                         value: state.inspected,
                         children: React.createElement(ConnectionContext.Provider.make, {
-                              value: state.connectionDrag,
+                              value: {
+                                onDragStart: (function (connectionDrag) {
+                                    if (typeof connectionDrag !== "number" && connectionDrag.TAG === /* StartedSource */0) {
+                                      Curry._2(collaborationContext.updateConnectSourceActionId, initialChain.id, connectionDrag.sourceActionId);
+                                    }
+                                    return setDragState(connectionDrag);
+                                  }),
+                                onDragEnd: (function (param) {
+                                    Curry._2(collaborationContext.updateConnectSourceActionId, initialChain.id, undefined);
+                                    return Curry._1(setState, (function (oldState) {
+                                                  var match = oldState.connectionDragState;
+                                                  var tmp;
+                                                  if (typeof match === "number") {
+                                                    tmp = /* Empty */0;
+                                                  } else {
+                                                    switch (match.TAG | 0) {
+                                                      case /* CompletedPendingVariable */2 :
+                                                      case /* Completed */3 :
+                                                          tmp = oldState.connectionDragState;
+                                                          break;
+                                                      default:
+                                                        tmp = /* Empty */0;
+                                                    }
+                                                  }
+                                                  return {
+                                                          card: oldState.card,
+                                                          schema: oldState.schema,
+                                                          chainResult: oldState.chainResult,
+                                                          chainExecutionResults: oldState.chainExecutionResults,
+                                                          connectionDragState: tmp,
+                                                          actions: oldState.actions,
+                                                          inspected: oldState.inspected,
+                                                          actionEditState: oldState.actionEditState,
+                                                          actionSearchOpen: oldState.actionSearchOpen,
+                                                          scriptEditor: oldState.scriptEditor,
+                                                          savedChainId: oldState.savedChainId,
+                                                          requestValueCache: oldState.requestValueCache,
+                                                          debugUIItems: oldState.debugUIItems,
+                                                          subscriptionClient: oldState.subscriptionClient,
+                                                          trace: oldState.trace
+                                                        };
+                                                }));
+                                  }),
+                                value: state.connectionDragState,
+                                onPotentialScriptSourceConnect: (function (scriptId, sourceActionId, sourceDom, scriptPosition, param) {
+                                    return setDragState({
+                                                TAG: 3,
+                                                sourceActionId: sourceActionId,
+                                                sourceDom: sourceDom,
+                                                target: {
+                                                  TAG: 1,
+                                                  scriptId: scriptId,
+                                                  scriptPosition: scriptPosition,
+                                                  [Symbol.for("name")]: "Script"
+                                                },
+                                                windowPosition: [
+                                                  param[0],
+                                                  param[1]
+                                                ],
+                                                [Symbol.for("name")]: "Completed"
+                                              });
+                                  }),
+                                onPotentialVariableSourceConnect: onPotentialVariableSourceConnect,
+                                onPotentialActionSourceConnect: onPotentialActionSourceConnect
+                              },
                               children: null
                             }, React.createElement("div", {
                                   className: "flex flex-row flex-nowrap"
@@ -812,8 +1152,8 @@ function ChainEditor$Main(Props) {
                                                                   card: oldState.card,
                                                                   schema: oldState.schema,
                                                                   chainResult: oldState.chainResult,
-                                                                  scriptFunctions: oldState.scriptFunctions,
                                                                   chainExecutionResults: oldState.chainExecutionResults,
+                                                                  connectionDragState: oldState.connectionDragState,
                                                                   actions: oldState.actions,
                                                                   inspected: oldState.inspected,
                                                                   actionEditState: oldState.actionEditState,
@@ -822,10 +1162,8 @@ function ChainEditor$Main(Props) {
                                                                   savedChainId: oldState.savedChainId,
                                                                   requestValueCache: oldState.requestValueCache,
                                                                   debugUIItems: oldState.debugUIItems,
-                                                                  connectionDrag: oldState.connectionDrag,
                                                                   subscriptionClient: oldState.subscriptionClient,
-                                                                  trace: oldState.trace,
-                                                                  insight: oldState.insight
+                                                                  trace: oldState.trace
                                                                 };
                                                         }));
                                           })
@@ -879,10 +1217,10 @@ function ChainEditor$Main(Props) {
                                                                           };
                                                                   }));
                                                             var inspectedReq;
-                                                            var inspected = Belt_Option.getWithDefault(Belt_Option.map(inspectedReq, (function (request) {
+                                                            var inspected = Belt_Option.getWithDefault(Belt_Option.map(inspectedReq, (function (actionId) {
                                                                         return {
                                                                                 TAG: 0,
-                                                                                _0: request.id,
+                                                                                _0: actionId,
                                                                                 [Symbol.for("name")]: "Action"
                                                                               };
                                                                       })), state.inspected);
@@ -891,8 +1229,8 @@ function ChainEditor$Main(Props) {
                                                                                   card: oldState.card,
                                                                                   schema: oldState.schema,
                                                                                   chainResult: oldState.chainResult,
-                                                                                  scriptFunctions: oldState.scriptFunctions,
                                                                                   chainExecutionResults: oldState.chainExecutionResults,
+                                                                                  connectionDragState: oldState.connectionDragState,
                                                                                   actions: oldState.actions,
                                                                                   inspected: inspected,
                                                                                   actionEditState: oldState.actionEditState,
@@ -901,18 +1239,13 @@ function ChainEditor$Main(Props) {
                                                                                   savedChainId: oldState.savedChainId,
                                                                                   requestValueCache: oldState.requestValueCache,
                                                                                   debugUIItems: oldState.debugUIItems,
-                                                                                  connectionDrag: oldState.connectionDrag,
                                                                                   subscriptionClient: oldState.subscriptionClient,
-                                                                                  trace: oldState.trace,
-                                                                                  insight: oldState.insight
+                                                                                  trace: oldState.trace
                                                                                 };
                                                                         }));
                                                           }));
                                             })
                                         }, React.createElement(ChainCanvas.make, {
-                                              removeEdge: removeEdge,
-                                              removeRequest: removeRequest,
-                                              trace: state.trace,
                                               chainRef: initialChain.fragmentRefs,
                                               onActionInspected: (function (actionId) {
                                                   return Curry._1(setState, (function (oldState) {
@@ -920,8 +1253,8 @@ function ChainEditor$Main(Props) {
                                                                         card: oldState.card,
                                                                         schema: oldState.schema,
                                                                         chainResult: oldState.chainResult,
-                                                                        scriptFunctions: oldState.scriptFunctions,
                                                                         chainExecutionResults: oldState.chainExecutionResults,
+                                                                        connectionDragState: oldState.connectionDragState,
                                                                         actions: oldState.actions,
                                                                         inspected: {
                                                                           TAG: 0,
@@ -934,10 +1267,8 @@ function ChainEditor$Main(Props) {
                                                                         savedChainId: oldState.savedChainId,
                                                                         requestValueCache: oldState.requestValueCache,
                                                                         debugUIItems: oldState.debugUIItems,
-                                                                        connectionDrag: oldState.connectionDrag,
                                                                         subscriptionClient: oldState.subscriptionClient,
-                                                                        trace: oldState.trace,
-                                                                        insight: oldState.insight
+                                                                        trace: oldState.trace
                                                                       };
                                                               }));
                                                 }),
@@ -947,8 +1278,8 @@ function ChainEditor$Main(Props) {
                                                                         card: oldState.card,
                                                                         schema: oldState.schema,
                                                                         chainResult: oldState.chainResult,
-                                                                        scriptFunctions: oldState.scriptFunctions,
                                                                         chainExecutionResults: oldState.chainExecutionResults,
+                                                                        connectionDragState: oldState.connectionDragState,
                                                                         actions: oldState.actions,
                                                                         inspected: oldState.inspected,
                                                                         actionEditState: {
@@ -961,13 +1292,33 @@ function ChainEditor$Main(Props) {
                                                                         savedChainId: oldState.savedChainId,
                                                                         requestValueCache: oldState.requestValueCache,
                                                                         debugUIItems: oldState.debugUIItems,
-                                                                        connectionDrag: oldState.connectionDrag,
                                                                         subscriptionClient: oldState.subscriptionClient,
-                                                                        trace: oldState.trace,
-                                                                        insight: oldState.insight
+                                                                        trace: oldState.trace
                                                                       };
                                                               }));
-                                                })
+                                                }),
+                                              onSelectionCleared: (function (param) {
+                                                  return Curry._1(setState, (function (oldState) {
+                                                                return {
+                                                                        card: oldState.card,
+                                                                        schema: oldState.schema,
+                                                                        chainResult: oldState.chainResult,
+                                                                        chainExecutionResults: oldState.chainExecutionResults,
+                                                                        connectionDragState: oldState.connectionDragState,
+                                                                        actions: oldState.actions,
+                                                                        inspected: /* Nothing */0,
+                                                                        actionEditState: oldState.actionEditState,
+                                                                        actionSearchOpen: oldState.actionSearchOpen,
+                                                                        scriptEditor: oldState.scriptEditor,
+                                                                        savedChainId: oldState.savedChainId,
+                                                                        requestValueCache: oldState.requestValueCache,
+                                                                        debugUIItems: oldState.debugUIItems,
+                                                                        subscriptionClient: oldState.subscriptionClient,
+                                                                        trace: oldState.trace
+                                                                      };
+                                                              }));
+                                                }),
+                                              onConnect: connectSourceToTargetActions
                                             })), React.createElement("div", {
                                           style: {
                                             height: "calc(50vh - 67px)"
@@ -981,8 +1332,8 @@ function ChainEditor$Main(Props) {
                                                                         card: oldState.card,
                                                                         schema: oldState.schema,
                                                                         chainResult: oldState.chainResult,
-                                                                        scriptFunctions: oldState.scriptFunctions,
                                                                         chainExecutionResults: oldState.chainExecutionResults,
+                                                                        connectionDragState: oldState.connectionDragState,
                                                                         actions: oldState.actions,
                                                                         inspected: oldState.inspected,
                                                                         actionEditState: oldState.actionEditState,
@@ -995,10 +1346,8 @@ function ChainEditor$Main(Props) {
                                                                         savedChainId: oldState.savedChainId,
                                                                         requestValueCache: oldState.requestValueCache,
                                                                         debugUIItems: oldState.debugUIItems,
-                                                                        connectionDrag: oldState.connectionDrag,
                                                                         subscriptionClient: oldState.subscriptionClient,
-                                                                        trace: oldState.trace,
-                                                                        insight: oldState.insight
+                                                                        trace: oldState.trace
                                                                       };
                                                               }));
                                                 })
@@ -1012,7 +1361,7 @@ function ChainEditor$Main(Props) {
                                                   children: null
                                                 }, React.createElement("div", {
                                                       className: "flex-grow"
-                                                    }, "Chain JavaScript" + ("(" + filename + ")")), React.createElement("div", undefined, React.createElement("button", {
+                                                    }, "Chain JavaScript (" + editingSource.filename + ")"), React.createElement("div", undefined, React.createElement("button", {
                                                           title: "Format code",
                                                           onClick: (function (param) {
                                                               return Belt_Option.forEach(state.scriptEditor.editor, (function (editor) {
@@ -1041,12 +1390,11 @@ function ChainEditor$Main(Props) {
                                               height: "calc(100vh - 56px)"
                                             }
                                           }, sidebar)
-                                    })), tmp)
+                                    })), tmp$2, React.createElement(ConnectionVisualizer.make, {
+                                  chainRef: initialChain.fragmentRefs
+                                }))
                       })
-                }), tmp$1, React.createElement("audio", {
-                  id: "test-audio-tag",
-                  autoPlay: true
-                }));
+                }), tmp$3);
 }
 
 var Main = {
@@ -1056,28 +1404,37 @@ var Main = {
 function ChainEditor(Props) {
   var schema = Props.schema;
   var chainRefs = Props.chainRefs;
-  var localStorageChain = Props.localStorageChain;
   var config = Props.config;
-  var onSaveChain = Props.onSaveChain;
   var onClose = Props.onClose;
-  var onSaveAndClose = Props.onSaveAndClose;
   var trace = Props.trace;
   var helpOpen = Props.helpOpen;
-  var oneGraphAuth = OneGraphAuth.create({
-        appId: config.oneGraphAppId
-      });
+  var environment = RescriptRelay.useEnvironmentFromContext(undefined);
   var initialChain = use(chainRefs);
-  return Belt_Option.getWithDefault(Belt_Option.map(oneGraphAuth, (function (oneGraphAuth) {
+  React.useEffect((function () {
+          var subscription = subscribe(environment, {
+                chainId: initialChain.id
+              }, undefined, undefined, (function (_data) {
+                  
+                }), undefined, undefined);
+          return (function (param) {
+                    console.log("Tearing down subscription...");
+                    subscription.dispose();
+                    
+                  });
+        }), []);
+  var match = React.useState(function () {
+        return OneGraphAuth.create({
+                    appId: RelayEnv.appId
+                  });
+      });
+  return Belt_Option.getWithDefault(Belt_Option.map(match[0], (function (oneGraphAuth) {
                     return React.createElement(ReactFlowRenderer.ReactFlowProvider, {
                                 children: React.createElement(ChainEditor$Main, {
                                       schema: schema,
                                       initialChain: initialChain,
-                                      localStorageChain: localStorageChain,
                                       config: config,
                                       oneGraphAuth: oneGraphAuth,
-                                      onSaveChain: onSaveChain,
                                       onClose: onClose,
-                                      onSaveAndClose: onSaveAndClose,
                                       trace: trace,
                                       helpOpen: helpOpen
                                     })
@@ -1091,11 +1448,12 @@ var make = ChainEditor;
 
 export {
   Fragment ,
+  Subscription ,
+  AddActionDependencyIds ,
+  CreateChainActionMutation ,
+  UpdateChainActionMutation ,
   httpRequest ,
-  namedGraphQLScalarTypeScriptType ,
-  compileChain ,
   InspectedContextProvider ,
-  emptyGraphLevel ,
   chainResultToRequestValueCache ,
   persistChain ,
   Main ,

@@ -5,8 +5,11 @@ import * as YMonacoJs from "./y-monaco.js";
 
 var $$Text = {};
 
+var $$Map = {};
+
 var $$Document = {
-  $$Text: $$Text
+  $$Text: $$Text,
+  $$Map: $$Map
 };
 
 var Awareness = {};
@@ -37,8 +40,8 @@ var $$WebSocket = {};
 
 var makeSet = (function makeSet(items) { return new Set([...items])});
 
-function createBinding(prim0, prim1, prim2, prim3, prim4) {
-  return new YMonacoJs.MonacoBinding(prim0, prim1, prim2, prim3, prim4);
+function createBinding(prim0, prim1, prim2, prim3) {
+  return new YMonacoJs.MonacoBinding(prim0, prim1, prim2, prim3);
 }
 
 var Monaco = {

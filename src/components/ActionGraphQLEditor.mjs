@@ -15,26 +15,26 @@ import * as Hooks from "react-relay/hooks";
 import * as ReactHotkeysHook from "react-hotkeys-hook";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
 import GraphiqlExplorer from "@sgrove/graphiql-explorer";
-import * as ActionGraphQLEditor_oneGraphStudioChainAction_graphql from "../__generated__/ActionGraphQLEditor_oneGraphStudioChainAction_graphql.mjs";
+import * as ActionGraphQLEditor_chainAction_graphql from "../__generated__/ActionGraphQLEditor_chainAction_graphql.mjs";
 
 function use(fRef) {
-  var data = Hooks.useFragment(ActionGraphQLEditor_oneGraphStudioChainAction_graphql.node, fRef);
-  return RescriptRelay_Internal.internal_useConvertedValue(ActionGraphQLEditor_oneGraphStudioChainAction_graphql.Internal.convertFragment, data);
+  var data = Hooks.useFragment(ActionGraphQLEditor_chainAction_graphql.node, fRef);
+  return RescriptRelay_Internal.internal_useConvertedValue(ActionGraphQLEditor_chainAction_graphql.Internal.convertFragment, data);
 }
 
 function useOpt(opt_fRef) {
   var fr = opt_fRef !== undefined ? Caml_option.some(Caml_option.valFromOption(opt_fRef)) : undefined;
-  var nullableFragmentData = Hooks.useFragment(ActionGraphQLEditor_oneGraphStudioChainAction_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
+  var nullableFragmentData = Hooks.useFragment(ActionGraphQLEditor_chainAction_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
   var data = (nullableFragmentData == null) ? undefined : Caml_option.some(nullableFragmentData);
   return RescriptRelay_Internal.internal_useConvertedValue((function (rawFragment) {
                 if (rawFragment !== undefined) {
-                  return ActionGraphQLEditor_oneGraphStudioChainAction_graphql.Internal.convertFragment(rawFragment);
+                  return ActionGraphQLEditor_chainAction_graphql.Internal.convertFragment(rawFragment);
                 }
                 
               }), data);
 }
 
-var OneGraphStudioChainActionFragment = {
+var Fragment = {
   Types: undefined,
   use: use,
   useOpt: useOpt
@@ -43,27 +43,18 @@ var OneGraphStudioChainActionFragment = {
 var GraphiQLExplorer = {};
 
 function makeBlankAction(kind) {
-  var match = kind === "mutation" ? [
-      /* Mutation */1,
-      "mutation Untitled { __typename }"
-    ] : (
-      kind === "compute" ? [
-          /* Compute */4,
-          "# Fields on ComputeType will turn into variables for you to compute\n# based on other blocks or user input\ntype ComputeType {\n  name: String!\n}"
-        ] : (
-          kind === "subscription" ? [
-              /* Subscription */2,
-              "subscription Untitled { __typename }"
-            ] : [
-              /* Query */0,
-              "query Untitled { __typename }"
-            ]
+  var body = kind === "QUERY" ? "query Untitled { __typename }" : (
+      kind === "COMPUTE" ? "# Fields on ComputeType will turn into variables for you to compute\n# based on other blocks or user input\ntype ComputeType {\n  name: String!\n}" : (
+          kind === "FRAGMENT" ? "fragment UntitledFragment on Query { __typename }" : (
+              kind === "MUTATION" ? "mutation Untitled { __typename }" : "subscription Untitled { __typename }"
+            )
         )
     );
   return {
           id: Uuid.v4().toString(),
           name: "Untitled",
-          graphqlOperation: match[1]
+          graphqlOperation: body,
+          kind: kind
         };
 }
 
@@ -73,40 +64,48 @@ function ActionGraphQLEditor(Props) {
   var onSave = Props.onSave;
   var availableFragments = Props.availableFragments;
   var actionRef = Props.actionRef;
-  var initialAction = Belt_Option.getWithDefault(Belt_Option.map(actionRef, (function (actionRef) {
-              var action = use(actionRef);
-              makeBlankAction("query");
-              var final_id = action.id;
-              var final_name = action.name;
-              var final_graphqlOperation = action.graphQLOperation;
-              var $$final = {
-                id: final_id,
-                name: final_name,
-                graphqlOperation: final_graphqlOperation
-              };
-              console.log("Action: ", action);
-              console.log($$final);
-              return $$final;
-            })), makeBlankAction("query"));
+  var initialAction = use(actionRef);
   var match = React.useState(function () {
-        return initialAction;
+        var block = makeBlankAction("QUERY");
+        return {
+                id: initialAction.id,
+                name: initialAction.name,
+                graphqlOperation: initialAction.graphqlOperation,
+                kind: block.kind
+              };
       });
-  var setBlock = match[1];
+  var setAction = match[1];
   var action = match[0];
   React.useEffect((function () {
-          Curry._1(setBlock, (function (param) {
-                  return initialAction;
+          Curry._1(setAction, (function (param) {
+                  var block = makeBlankAction("QUERY");
+                  var final_id = initialAction.id;
+                  var final_name = initialAction.name;
+                  var final_graphqlOperation = initialAction.graphqlOperation;
+                  var final_kind = block.kind;
+                  var $$final = {
+                    id: final_id,
+                    name: final_name,
+                    graphqlOperation: final_graphqlOperation,
+                    kind: final_kind
+                  };
+                  console.log("Action Change detected: ", block, action, $$final);
+                  return $$final;
                 }));
           
-        }), [initialAction.id]);
+        }), [
+        initialAction.id,
+        initialAction.graphqlOperation
+      ]);
   var updateBlock = function (newOperationDoc) {
     var opDoc = Graphql.parse(newOperationDoc);
     var title = Belt_Option.getWithDefault(Belt_Array.get(GraphQLJs.operationNames(opDoc), 0), "Untitled");
-    return Curry._1(setBlock, (function (oldBlock) {
+    return Curry._1(setAction, (function (oldBlock) {
                   return {
                           id: oldBlock.id,
                           name: title,
-                          graphqlOperation: newOperationDoc
+                          graphqlOperation: newOperationDoc,
+                          kind: oldBlock.kind
                         };
                 }));
   };
@@ -162,13 +161,92 @@ function ActionGraphQLEditor(Props) {
                     })));
 }
 
+function ActionGraphQLEditor$Creator(Props) {
+  var schema = Props.schema;
+  var onClose = Props.onClose;
+  var onSave = Props.onSave;
+  var availableFragments = Props.availableFragments;
+  var match = React.useState(function () {
+        return makeBlankAction("QUERY");
+      });
+  var setAction = match[1];
+  var action = match[0];
+  var updateBlock = function (newOperationDoc) {
+    var opDoc = Graphql.parse(newOperationDoc);
+    var title = Belt_Option.getWithDefault(Belt_Array.get(GraphQLJs.operationNames(opDoc), 0), "Untitled");
+    return Curry._1(setAction, (function (oldBlock) {
+                  return {
+                          id: oldBlock.id,
+                          name: title,
+                          graphqlOperation: newOperationDoc,
+                          kind: oldBlock.kind
+                        };
+                }));
+  };
+  var explorer = React.createElement("div", {
+        className: "graphiql-container w-full"
+      }, React.createElement(GraphiqlExplorer, {
+            schema: schema,
+            explorerIsOpen: true,
+            query: action.graphqlOperation,
+            width: "100%",
+            height: "100%",
+            onEdit: updateBlock,
+            availableFragments: availableFragments
+          }));
+  var editor = React.createElement(BsReactMonaco.Editor.make, {
+        height: "100%",
+        value: action.graphqlOperation,
+        className: "flex-grow h-full",
+        language: "graphql",
+        theme: "vs-dark",
+        options: {
+          minimap: {
+            enabled: false
+          }
+        },
+        onChange: (function (newOperationDoc, param) {
+            return updateBlock(newOperationDoc);
+          })
+      });
+  ReactHotkeysHook.useHotkeys("esc", (function ($$event, _handler) {
+          $$event.preventDefault();
+          $$event.stopPropagation();
+          return Curry._1(onClose, undefined);
+        }), {}, undefined);
+  return React.createElement("div", {
+              className: "flex w-full flex-col"
+            }, React.createElement("div", {
+                  className: "flex flex-grow flex-row h-full"
+                }, explorer, editor), React.createElement("div", {
+                  className: "w-full ml-auto flex"
+                }, React.createElement(Comps.Button.make, {
+                      onClick: (function (param) {
+                          return Curry._2(onSave, action, action);
+                        }),
+                      className: "flex-grow",
+                      children: "Save"
+                    }), React.createElement(Comps.Button.make, {
+                      onClick: (function (param) {
+                          return Curry._1(onClose, undefined);
+                        }),
+                      className: "flex-grow",
+                      children: "Cancel"
+                    })));
+}
+
+var Creator = {
+  make: ActionGraphQLEditor$Creator
+};
+
 var make = ActionGraphQLEditor;
 
 export {
-  OneGraphStudioChainActionFragment ,
+  Fragment ,
   GraphiQLExplorer ,
   makeBlankAction ,
   make ,
+  Creator ,
   
 }
 /* uuid Not a pure module */

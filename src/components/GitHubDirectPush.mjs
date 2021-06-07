@@ -37,7 +37,7 @@ function GitHubDirectPush(Props) {
   var setState = match[1];
   var state = match[0];
   React.useEffect((function () {
-          Debug.assignToWindowForDeveloperDebug("guessGitHubProject", OneGraphRe.GitHub.guessProjecType);
+          Debug.assignToWindowForDeveloperDebug("guessGitHubProject", OneGraphRe.GitHub.guessProjectType);
           var __x = OneGraphRe.basicFetchOneGraphPersistedQuery("993a3e2d-de45-44fa-bff4-0c58c6150cbf", undefined, "fc839e0e-982b-43fc-b59b-3c080e17480a", undefined, "ExecuteChainMutation_look_ma_connections");
           __x.then(function (result) {
                 return Promise.resolve(Belt_Option.forEach(Caml_option.undefined_to_opt(result.data), (function (data) {
@@ -117,7 +117,7 @@ function GitHubDirectPush(Props) {
                                                   }
                                                   var owner = match[0];
                                                   var name = match[1];
-                                                  var __x = OneGraphRe.GitHub.guessProjecType(owner, name);
+                                                  var __x = OneGraphRe.GitHub.guessProjectType(owner, name);
                                                   __x.then(function (result) {
                                                         return Promise.resolve(Curry._1(setState, (function (oldState) {
                                                                           return {

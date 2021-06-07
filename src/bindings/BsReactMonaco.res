@@ -14,11 +14,15 @@ let makeRange: (monaco, int, int, int, int) => range = %raw(`function(monaco, a,
 return new monaco.Range(a,b,c,d)
 }`)
 
+module Monaco = {
+  @get external getEditor: monaco => editor = "editor"
+}
+
 module Model = {
   type t
 
-  @send
-  external createModel: (~value: string, ~language: option<string>, ~uri: string) => string =
+  @send @scope("editor")
+  external createModel: (monaco, ~value: string, ~language: option<string>, ~uri: string) => t =
     "createModel"
 
   let setUri: (monaco, t, string, string) => t = %raw(`function (monaco, model1, language, newURI) {
@@ -56,6 +60,8 @@ return model2
   @send external updateOptions: (t, modelOptions) => unit = "updateOptions"
 
   @send external getFullModelRange: t => range = "getFullModelRange"
+
+  @send external dispose: t => unit = "dispose"
 }
 
 module Editor: {
@@ -101,10 +107,15 @@ module Editor: {
 @send external getValue: editor => string = "getValue"
 
 @send external getModel: (editor, string) => Model.t = "getModel"
+@send external setModel: (editor, Model.t) => unit = "setModel"
 
 @send external getAction: (editor, string) => option<action> = "getAction"
 
 @send external runAction: action => unit = "run"
+
+@send
+external createModel: (editor, ~value: string, ~language: option<string>, ~uri: string) => Model.t =
+  "createModel"
 
 @deriving(abstract)
 type editOperation = {
@@ -239,12 +250,12 @@ module TypeScript = {
     outputFiles: array<outputFile>,
   }
 
-  let transpileFile = (monaco: monaco, ~uri: string, ~onComplete: transpiled => unit): unit => {
-    Obj.magic(monaco)["languages"]["typescript"]["getTypeScriptWorker"]()
+  let transpileFile = (monaco: monaco, ~uri: string, ~onComplete: (. transpiled) => unit): unit => {
+    Obj.magic(monaco)["languages"]["typescript"]["getTypeScriptWorker"](.)
     ->Js.Promise.then_(worker => {
-      Obj.magic(worker)(uri)->Js.Promise.then_(client => {
-        let result: Js.Promise.t<transpiled> = Obj.magic(client)["getEmitOutput"](uri)
-        result->Js.Promise.then_(result => onComplete(result)->Js.Promise.resolve, _)
+      Obj.magic(worker)(. uri)->Js.Promise.then_(client => {
+        let result: Js.Promise.t<transpiled> = Obj.magic(client)["getEmitOutput"](. uri)
+        result->Js.Promise.then_(result => onComplete(. result)->Js.Promise.resolve, _)
       }, _)
     }, _)
     ->ignore

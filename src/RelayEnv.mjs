@@ -32,7 +32,7 @@ function fetchQuery(operation, variables, _cacheConfig, _uploadables) {
   var __x = fetch(oneGraphUrl, Fetch.RequestInit.make(/* Post */2, {
               "content-type": "application/json",
               accept: "application/json",
-              Authorization: "Bearer eH7zBV9qnXx1NDX_Bo94WyHRVK2qCuVc6LYN38ye7bA"
+              Authorization: "Bearer in8zsPB1njMm_BO2MOwsc2GSHCro9pvK4hUGqnpNVbM"
             }, Caml_option.some(JSON.stringify(Js_dict.fromList({
                           hd: [
                             "query",
@@ -62,7 +62,8 @@ var OneGraphSubscriptionClient = {};
 
 var oneGraphSubscriptionClient = Belt_Option.map(auth, (function (oneGraphAuth) {
         return new OnegraphSubscriptionClient.SubscriptionClient(appId, {
-                    oneGraphAuth: oneGraphAuth
+                    oneGraphAuth: oneGraphAuth,
+                    host: "serve.onegraph.io"
                   });
       }));
 

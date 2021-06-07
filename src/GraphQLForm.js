@@ -229,6 +229,7 @@ export const formInput = (schema, def, setFormVariables, options) => {
               id={path.join("-")}
               onChange={updateFunction}
               defaultValue={options.defaultValue}
+              autoCorrect="false"
               {...finalInputAttrs}
               className="bg-transparent border-none px-2 leading-tight outline-none text-white form-input"
               type="text"

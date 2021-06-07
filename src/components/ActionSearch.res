@@ -234,10 +234,10 @@ let make = (
               value="never"
               onChange={event => {
                 let kind = switch ReactEvent.Form.target(event)["value"] {
-                | "query" => Some(#query)
-                | "mutation" => Some(#mutation)
-                | "subscription" => Some(#subscription)
-                | "compute" => Some(#compute)
+                | "query" => Some(#QUERY)
+                | "mutation" => Some(#MUTATION)
+                | "subscription" => Some(#SUBSCRIPTION)
+                | "compute" => Some(#COMPUTE)
                 | _ => None
                 }
 
@@ -271,6 +271,7 @@ let make = (
             action: ActionSearchQuery_graphql.Types.response_oneGraph_studio_actions,
           ) => {
             <Action
+              key={action.id}
               fragmentRefs={action.fragmentRefs}
               onInspect
               onAdd={action => {

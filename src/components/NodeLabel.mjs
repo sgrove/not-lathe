@@ -13,21 +13,21 @@ import * as Js_null_undefined from "rescript/lib/es6/js_null_undefined.js";
 import * as RequestValueCache from "../RequestValueCache.mjs";
 import * as Hooks from "react-relay/hooks";
 import * as RescriptRelay_Internal from "rescript-relay/src/RescriptRelay_Internal.mjs";
+import * as NodeLabel_action_graphql from "../__generated__/NodeLabel_action_graphql.mjs";
 import * as RequestValueCacheProvider from "./RequestValueCacheProvider.mjs";
-import * as NodeLabel_oneGraphStudioChainAction_graphql from "../__generated__/NodeLabel_oneGraphStudioChainAction_graphql.mjs";
 
 function use(fRef) {
-  var data = Hooks.useFragment(NodeLabel_oneGraphStudioChainAction_graphql.node, fRef);
-  return RescriptRelay_Internal.internal_useConvertedValue(NodeLabel_oneGraphStudioChainAction_graphql.Internal.convertFragment, data);
+  var data = Hooks.useFragment(NodeLabel_action_graphql.node, fRef);
+  return RescriptRelay_Internal.internal_useConvertedValue(NodeLabel_action_graphql.Internal.convertFragment, data);
 }
 
 function useOpt(opt_fRef) {
   var fr = opt_fRef !== undefined ? Caml_option.some(Caml_option.valFromOption(opt_fRef)) : undefined;
-  var nullableFragmentData = Hooks.useFragment(NodeLabel_oneGraphStudioChainAction_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
+  var nullableFragmentData = Hooks.useFragment(NodeLabel_action_graphql.node, fr !== undefined ? Js_null_undefined.fromOption(Caml_option.some(Caml_option.valFromOption(fr))) : null);
   var data = (nullableFragmentData == null) ? undefined : Caml_option.some(nullableFragmentData);
   return RescriptRelay_Internal.internal_useConvertedValue((function (rawFragment) {
                 if (rawFragment !== undefined) {
-                  return NodeLabel_oneGraphStudioChainAction_graphql.Internal.convertFragment(rawFragment);
+                  return NodeLabel_action_graphql.Internal.convertFragment(rawFragment);
                 }
                 
               }), data);
@@ -42,7 +42,6 @@ var OneGraphStudioChainActionFragment = {
 function NodeLabel(Props) {
   var actionRef = Props.actionRef;
   var onEditAction = Props.onEditAction;
-  var onDragStart = Props.onDragStart;
   var action = use(actionRef);
   var services = Belt_Array.keepMap(action.services, (function (service) {
           return Belt_Option.map(Utils.serviceImageUrl(undefined, undefined, service), (function (param) {
@@ -61,12 +60,13 @@ function NodeLabel(Props) {
                                   });
                       }));
         }));
-  React.useContext(ConnectionContext.context);
+  var connectionDrag = React.useContext(ConnectionContext.context);
   var requestValueCache = React.useContext(RequestValueCacheProvider.context);
   var match = React.useState(function () {
         return false;
       });
   var setMouseHover = match[1];
+  var mouseHover = match[0];
   var result = RequestValueCache.get(requestValueCache, action.id);
   var dataState = result !== undefined ? (
       Belt_Option.mapWithDefault(Caml_option.undefined_to_opt(result.errors), 0, (function (prim) {
@@ -77,9 +77,98 @@ function NodeLabel(Props) {
       dataState === "error" ? "error-indicator" : "mocked-indicator"
     );
   var domRef = React.useRef(null);
+  var match$1 = connectionDrag.value;
+  var className;
+  var exit = 0;
+  var exit$1 = 0;
+  var exit$2 = 0;
+  var exit$3 = 0;
+  if (typeof match$1 === "number") {
+    className = "";
+  } else {
+    switch (match$1.TAG | 0) {
+      case /* StartedTarget */1 :
+          var match$2 = match$1.target;
+          className = match$2.TAG === /* Variable */0 ? (
+              match$2._0.actionId === action.id ? " node-drop drag-source no-drop" : (
+                  mouseHover ? " node-drop drag-target drop-ready" : " node-drop drag-target"
+                )
+            ) : (
+              mouseHover ? " node-drop drag-target drop-ready" : " node-drop drag-target"
+            );
+          break;
+      case /* StartedSource */0 :
+      case /* CompletedPendingVariable */2 :
+          exit$3 = 4;
+          break;
+      case /* Completed */3 :
+          exit$1 = 2;
+          break;
+      case /* CompletedWithTypeMismatch */4 :
+          className = "";
+          break;
+      
+    }
+  }
+  if (exit$3 === 4) {
+    if (mouseHover && match$1.sourceActionId !== action.id) {
+      className = "node-drop drag-target drop-ready";
+    } else {
+      exit$2 = 3;
+    }
+  }
+  if (exit$2 === 3) {
+    if (match$1.sourceActionId !== action.id) {
+      className = "node-drop drag-target";
+    } else {
+      exit$1 = 2;
+    }
+  }
+  if (exit$1 === 2) {
+    var exit$4 = 0;
+    if (typeof match$1 !== "number") {
+      switch (match$1.TAG | 0) {
+        case /* CompletedPendingVariable */2 :
+            exit = 1;
+            break;
+        case /* StartedSource */0 :
+        case /* Completed */3 :
+            exit$4 = 3;
+            break;
+        
+      }
+    }
+    if (exit$4 === 3) {
+      if (match$1.sourceActionId === action.id) {
+        className = "node-drop drag-source no-drop";
+      } else {
+        exit = 1;
+      }
+    }
+    
+  }
+  if (exit === 1) {
+    var exit$5 = 0;
+    if (typeof match$1 !== "number") {
+      switch (match$1.TAG | 0) {
+        case /* StartedSource */0 :
+        case /* CompletedPendingVariable */2 :
+            exit$5 = 2;
+            break;
+        case /* Completed */3 :
+            className = "";
+            break;
+        
+      }
+    }
+    if (exit$5 === 2) {
+      className = match$1.sourceActionId === action.id ? "node-drop drag-source no-drop" : "";
+    }
+    
+  }
   return React.createElement("div", {
               ref: domRef,
-              className: "flex align-middle items-center min-w-max flex-row items-stretch ",
+              className: "flex align-middle items-center min-w-max flex-row items-stretch " + className,
               onContextMenu: (function ($$event) {
                   
                 }),
@@ -87,7 +176,14 @@ function NodeLabel(Props) {
                   if ($$event.altKey) {
                     $$event.preventDefault();
                     $$event.stopPropagation();
-                    return Curry._3(onDragStart, $$event, action, domRef.current);
+                    return Curry._1(connectionDrag.onDragStart, Belt_Option.mapWithDefault(Caml_option.nullable_to_opt(domRef.current), /* Empty */0, (function (domRef) {
+                                      return {
+                                              TAG: 0,
+                                              sourceActionId: action.id,
+                                              sourceDom: domRef,
+                                              [Symbol.for("name")]: "StartedSource"
+                                            };
+                                    })));
                   }
                   
                 }),
@@ -100,6 +196,44 @@ function NodeLabel(Props) {
                   return Curry._1(setMouseHover, (function (param) {
                                 return false;
                               }));
+                }),
+              onMouseUp: (function ($$event) {
+                  var clientX = $$event.clientX;
+                  var clientY = $$event.clientY;
+                  var mouseClientPosition = [
+                    clientX,
+                    clientY
+                  ];
+                  var dragInfo = connectionDrag.value;
+                  if (typeof dragInfo === "number") {
+                    return ;
+                  }
+                  switch (dragInfo.TAG | 0) {
+                    case /* StartedSource */0 :
+                        if (dragInfo.sourceActionId !== action.id) {
+                          return Curry._1(connectionDrag.onPotentialVariableSourceConnect, {
+                                      TAG: 2,
+                                      sourceActionId: dragInfo.sourceActionId,
+                                      sourceDom: dragInfo.sourceDom,
+                                      targetActionId: action.id,
+                                      windowPosition: mouseClientPosition,
+                                      [Symbol.for("name")]: "CompletedPendingVariable"
+                                    });
+                        } else {
+                          return ;
+                        }
+                    case /* StartedTarget */1 :
+                        return Curry._1(connectionDrag.onPotentialVariableSourceConnect, {
+                                    TAG: 3,
+                                    sourceActionId: action.id,
+                                    sourceDom: dragInfo.sourceDom,
+                                    target: dragInfo.target,
+                                    windowPosition: mouseClientPosition,
+                                    [Symbol.for("name")]: "Completed"
+                                  });
+                    default:
+                      return ;
+                  }
                 })
             }, React.createElement("div", {
                   className: indicatorClass + " pl-2",

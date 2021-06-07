@@ -2,7 +2,7 @@
 
 module type STUDIO_COMPONENT = {
   @react.component
-  let make: (~schema: GraphQLJs.schema, ~config: Config.Studio.t) => React.element
+  let make: (~schema: GraphQLJs.schema) => React.element
 }
 
 @val
@@ -31,7 +31,7 @@ module Inner = {
       )
 
       oneGraphAuth->Belt.Option.forEach(oneGraphAuth => {
-        let promise = OneGraphRe.fetchOneGraph(
+        let promise = OneGraphRe.fetchOneGraph(.
           oneGraphAuth,
           GraphQLJs.getIntrospectionQuery(),
           None,
@@ -106,7 +106,7 @@ module Inner = {
           </div>
           <pre> {error->Obj.magic->Js.Json.stringifyWithSpace(2)->string} </pre>
         </>
-      | Loaded(schema) => <> <Studio schema config /> </>
+      | Loaded(schema) => <> <Studio schema /> </>
       }}
     </div>
   }
@@ -213,7 +213,7 @@ module ConfigEditor = {
               onSubmit={event => {
                 event->ReactEvent.Form.preventDefault
                 switch validConfig {
-                | Ok(config) => onUpdated(config)
+                | Ok(config) => onUpdated(. config)
                 | Error(_) => ()
                 }
               }}>
@@ -351,7 +351,7 @@ let default = () => {
 
     | {config: None} =>
       <ConfigEditor
-        onUpdated={config => {
+        onUpdated={(. config) => {
           ConfigEditor.saveToLocalStorage(config)
           setState(oldState => {...oldState, config: Some(config)})
         }}
@@ -359,4 +359,73 @@ let default = () => {
     | {mod: Some(mod), config: Some(config)} => <Inner mod config />
     }}
   </RescriptRelay.Context.Provider>
+}
+
+module ScriptStuff = {
+  let default = () => {
+    let (state, setState) = React.useState(() => None)
+
+    let script = "// Library script and scratchpad. Enjoy as though it were your own?
+var support = require('./support.js');
+var isArray = require('isarray');
+ 
+console.log('10 * 2 = ', support.helper(10));
+console.log(isArray([])); // => true
+console.log(isArray({})); // => false
+
+export function greet (payload)  {
+  console.log('About to greet this person: ', payload.name);
+
+  return `Hello there, ${payload.name}!!!!!!!!!!!`
+}
+
+const result = greet('晶晶')
+const result2 = greet('Sean')
+
+exports.blah = function (number) {
+      return number * 2;
+}
+
+console.log('Wow, ' + result)"->ScriptEval.replaceRequires
+
+    Js.log2("Code: ", script)
+
+    let payload = `{"name": "dwwoelfel"}`
+    let functionName = "greet"
+    let scriptDependencies = [
+      {
+        ScriptEval.name: "isarray",
+        version: "2.0.5",
+        main: "index.js",
+      },
+    ]
+
+    let supportFile = {
+      ScriptEval.path: "support.js",
+      body: `
+    export const helper = function double (number) {
+      return number * 20;
+    };
+
+    export default {helper: helper};`,
+    }
+
+    let localFiles = [supportFile]
+
+    React.useEffect3(() => {
+      ScriptEval.executeScript(~payload, ~script, ~functionName, ~scriptDependencies, ~localFiles)
+      ->Js.Promise.then_(result => {
+        Js.log2("Result: ", result)
+        setState(_ => Some(result))->Js.Promise.resolve
+      }, _)
+      ->ignore
+
+      None
+    }, (payload, functionName, scriptDependencies->Debug.JSON.stringify))
+
+    <div>
+      <h1> {"Full eval implementation:"->React.string} </h1>
+      <Comps.Pre> {state->Debug.JSON.stringify->React.string} </Comps.Pre>
+    </div>
+  }
 }

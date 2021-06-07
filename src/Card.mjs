@@ -40,9 +40,7 @@ function makeBlankBlock(kind) {
         };
 }
 
-function fetchOneGraph(prim0, prim1, prim2, prim3) {
-  return OneGraphJs.fetchOneGraph(prim0, prim1, prim2, prim3);
-}
+var fetchOneGraph = OneGraphJs.fetchOneGraph;
 
 var baseState = JSON.parse("{}");
 
@@ -865,4 +863,4 @@ export {
   getFirstVariables ,
   
 }
-/* baseState Not a pure module */
+/* fetchOneGraph Not a pure module */

@@ -1647,7 +1647,7 @@ let make = (~schema, ~config) => {
             ~package=state.package,
             ~chains=persistedChains,
           )
-          OneGraphRe.publishNpmPackage(
+          OneGraphRe.publishNpmPackage(.
             ~auth=oneGraphAuth->Belt.Option.getExn,
             ~variables={
               "npmAuth": npmAuth->Obj.magic,
@@ -1696,7 +1696,7 @@ let make = (~schema, ~config) => {
             ~package=state.package,
             ~chains=persistedChains,
           )
-          OneGraphRe.publishNpmPackage(
+          OneGraphRe.publishNpmPackage(.
             ~auth=oneGraphAuth->Belt.Option.getExn,
             ~variables={
               "npmAuth": None,
